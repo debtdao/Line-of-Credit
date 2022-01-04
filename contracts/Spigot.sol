@@ -121,15 +121,12 @@ contract SpigotController is ReentrancyGuard {
 
         // split revenue stream according to settings
         uint256 escrowedAmount = claimedAmount.div(100).mul(settings[revenueContract].ownerSplit);
-        // divert claimed revenue to escrow and Treasury
+        // save amount escrowed 
         settings[revenueContract].totalEscrowed = settings[revenueContract].totalEscrowed.add(escrowedAmount);
-
-        // send non-escrowed tokens to Treasury
-        if(revenueToken != address(0)) {  // ERC20
-            IERC20(revenueToken).safeTransferFrom(address(this), treasury, claimedAmount.sub(escrowedAmount));
-        } else { // ETH
-            (bool success, bytes memory streamData) = payable(treasury).call{value: claimedAmount.sub(escrowedAmount)}("");
-            require(success, "Spigot: Disperse revenue failed");
+        
+        // send non-escrowed tokens to Treasury if non-zero
+        if(settings[revenueContract].ownerSplit < 100) {
+            require(_sendOutTokenOrETH(revenueToken, treasury, laimedAmount.sub(escrowedAmount)));
         }
 
         emit ClaimRevenue(revenueToken, claimedAmount, escrowedAmount, revenueContract);
@@ -145,15 +142,13 @@ contract SpigotController is ReentrancyGuard {
         require(msg.sender == owner);
         uint256 claimed = settings[revenueContract].totalEscrowed;
         require(claimed > 0, "Spigot: No escrow to claim");
-        if(settings[revenueContract].token != address(0)) { // ERC20
-            IERC20(settings[revenueContract].token).safeTransferFrom(address(this), owner, claimed);
-        } else { // ETH
-            (bool success, bytes memory claimData) = payable(treasury).call{value: claimed}("");
-            require(success, "Spigot: Disperse escrow failed");
-        }
+
+        require(_sendOutTokenOrETH(settings[revenueContract].token, owner, claimed);
+
         settings[revenueContract].totalEscrowed = 0;
 
         emit ClaimEscrow(settings[revenueContract].token, claimed, owner, revenueContract);
+
         return true;
     }
 
@@ -237,10 +232,38 @@ contract SpigotController is ReentrancyGuard {
     function _addSpigot(address revenueContract, SpigotSettings memory setting) internal returns (bool) {
         require(revenueContract != address(this));
         require(settings[revenueContract].ownerSplit == 0, "Spigot: Setting already exists");
+        
+        require(setting.transferOwnershipFunction != bytes4(0), "Spigot: Invalid spigot setting");
         require(setting.ownerSplit <= 100 && setting.ownerSplit > 0, "Spigot: Invalid split rate");
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
+        return true;
+    }
+
+    /**
+     * @dev Change owner of revenue contract from Spigot (this contract) to Operator.
+     *      Sends existing escrow to current Owner.
+     * @param revenueContract - smart contract to transfer ownership of
+     */
+    function removeSpigot(address revenueContract) external returns (bool) {
+        require(msg.sender == owner);
+        
+        if(setting[revenueContract].totalEscrowed > 0) {
+            require(_sendOutTokenOrETH(setting[revenueContract].token, owner, setting[revenueContract].totalEscrowed));
+            emit ClaimEscrow(settings[revenueContract].token, setting[revenueContract].totalEscrowed, owner, revenueContract);
+        }
+        
+        (bool success, bytes callData) = revenueContract.call(
+            abi.encodeWithSelector(
+                settings[revenueContract].transferOwnershipFunction,
+                operator    // assume function only takes one param that is new owner address
+            )
+        );
+        require(success);
+
+        emit SpigotRemoved(revenueContract, settings[revenueContract].token);
+
         return true;
     }
 
@@ -303,6 +326,22 @@ contract SpigotController is ReentrancyGuard {
     function _updateWhitelist(bytes4 func, bool allowed) internal returns (bool) {
         whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, true);
+        return true;
+    }
+
+    /**
+     * @dev Send ETH or ERC20 token from this contract to an external contract
+     * @param token - address of token to send out. address(0) for raw ETH
+     * @param receiver - address to send tokens to
+     * @param amount - amount of tokens to send
+     */
+    function _sendOutTokenOrETH(address token, address receiver, uint256 amount) internal returns (bool) {
+        if(token!= address(0)) { // ERC20
+            IERC20(token).safeTransferFrom(address(this), receiver, amount);
+        } else { // ETH
+            (bool success, bytes memory data) = payable(receiver).call{value: amount}("");
+            require(success, "Spigot: Disperse escrow failed");
+        }
         return true;
     }
 }
