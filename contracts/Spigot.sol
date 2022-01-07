@@ -19,9 +19,11 @@ contract SpigotController is ReentrancyGuard {
 
 
     // Spigot variables
+    
+    // Configurations for revenue contracts to split
     mapping(address => SpigotSettings) settings; // revenue contract -> settings
-
-    mapping(bytes4 => bool) whitelistedFunctions; // allowed by operator on all revenue contracts
+    //  allowed by operator on all revenue contracts
+    mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
 
     event AddSpigot(address indexed revenueContract, address token, uint256 ownerSplit);
 
@@ -67,14 +69,14 @@ contract SpigotController is ReentrancyGuard {
         bytes4[] memory _whitelist
     ) {
         require(address(0) != _owner);
-        require(address(0) != treasury);
+        require(address(0) != _treasury);
         require(address(0) != _operator);
 
         owner = _owner;
         operator = _operator;
         treasury = _treasury;
 
-        uint i = 0;
+        uint256 i = 0;
         for(i; i > _contracts.length; i++) {
             _addSpigot(_contracts[i], _settings[i]);
         }
@@ -94,13 +96,14 @@ contract SpigotController is ReentrancyGuard {
      * @dev Claim push/pull payments through Spigots.
             Calls predefined function in contract settings to claim revenue.
             Automatically sends portion to treasury and escrows Owner's share.
-            
      * @param revenueContract Contract with registered settings to claim revenue from
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
     */
     function claimRevenue(address revenueContract, bytes calldata data) external nonReentrant returns (bool) {
         address revenueToken = settings[revenueContract].token;
-        uint256 existingBalance = IERC20(revenueToken).balanceOf(address(this));
+        uint256 existingBalance = revenueToken != address(0) ?
+            IERC20(revenueToken).balanceOf(address(this)) :
+            address(this).balance;
         uint256 claimedAmount;
         
         if(settings[revenueContract].claimFunction == bytes4(0)) {
@@ -109,6 +112,7 @@ contract SpigotController is ReentrancyGuard {
             claimedAmount = existingBalance.sub(settings[revenueContract].totalEscrowed);
             // TODO Owner loses funds to Treasury if multiple contracts have push payments denominated in same token
             //      AND each have separate spigot settings that are all called.
+            //      Can save totalEscrowed outside of spigot setts. technically not a setting too actually
         } else {
             // pull payments
             (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
@@ -126,7 +130,7 @@ contract SpigotController is ReentrancyGuard {
         
         // send non-escrowed tokens to Treasury if non-zero
         if(settings[revenueContract].ownerSplit < 100) {
-            require(_sendOutTokenOrETH(revenueToken, treasury, laimedAmount.sub(escrowedAmount)));
+            require(_sendOutTokenOrETH(revenueToken, treasury, claimedAmount.sub(escrowedAmount)));
         }
 
         emit ClaimRevenue(revenueToken, claimedAmount, escrowedAmount, revenueContract);
@@ -137,9 +141,10 @@ contract SpigotController is ReentrancyGuard {
     /**
      * @dev Allows Spigot Owner to claim escrowed tokens from a revenue contract
      * @param revenueContract Contract with registered settings to claim revenue from
-      */
+    */
     function claimEscrow(address revenueContract) external nonReentrant returns (bool)  {
         require(msg.sender == owner);
+
         uint256 claimed = settings[revenueContract].totalEscrowed;
         require(claimed > 0, "Spigot: No escrow to claim");
 
@@ -170,7 +175,7 @@ contract SpigotController is ReentrancyGuard {
 
     /**
      * @dev Allows Operator to call whitelisted functions on revenue contracts to maintain their product
-     *      while still allowing S[igot Owner to own revenue stream from contract
+     *      while still allowing Spigot Owner to own revenue stream from contract
      * @param revenueContract - smart contract to call
      * @param data - tx data, including function signature, to call contract with
      */
@@ -186,7 +191,7 @@ contract SpigotController is ReentrancyGuard {
      */
     function doOperations(address[] calldata contracts, bytes[] calldata data) external returns (bool) {
         require(msg.sender == operator);
-        for(uint i = 0; i < data.length; i++) {
+        for(uint256 i = 0; i < data.length; i++) {
             _operate(contracts[i], data[i]);
         }
         return true;
@@ -197,7 +202,6 @@ contract SpigotController is ReentrancyGuard {
      * @param revenueContract - smart contracts to call
      * @param data - tx data, including function signature, to call contracts with
      */
-
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
         require(whitelistedFunctions[bytes4(data[:4])], "Spigot: Unauthorized action");
@@ -225,19 +229,21 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Checks spigot settings are and registers settings to revenue contract
+     * @dev Checks  revenue contract doesn't already have spigot
+     *      then registers spigot configuration for revenue contract
      * @param revenueContract - smart contract to claim tokens from
-     * @param setting - spigot settings for smart contract   
+     * @param setting - spigot configuration for smart contract   
      */
     function _addSpigot(address revenueContract, SpigotSettings memory setting) internal returns (bool) {
         require(revenueContract != address(this));
         require(settings[revenueContract].ownerSplit == 0, "Spigot: Setting already exists");
         
-        require(setting.transferOwnershipFunction != bytes4(0), "Spigot: Invalid spigot setting");
+        require(setting.transferOwnerFunction != bytes4(0), "Spigot: Invalid spigot setting");
         require(setting.ownerSplit <= 100 && setting.ownerSplit > 0, "Spigot: Invalid split rate");
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
+
         return true;
     }
 
@@ -249,19 +255,20 @@ contract SpigotController is ReentrancyGuard {
     function removeSpigot(address revenueContract) external returns (bool) {
         require(msg.sender == owner);
         
-        if(setting[revenueContract].totalEscrowed > 0) {
-            require(_sendOutTokenOrETH(setting[revenueContract].token, owner, setting[revenueContract].totalEscrowed));
-            emit ClaimEscrow(settings[revenueContract].token, setting[revenueContract].totalEscrowed, owner, revenueContract);
+        if(settings[revenueContract].totalEscrowed > 0) {
+            require(_sendOutTokenOrETH(settings[revenueContract].token, owner, settings[revenueContract].totalEscrowed));
+            emit ClaimEscrow(settings[revenueContract].token, settings[revenueContract].totalEscrowed, owner, revenueContract);
         }
         
-        (bool success, bytes callData) = revenueContract.call(
+        (bool success, bytes memory callData) = revenueContract.call(
             abi.encodeWithSelector(
-                settings[revenueContract].transferOwnershipFunction,
+                settings[revenueContract].transferOwnerFunction,
                 operator    // assume function only takes one param that is new owner address
             )
         );
         require(success);
 
+        delete settings[revenueContract];
         emit SpigotRemoved(revenueContract, settings[revenueContract].token);
 
         return true;
