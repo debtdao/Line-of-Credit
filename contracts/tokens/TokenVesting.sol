@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.9;
 
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title A vesting contract for full time contributors
@@ -9,8 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @notice You can use this contract to set up vesting for full time DAO contributors
 /// @dev All function calls are currently implemented without side effects
 contract TokenVesting {
-    using SafeMath for uint256;
-
     address public token;
     address public recipient;
     address public treasury;
@@ -79,7 +76,7 @@ contract TokenVesting {
         if (block.timestamp >= vestingEnd) {
             amount = IERC20(token).balanceOf(address(this));
         } else {
-            amount = vestingAmount.mul(block.timestamp.sub(lastUpdate)).div(vestingEnd.sub(vestingBegin));
+            amount = vestingAmount * (block.timestamp - lastUpdate) / (vestingEnd - vestingBegin);
             lastUpdate = block.timestamp;
         }
         IERC20(token).transfer(recipient, amount);

@@ -1,13 +1,11 @@
 pragma solidity 0.8.9;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract SpigotController is ReentrancyGuard {
     using SafeERC20 for IERC20;
-    using SafeMath for uint256;
 
     struct SpigotSettings {
         address token;
@@ -110,25 +108,25 @@ contract SpigotController is ReentrancyGuard {
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
-            claimedAmount = existingBalance.sub(escrowed[revenueToken]);
+            claimedAmount = existingBalance - escrowed[revenueToken];
         } else {
             // pull payments
             (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
             require(claimSuccess, "Spigot: Revenue claim failed");
             // claimed = total balance - existing balance
-            claimedAmount = IERC20(revenueToken).balanceOf(address(this)).sub(existingBalance);
+            claimedAmount = IERC20(revenueToken).balanceOf(address(this)) - existingBalance;
         }
         
         require(claimedAmount > 0, "Spigot: No revenue to claim");
 
         // split revenue stream according to settings
-        uint256 escrowedAmount = claimedAmount.div(100).mul(settings[revenueContract].ownerSplit);
+        uint256 escrowedAmount = claimedAmount * settings[revenueContract].ownerSplit / 100;
         // save amount escrowed 
-        escrowed[revenueToken] = escrowed[revenueToken].add(escrowedAmount);
+        escrowed[revenueToken] = escrowed[revenueToken] + escrowedAmount;
         
         // send non-escrowed tokens to Treasury if non-zero
         if(settings[revenueContract].ownerSplit < 100) {
-            require(_sendOutTokenOrETH(revenueToken, treasury, claimedAmount.sub(escrowedAmount)));
+            require(_sendOutTokenOrETH(revenueToken, treasury, claimedAmount - escrowedAmount));
         }
 
         emit ClaimRevenue(revenueToken, claimedAmount, escrowedAmount, revenueContract);
