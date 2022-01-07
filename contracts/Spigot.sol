@@ -12,14 +12,15 @@ contract SpigotController is ReentrancyGuard {
     struct SpigotSettings {
         address token;
         uint256 ownerSplit; // x/100 to Owner, rest to Treasury
-        uint256 totalEscrowed;
         bytes4 claimFunction;
         bytes4 transferOwnerFunction;
     }
 
 
     // Spigot variables
-    
+
+    // Total amount of tokens escrowed by spigot
+    mapping(address => uint256) escrowed; // token  -> amount escrowed
     // Configurations for revenue contracts to split
     mapping(address => SpigotSettings) settings; // revenue contract -> settings
     //  allowed by operator on all revenue contracts
@@ -33,7 +34,7 @@ contract SpigotController is ReentrancyGuard {
 
     event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
-    event ClaimEscrow(address indexed token, uint256 indexed amount, address owner, address revenueContract);
+    event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);
 
     // Stakeholder variables
     address public owner;
@@ -109,10 +110,7 @@ contract SpigotController is ReentrancyGuard {
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
-            claimedAmount = existingBalance.sub(settings[revenueContract].totalEscrowed);
-            // TODO Owner loses funds to Treasury if multiple contracts have push payments denominated in same token
-            //      AND each have separate spigot settings that are all called.
-            //      Can save totalEscrowed outside of spigot setts. technically not a setting too actually
+            claimedAmount = existingBalance.sub(escrowed[revenueToken]);
         } else {
             // pull payments
             (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
@@ -126,7 +124,7 @@ contract SpigotController is ReentrancyGuard {
         // split revenue stream according to settings
         uint256 escrowedAmount = claimedAmount.div(100).mul(settings[revenueContract].ownerSplit);
         // save amount escrowed 
-        settings[revenueContract].totalEscrowed = settings[revenueContract].totalEscrowed.add(escrowedAmount);
+        escrowed[revenueToken] = escrowed[revenueToken].add(escrowedAmount);
         
         // send non-escrowed tokens to Treasury if non-zero
         if(settings[revenueContract].ownerSplit < 100) {
@@ -140,29 +138,30 @@ contract SpigotController is ReentrancyGuard {
 
     /**
      * @dev Allows Spigot Owner to claim escrowed tokens from a revenue contract
-     * @param revenueContract Contract with registered settings to claim revenue from
+     * @param token Revenue token that is being escrowed by spigot
     */
-    function claimEscrow(address revenueContract) external nonReentrant returns (bool)  {
+    function claimEscrow(address token) external nonReentrant returns (bool)  {
         require(msg.sender == owner);
 
-        uint256 claimed = settings[revenueContract].totalEscrowed;
+        uint256 claimed = escrowed[token];
+
         require(claimed > 0, "Spigot: No escrow to claim");
 
-        require(_sendOutTokenOrETH(settings[revenueContract].token, owner, claimed);
+        require(_sendOutTokenOrETH(token, owner, claimed));
 
-        settings[revenueContract].totalEscrowed = 0;
+        escrowed[token] = 0;
 
-        emit ClaimEscrow(settings[revenueContract].token, claimed, owner, revenueContract);
+        emit ClaimEscrow(token, claimed, owner);
 
         return true;
     }
 
     /**
      * @dev Retrieve data on revenue contract spigot for token address and total tokens escrowed
-     * @param revenueContract Contract with registered settings to read
+     * @param token Revenue  token that is being escrowed from spigots
     */
-    function getEscrowData(address revenueContract) external view returns (address, uint256) {
-        return (settings[revenueContract].token, settings[revenueContract].totalEscrowed);
+    function getEscrowData(address token) external view returns (uint256) {
+        return escrowed[token];
     }
 
 
@@ -255,9 +254,10 @@ contract SpigotController is ReentrancyGuard {
     function removeSpigot(address revenueContract) external returns (bool) {
         require(msg.sender == owner);
         
-        if(settings[revenueContract].totalEscrowed > 0) {
-            require(_sendOutTokenOrETH(settings[revenueContract].token, owner, settings[revenueContract].totalEscrowed));
-            emit ClaimEscrow(settings[revenueContract].token, settings[revenueContract].totalEscrowed, owner, revenueContract);
+        address token = settings[revenueContract].token;
+        if(escrowed[token] > 0) {
+            require(_sendOutTokenOrETH(token, owner, escrowed[token]));
+            emit ClaimEscrow(token, escrowed[token], owner);
         }
         
         (bool success, bytes memory callData) = revenueContract.call(
@@ -269,7 +269,7 @@ contract SpigotController is ReentrancyGuard {
         require(success);
 
         delete settings[revenueContract];
-        emit SpigotRemoved(revenueContract, settings[revenueContract].token);
+        emit RemoveSpigot(revenueContract, token);
 
         return true;
     }
