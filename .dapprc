@@ -1,0 +1,3 @@
+export DAPP_SRC=contracts
+export DAPP_SOLC_VERSION=0.8.9 
+export DAPP_REMAPPINGS="@=node_modules/@"
