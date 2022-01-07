@@ -4,12 +4,18 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+/**
+ * @title SpigotController
+ * @author Kiba Gateaux
+ * @notice Contract allowing Owner to secure revenue streams from a DAO and split payments between them
+ */
+
 contract SpigotController is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     struct SpigotSettings {
         address token;
-        uint256 ownerSplit; // x/100 to Owner, rest to Treasury
+        uint8 ownerSplit; // x/100 to Owner, rest to Treasury
         bytes4 claimFunction;
         bytes4 transferOwnerFunction;
     }
@@ -99,22 +105,20 @@ contract SpigotController is ReentrancyGuard {
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
     */
     function claimRevenue(address revenueContract, bytes calldata data) external nonReentrant returns (bool) {
-        address revenueToken = settings[revenueContract].token;
-        uint256 existingBalance = revenueToken != address(0) ?
-            IERC20(revenueToken).balanceOf(address(this)) :
-            address(this).balance;
+        address token = settings[revenueContract].token;
+        uint256 existingBalance = _getBalance(token);
         uint256 claimedAmount;
         
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
-            claimedAmount = existingBalance - escrowed[revenueToken];
+            claimedAmount = existingBalance - escrowed[token];
         } else {
             // pull payments
             (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
             require(claimSuccess, "Spigot: Revenue claim failed");
             // claimed = total balance - existing balance
-            claimedAmount = IERC20(revenueToken).balanceOf(address(this)) - existingBalance;
+            claimedAmount = _getBalance(token) - existingBalance;
         }
         
         require(claimedAmount > 0, "Spigot: No revenue to claim");
@@ -122,14 +126,14 @@ contract SpigotController is ReentrancyGuard {
         // split revenue stream according to settings
         uint256 escrowedAmount = claimedAmount * settings[revenueContract].ownerSplit / 100;
         // save amount escrowed 
-        escrowed[revenueToken] = escrowed[revenueToken] + escrowedAmount;
+        escrowed[token] = escrowed[token] + escrowedAmount;
         
         // send non-escrowed tokens to Treasury if non-zero
         if(settings[revenueContract].ownerSplit < 100) {
-            require(_sendOutTokenOrETH(revenueToken, treasury, claimedAmount - escrowedAmount));
+            require(_sendOutTokenOrETH(token, treasury, claimedAmount - escrowedAmount));
         }
 
-        emit ClaimRevenue(revenueToken, claimedAmount, escrowedAmount, revenueContract);
+        emit ClaimRevenue(token, claimedAmount, escrowedAmount, revenueContract);
         
         return true;
     }
@@ -201,7 +205,7 @@ contract SpigotController is ReentrancyGuard {
      */
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
-        require(whitelistedFunctions[bytes4(data[:4])], "Spigot: Unauthorized action");
+        require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
         
         (bool success, bytes memory opData) = revenueContract.call(data);
         require(success, "Spigot: Operation failed");
@@ -349,4 +353,14 @@ contract SpigotController is ReentrancyGuard {
         }
         return true;
     }
+
+    /**
+     * @dev Helper function to get current balance of this contract for ERC20 or ETH
+     * @param token - address of token to check. address(0) for raw ETH
+     */
+    function _getBalance(address token) internal view returns (uint256) {
+        return token != address(0) ?
+            IERC20(token).balanceOf(address(this)) :
+            address(this).balance;
+    } 
 }
