@@ -20,6 +20,8 @@ contract SpigotController is ReentrancyGuard {
         bytes4 transferOwnerFunction;
     }
 
+    uint256 constant MAX_REVENUE = type(uint).max / 100;
+
 
     // Spigot variables
 
@@ -33,7 +35,6 @@ contract SpigotController is ReentrancyGuard {
     event AddSpigot(address indexed revenueContract, address token, uint256 ownerSplit);
 
     event RemoveSpigot (address indexed revenueContract, address token);
-
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
     event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
@@ -97,6 +98,30 @@ contract SpigotController is ReentrancyGuard {
     // #####   Claimoooor   #####
     // ##########################
 
+    function _claimRevenue(address revenueContract, bytes calldata data, address token)
+        internal
+        returns (uint256 claimedAmount)
+    {
+        uint256 existingBalance = _getBalance(token);
+        if(settings[revenueContract].claimFunction == bytes4(0)) {
+            // push payments
+            // claimed = total balance - already accounted for balance
+            claimedAmount = existingBalance - escrowed[token];
+        } else {
+            // pull payments
+            require(bytes4(data) == settings[revenueContract].claimFunction, "Spigot: Invalid claim function");
+            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
+            require(claimSuccess, "Spigot: Revenue claim failed");
+            // claimed = total balance - existing balance
+            claimedAmount = _getBalance(token) - existingBalance;
+        }
+
+        // require(claimedAmount > 0,  "Spigot: No revenue to claim");
+        require(claimedAmount > 0, "Spigot: No revenue to claim"); // 100 bc will revert on division
+        if(claimedAmount > MAX_REVENUE) claimedAmount = MAX_REVENUE;
+        return claimedAmount;
+    }
+
     /**
      * @dev Claim push/pull payments through Spigots.
             Calls predefined function in contract settings to claim revenue.
@@ -104,24 +129,12 @@ contract SpigotController is ReentrancyGuard {
      * @param revenueContract Contract with registered settings to claim revenue from
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
     */
-    function claimRevenue(address revenueContract, bytes calldata data) external nonReentrant returns (bool) {
+    function claimRevenue(address revenueContract, bytes calldata data)
+        external nonReentrant
+        returns (bool)
+    {
         address token = settings[revenueContract].token;
-        uint256 existingBalance = _getBalance(token);
-        uint256 claimedAmount;
-        
-        if(settings[revenueContract].claimFunction == bytes4(0)) {
-            // push payments
-            // claimed = total balance - already accounted for balance
-            claimedAmount = existingBalance - escrowed[token];
-        } else {
-            // pull payments
-            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
-            require(claimSuccess, "Spigot: Revenue claim failed");
-            // claimed = total balance - existing balance
-            claimedAmount = _getBalance(token) - existingBalance;
-        }
-        
-        require(claimedAmount > 0, "Spigot: No revenue to claim");
+        uint256 claimedAmount = _claimRevenue(revenueContract, data, token);
 
         // split revenue stream according to settings
         uint256 escrowedAmount = claimedAmount * settings[revenueContract].ownerSplit / 100;
@@ -206,6 +219,9 @@ contract SpigotController is ReentrancyGuard {
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
         require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
+        // cant claim revenue because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
+        require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
+
         
         (bool success, bytes memory opData) = revenueContract.call(data);
         require(success, "Spigot: Operation failed");
@@ -363,4 +379,35 @@ contract SpigotController is ReentrancyGuard {
             IERC20(token).balanceOf(address(this)) :
             address(this).balance;
     } 
+
+    // GETTERS
+    // function getSetting(address revenueContract) external view returns(SpigotSettings memory) {
+    //     settings[revenueContract];
+    // }
+
+    function getSetting(address revenueContract)
+        external view
+        returns(address, uint8, bytes4, bytes4)
+    {   
+        return (
+            settings[revenueContract].token,
+            settings[revenueContract].ownerSplit,
+            settings[revenueContract].claimFunction,
+            settings[revenueContract].transferOwnerFunction
+        );
+    }
+    
+
+    function getOwner() external view returns(address) {
+        return owner;
+    }
+
+    function getOperator() external view returns(address) {
+        return operator;
+    }
+
+    function getTreasury() external view returns(address) {
+        return treasury;
+    }
+
 }
