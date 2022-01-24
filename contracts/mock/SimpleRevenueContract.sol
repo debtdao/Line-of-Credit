@@ -11,8 +11,8 @@ contract SimpleRevenueContract {
     }
 
     function claimPullPayment() external returns(bool) {
-        require(msg.sender == owner);
-        require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))));
+        require(msg.sender == owner, "Revenue: Only owner can claim");
+        require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         return true;
     }
 

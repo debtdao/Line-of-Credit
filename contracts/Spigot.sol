@@ -20,6 +20,7 @@ contract SpigotController is ReentrancyGuard {
         bytes4 transferOwnerFunction;
     }
 
+    // cap revenue per claim to avoid overflows on multiplication when calculating percentages
     uint256 constant MAX_REVENUE = type(uint).max / 100;
 
 
@@ -117,7 +118,7 @@ contract SpigotController is ReentrancyGuard {
         }
 
         // require(claimedAmount > 0,  "Spigot: No revenue to claim");
-        require(claimedAmount > 0, "Spigot: No revenue to claim"); // 100 bc will revert on division
+        require(claimedAmount > 0, "Spigot: No revenue to claim");
         if(claimedAmount > MAX_REVENUE) claimedAmount = MAX_REVENUE;
         return claimedAmount;
     }
