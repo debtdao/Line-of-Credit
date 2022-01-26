@@ -12,24 +12,36 @@ contract SimpleRevenueContract {
 
     function claimPullPayment() external returns(bool) {
         require(msg.sender == owner, "Revenue: Only owner can claim");
-        require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
+        if(address(revenueToken) != address(0)) {
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
+        } else {
+            payable(owner).transfer(address(this).balance);
+        }
         return true;
     }
 
     function sendPushPayment() external returns(bool) {
-        require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))));
+        if(address(revenueToken) != address(0)) {
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
+        } else {
+            payable(owner).transfer(address(this).balance);
+        }
         return true;
     }
 
     function doAnOperationsThing() external returns(bool)  {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Revenue: Only owner can operate");
         return true;
     }
 
     function transferOwnership(address newOwner) external returns(bool) {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Revenue: Only owner can transfer");
         owner = newOwner;
         return true;
+    }
+
+    receive() external payable {
+
     }
 
 }
