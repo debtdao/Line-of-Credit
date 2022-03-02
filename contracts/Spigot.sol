@@ -1,7 +1,6 @@
 pragma solidity 0.8.9;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
@@ -11,7 +10,6 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  */
 
 contract SpigotController is ReentrancyGuard {
-    using SafeERC20 for IERC20;
 
     struct SpigotSettings {
         address token;
@@ -20,6 +18,12 @@ contract SpigotController is ReentrancyGuard {
         bytes4 transferOwnerFunction;
     }
 
+    // Constants 
+
+    // Maximum numerator for SpigotSettings.ownerSplit param
+    uint8 constant MAX_SPLIT =  100;
+    // cap revenue per claim to avoid overflows on multiplication when calculating percentages
+    uint256 constant MAX_REVENUE = type(uint).max / MAX_SPLIT;
 
     // Spigot variables
 
@@ -103,66 +107,81 @@ contract SpigotController is ReentrancyGuard {
             Automatically sends portion to treasury and escrows Owner's share.
      * @param revenueContract Contract with registered settings to claim revenue from
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
+     * @return claimed -  The amount of tokens claimed from revenueContract and split in payments to `owner` and `treasury`
     */
-    function claimRevenue(address revenueContract, bytes calldata data) external nonReentrant returns (bool) {
+    function claimRevenue(address revenueContract, bytes calldata data)
+        external nonReentrant
+        returns (uint256 claimed)
+    {
         address token = settings[revenueContract].token;
-        uint256 existingBalance = _getBalance(token);
-        uint256 claimedAmount;
-        
-        if(settings[revenueContract].claimFunction == bytes4(0)) {
-            // push payments
-            // claimed = total balance - already accounted for balance
-            claimedAmount = existingBalance - escrowed[token];
-        } else {
-            // pull payments
-            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
-            require(claimSuccess, "Spigot: Revenue claim failed");
-            // claimed = total balance - existing balance
-            claimedAmount = _getBalance(token) - existingBalance;
-        }
-        
-        require(claimedAmount > 0, "Spigot: No revenue to claim");
+        claimed = _claimRevenue(revenueContract, data, token);
 
         // split revenue stream according to settings
-        uint256 escrowedAmount = claimedAmount * settings[revenueContract].ownerSplit / 100;
-        // save amount escrowed 
+        uint256 escrowedAmount = claimed * settings[revenueContract].ownerSplit / 100;
+        // update escrowed balance
         escrowed[token] = escrowed[token] + escrowedAmount;
         
         // send non-escrowed tokens to Treasury if non-zero
-        if(settings[revenueContract].ownerSplit < 100) {
-            require(_sendOutTokenOrETH(token, treasury, claimedAmount - escrowedAmount));
+        if(claimed > escrowedAmount) {
+            require(_sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
         }
 
-        emit ClaimRevenue(token, claimedAmount, escrowedAmount, revenueContract);
+        emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
         
-        return true;
+        return claimed;
+    }
+
+     function _claimRevenue(address revenueContract, bytes calldata data, address token)
+        internal
+        returns (uint256 claimed)
+    {
+        uint256 existingBalance = _getBalance(token);
+        if(settings[revenueContract].claimFunction == bytes4(0)) {
+            // push payments
+            // claimed = total balance - already accounted for balance
+            claimed = existingBalance - escrowed[token];
+        } else {
+            // pull payments
+            require(bytes4(data) == settings[revenueContract].claimFunction, "Spigot: Invalid claim function");
+            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
+            require(claimSuccess, "Spigot: Revenue claim failed");
+            // claimed = total balance - existing balance
+            claimed = _getBalance(token) - existingBalance;
+        }
+
+        require(claimed > 0, "Spigot: No revenue to claim");
+        if(claimed > MAX_REVENUE) claimed = MAX_REVENUE;
+
+        return claimed;
     }
 
     /**
      * @dev Allows Spigot Owner to claim escrowed tokens from a revenue contract
      * @param token Revenue token that is being escrowed by spigot
+     * @return claimed -  The amount of tokens claimed from revenue garnish by `owner`
+
     */
-    function claimEscrow(address token) external nonReentrant returns (bool)  {
+    function claimEscrow(address token) external nonReentrant returns (uint256 claimed)  {
         require(msg.sender == owner);
 
-        uint256 claimed = escrowed[token];
+        claimed = escrowed[token];
 
         require(claimed > 0, "Spigot: No escrow to claim");
 
         require(_sendOutTokenOrETH(token, owner, claimed));
 
-        escrowed[token] = 0;
+        escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
         emit ClaimEscrow(token, claimed, owner);
 
-        return true;
+        return claimed;
     }
 
     /**
-     * @dev Retrieve data on revenue contract spigot for token address and total tokens escrowed
-     * @param token Revenue  token that is being escrowed from spigots
+     * @dev Retrieve amount of tokens tokens escrowed waiting for claim
+     * @param token Revenue token that is being garnished from spigots
     */
-    function getEscrowData(address token) external view returns (uint256) {
+    function getEscrowBalance(address token) external view returns (uint256) {
         return escrowed[token];
     }
 
@@ -206,6 +225,9 @@ contract SpigotController is ReentrancyGuard {
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
         require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
+        // cant claim revenue because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
+        require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
+
         
         (bool success, bytes memory opData) = revenueContract.call(data);
         require(success, "Spigot: Operation failed");
@@ -240,7 +262,7 @@ contract SpigotController is ReentrancyGuard {
         require(settings[revenueContract].ownerSplit == 0, "Spigot: Setting already exists");
         
         require(setting.transferOwnerFunction != bytes4(0), "Spigot: Invalid spigot setting");
-        require(setting.ownerSplit <= 100 && setting.ownerSplit > 0, "Spigot: Invalid split rate");
+        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit > 0, "Spigot: Invalid split rate");
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -346,7 +368,7 @@ contract SpigotController is ReentrancyGuard {
      */
     function _sendOutTokenOrETH(address token, address receiver, uint256 amount) internal returns (bool) {
         if(token!= address(0)) { // ERC20
-            IERC20(token).safeTransferFrom(address(this), receiver, amount);
+            IERC20(token).transfer(receiver, amount);
         } else { // ETH
             (bool success, bytes memory data) = payable(receiver).call{value: amount}("");
             require(success, "Spigot: Disperse escrow failed");
@@ -362,5 +384,24 @@ contract SpigotController is ReentrancyGuard {
         return token != address(0) ?
             IERC20(token).balanceOf(address(this)) :
             address(this).balance;
-    } 
+    }
+
+    // GETTERS
+
+    function getSetting(address revenueContract)
+        external view
+        returns(address, uint8, bytes4, bytes4)
+    {   
+        return (
+            settings[revenueContract].token,
+            settings[revenueContract].ownerSplit,
+            settings[revenueContract].claimFunction,
+            settings[revenueContract].transferOwnerFunction
+        );
+    }
+
+    receive() external payable {
+        return;
+    }
+
 }
