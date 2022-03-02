@@ -1,12 +1,12 @@
 pragma solidity 0.8.9;
 import { SpigotController } from "./Spigot.sol";
 import { DSTest } from  "../lib/ds-test/src/test.sol";
-import { CreditToken } from "./tokens/CreditToken.sol";
+import { RevenueToken } from "./mock/RevenueToken.sol";
 import { SimpleRevenueContract } from './mock/SimpleRevenueContract.sol';
 
 contract SpigotTest is DSTest {
     // spigot contracts/configurations to test against
-    CreditToken private token;
+    RevenueToken private token;
     address private revenueContract;
     SpigotController private spigotController;
     SpigotController.SpigotSettings private settings;
@@ -35,9 +35,7 @@ contract SpigotTest is DSTest {
         owner = address(this);
         operator = address(this);
         treasury = address(0xf1c0);
-
-        token = new CreditToken(type(uint).max, address(this));
-        token.updateMinter(address(this), true);
+        token = new RevenueToken();
 
         _initSpigot(address(token), 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
@@ -63,13 +61,6 @@ contract SpigotTest is DSTest {
         
         // add spigot for revenue contract 
         require(spigotController.addSpigot(revenueContract, settings), "Failed to add spigot");
-
-        // let spigot interact with token if not ETH
-        if(_token != address(0)) {
-            token.updateWhitelist(address(this), true);
-            token.updateWhitelist(address(revenueContract), true);
-            token.updateWhitelist(address(spigotController), true);
-        }
 
         // give spigot ownership to claim revenue
         revenueContract.call(abi.encodeWithSelector(newOwnerFunc, address(spigotController)));
@@ -151,7 +142,7 @@ contract SpigotTest is DSTest {
         assertEq(
             _token == eth ?
                 address(spigotController).balance :
-                CreditToken(token).balanceOf(address(spigotController)),
+                RevenueToken(token).balanceOf(address(spigotController)),
             escrowed + overflow, // revenue over max stays in contract unnaccounted
             'Spigot balance vs escrow + overflow mismatch'
         );
@@ -159,7 +150,7 @@ contract SpigotTest is DSTest {
         assertEq(
             _token == eth ?
                 address(treasury).balance :
-                CreditToken(token).balanceOf(treasury),
+                RevenueToken(token).balanceOf(treasury),
             maxRevenue - escrowed,
             'Invalid treasury payment amount for spigot revenue'
         );
@@ -257,8 +248,7 @@ contract SpigotTest is DSTest {
 
     function testFail_claimEscrow_UnregisteredToken() public {
         // create new token and send push payment
-        CreditToken fakeToken = new CreditToken(type(uint).max, address(this));
-        fakeToken.updateMinter(address(this), true);
+        RevenueToken fakeToken = new RevenueToken();
         fakeToken.mint(address(spigotController), 10**10);
 
         bytes memory claimData;
