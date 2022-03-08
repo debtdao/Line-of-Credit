@@ -1,6 +1,9 @@
 pragma solidity 0.8.9;
 
-interface IEscrow {
+import { LoanLib } from "../lib/LoanLib.sol";
+import { IModule } from "./IModule.sol";
+
+interface IEscrow is IModule {
     // TODO @smokey
     struct Farm {
         bytes4 depositFunc;
@@ -63,4 +66,6 @@ interface IEscrow {
     function stakeCollateral(address token, uint amount, Farm memory farm) external;
     function unstakeCollateral(address token, uint amount, Farm memory farm) external;
     function claimStakingRewards(address[] memory farmedTokens) external;
+
+    function healthcheck() external returns (LoanLib.STATUS status);
 }

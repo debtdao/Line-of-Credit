@@ -61,6 +61,8 @@ contract Loan is ILoan, MutualUpgrade {
    * @param escrow_ - contract holding all collateral for borrower
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
+  IModule[4] public modules = [spigot, oracle, escrow, interestRateModel];
+
   constructor(
     uint256 maxDebtValue_,
     address oracle_,
@@ -573,7 +575,6 @@ contract Loan is ILoan, MutualUpgrade {
     emit UpdateLoanStatus(uint256(status));
     return status;
   }
-
 
   /**
    * @dev - Calls Oracle module to get most recent price for token.

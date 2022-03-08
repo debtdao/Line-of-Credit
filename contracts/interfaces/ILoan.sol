@@ -1,6 +1,7 @@
 import { IModule } from "./IModule.sol";
 import { IModule } from "./IModule.sol";
 import { LoanLib } from "../lib/LoanLib.sol";
+
 interface ILoan is IModule {
   // Stakeholder data
   struct DebtPosition {
