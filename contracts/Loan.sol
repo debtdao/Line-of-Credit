@@ -20,6 +20,7 @@ contract Loan is IModule, MutualUpgrade {
   }
 
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
+  event Liquidated(address user, uint256 purchaseAmount, IERC20 token);
 
   address immutable borrower;   // borrower being lent to
   
@@ -95,6 +96,11 @@ contract Loan is IModule, MutualUpgrade {
     _;
   }
 
+  modifier onlyArbiter(address addr) {
+    require(addr == arbiter, 'Loan: only arbiter');
+    _;
+  }
+
   ////////////////
   // MODULE INTERFACE //
   ////////////////
@@ -139,7 +145,7 @@ contract Loan is IModule, MutualUpgrade {
   }
 
   /**
-    @dev loops through all modules and returns their status if required last to savegas on external calls
+    @dev loops through all modules and returns their status if required last to save gas on external calls
   */
   function healthcheck() external returns(LoanLib.STATUS status) {
     if(principal + totalInterestAccrued > maxDebtValue)
@@ -156,7 +162,7 @@ contract Loan is IModule, MutualUpgrade {
 
 
   //////////////////
-  // MAINTAINENCE //
+  // MAINTENANCE //
   //////////////////
 
 
@@ -189,6 +195,28 @@ contract Loan is IModule, MutualUpgrade {
     totalInterestAccrued = newTotal;
   }
 
+
+  // Liquidation
+
+  function liquidate( // should this only be able to be called by the arbiter?
+        address _escrowContract,
+        address _user,
+        uint256 _purchaseAmount,
+        IERC20 token,
+        bool _receiveaToken
+    )
+        external onlyArbiter
+    {
+        // check to see if loan can be liquidated
+        require(loanStatus = LoanLib.STATUS.LIQUIDATABLE, "Loan cannot be liquidated at this time");
+
+        // call method within escrow contract
+        escrowContract = IEscrow(_collateralContract);
+        escrowContract.releaseCollateral(token, _purchaseAmount, arbiter);
+
+        // emit liquidated event
+        emit Liquidated(_user, _purchaseAmount, token);
+    }
 
   // Repayment
 
@@ -248,7 +276,7 @@ contract Loan is IModule, MutualUpgrade {
     _repay(debt, amountToRepay);
   }
 
-  // prviliged interal function
+  // privileged interal function
   // expects checks for conditions of repaying and param sanitizing before calling
   // e.g.  early repayment of principal, amount of tokens have actually been paid by borrower, etc.
   function _repay(
