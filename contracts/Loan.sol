@@ -211,7 +211,7 @@ contract Loan is IModule, MutualUpgrade {
         require(loanStatus = LoanLib.STATUS.LIQUIDATABLE, "Loan cannot be liquidated at this time");
 
         // call method within escrow contract
-        escrowContract = IEscrow(_collateralContract);
+        escrowContract = IEscrow(_escrowContract);
         escrowContract.releaseCollateral(token, _purchaseAmount, arbiter);
 
         // emit liquidated event
