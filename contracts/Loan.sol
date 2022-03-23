@@ -80,7 +80,7 @@ contract Loan is IModule, MutualUpgrade {
   address public interestRateModel;
 
   // ordered by most likely to return early in healthcheck() with non-ACTIVE status
-  IModule[4] public modules = [escrow, spigot, oracle, interestRateModel];
+  address[4] public modules = [escrow, spigot, oracle, interestRateModel];
 
   constructor(
     uint256 maxDebtValue_,
@@ -117,8 +117,8 @@ contract Loan is IModule, MutualUpgrade {
     _;
   }
 
-  modifier onlyBorrower(address addr) {
-    require(addr == borrower, 'Loan: only borrower');
+  modifier onlyBorrower() {
+    require(msg.sender == borrower, 'Loan: only borrower');
     _;
   }
 
@@ -136,7 +136,7 @@ contract Loan is IModule, MutualUpgrade {
   */
   function init()
     mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    external
+    external returns(bool)
   {
     // I lean towards option 1 vs option 2
     // on second thought i like option 2 because init can happen whenever, we only care that it happened
@@ -149,7 +149,7 @@ contract Loan is IModule, MutualUpgrade {
     // );
     
     for(uint i; i < modules.length; i++) {
-      require(modules[i].init(), 'Loan: misconfigured module');
+      require(IModule(modules[i]).init(), 'Loan: misconfigured module');
     }
 
     // probably also need to check that the modules have this Loan contract
@@ -160,6 +160,7 @@ contract Loan is IModule, MutualUpgrade {
     // or can make initialized and have separate function for executing everything after agreed updon in mutualUpgrade.
     // just annoying if one module doesnt work, both parties have to keep calling init() to ACTIVE loan instead of 
     _updateLoanStatus(LoanLib.STATUS.ACTIVE);
+    return true;
   }
 
   /**
@@ -171,7 +172,7 @@ contract Loan is IModule, MutualUpgrade {
       return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
       
     for(uint i; i < modules.length; i++) {
-      status = modules[i].healthcheck();
+      status = IModule(modules[i]).healthcheck();
       if(status != LoanLib.STATUS.ACTIVE)
         return _updateLoanStatus(status);
     }
@@ -208,7 +209,7 @@ contract Loan is IModule, MutualUpgrade {
     require(success, 'Loan: no tokens to lend');
 
     positionIds += 1;
-    dbets[positionIds] = DebtPosition({
+    debts[positionIds] = DebtPosition({
       lender: lender,
       token: token,
       principal: 0,
@@ -285,7 +286,7 @@ contract Loan is IModule, MutualUpgrade {
     address claimToken,
     bytes[] calldata zeroExTradeData
   )
-    onlyBorrower(msg.sender)
+    onlyBorrower
     external
   {
     require(positionId <= positionIds);
@@ -321,7 +322,7 @@ contract Loan is IModule, MutualUpgrade {
             Only callable by borrower bc it closes position.
    * @param positionId -the debt position to pay down debt on and close
   */
-  function depositAndClose(uint256 positionId) onlyBorrower(msg.sender) external {
+  function depositAndClose(uint256 positionId) onlyBorrower external {
     require(positionId <= positionIds);
 
     _accrueInterest();
@@ -340,7 +341,7 @@ contract Loan is IModule, MutualUpgrade {
     require(success, 'Loan: deposit failed');
 
     require(_repay(debt, totalOwed));
-    require(_close(debt));
+    require(_close(debt, positionId));
   }
   
   ////////////////////
@@ -353,7 +354,7 @@ contract Loan is IModule, MutualUpgrade {
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
   function borrow(uint256 positionId, uint256 amount)
-    onlyBorrower(msg.sender)
+    onlyBorrower
     external returns(bool)
   {
     require(positionId <= positionIds);  
@@ -363,6 +364,7 @@ contract Loan is IModule, MutualUpgrade {
     require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.principal += amount;
+    principal += _getUsdValue(debt.token, amount);
     // TODO call escrow contract and see if loan is still healthy before sending funds
 
     bool success = IERC20(debt.token).transferFrom(
@@ -401,7 +403,7 @@ contract Loan is IModule, MutualUpgrade {
       debt.lender,
       amountToWithdraw
     );
-    require(success, 'Loan: deposit failed');
+    require(success, 'Loan: withdraw failed');
 
 
     emit Withdraw(debt.lender, debt.token, amountToWithdraw);
@@ -420,7 +422,7 @@ contract Loan is IModule, MutualUpgrade {
       msg.sender == debts[positionId].lender ||
       msg.sender == borrower
     );
-    require(_close(debts[positionId]));
+    require(_close(debts[positionId], positionId));
   }
 
   // prviliged interal functions
@@ -471,7 +473,6 @@ contract Loan is IModule, MutualUpgrade {
   function _accrueInterest() internal isOperational(loanStatus) returns (uint256 accruedAmount) {
     uint256 len = positionIds;
     DebtPosition memory debt;
-    uint256 accruedAmount = 0;
 
     for(uint256 i = 0; i <= len; i++) {
       debt = debts[len];
@@ -479,7 +480,6 @@ contract Loan is IModule, MutualUpgrade {
       uint256 tokenIncrease = IInterestRate(interestRateModel).accrueInterest(
         len, // IR settings break if positionID changes. need constant/deterministic id
         debt.principal,
-        debt.deposit,
         loanStatus
       );
 
@@ -493,10 +493,9 @@ contract Loan is IModule, MutualUpgrade {
     }
 
     totalInterestAccrued += accruedAmount;
-    return accruedAmount;
   }
 
-  function _close(DebtPosition memory debt) internal returns(bool) {
+  function _close(DebtPosition memory debt, uint256 positionId) internal returns(bool) {
     // potential attacck vector, currently only lender can reduce deposit.
     // If lender gets interest on deposit, not just principal, borrower can be forced
     // to pay interest even if they repaid debt and want to close
@@ -529,7 +528,7 @@ contract Loan is IModule, MutualUpgrade {
             All prices denominated in USD.
    * @param token - token to get price for
   */
-  function _getTokenPrice(address token) internal view returns (uint256) {
+  function _getTokenPrice(address token) internal returns (uint256) {
     return IOracle(oracle).getLatestAnswer(token);
   }
 
@@ -539,7 +538,7 @@ contract Loan is IModule, MutualUpgrade {
    * @param token - token to get price for
    * @param amount - amount of tokens to get total usd value for
   */
-  function _getUsdValue(address token, uint256 amount) internal view returns (uint256) {
+  function _getUsdValue(address token, uint256 amount) internal returns (uint256) {
     return _getTokenPrice(token) * amount;
   }
 
