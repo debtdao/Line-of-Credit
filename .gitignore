@@ -4,3 +4,6 @@ out
 #Hardhat files
 cache
 artifacts
+
+#dapp tools 
+hevm.libs.*
