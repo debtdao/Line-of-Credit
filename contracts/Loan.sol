@@ -13,40 +13,7 @@ import { IInterestRate } from "./interfaces/IInterestRate.sol";
 import { IModule } from "./interfaces/IModule.sol";
 import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 
-contract Loan is IModule, ILoan, MutualUpgrade {  
-
-  // Stakeholder data
-  struct DebtPosition {
-    address lender;           // person to repay
-    address token;            // token being lent out
-    // all deonminated in token, not USD
-    uint256 deposit;          // total liquidity provided by lender for token
-    uint256 principal;        // amount actively lent out
-    uint256 interestAccrued;  // interest accrued but not repaid
-  }
-
-  // Loan events
-
-
-  // DebtPosition events
-  event Withdraw(address indexed lender, address indexed token, uint256 indexed amount);
-
-  event AddDebtPosition(address indexed lender, address indexed token, uint256 indexed deposit);
-
-  event CloseDebtPosition(address indexed lender, address indexed token);
-
-
-  // Loan Events
-  event Borrow(address indexed lender, address indexed token, uint256 indexed amount);
-
-  event Repay(address indexed lender, address indexed token, uint256 indexed amount);
-
-  
-  // General Events
-  
-  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
-
-
+contract Loan is ILoan, MutualUpgrade {  
   address immutable borrower;   // borrower being lent to
   
   // could make NFT ids to make it easier to transfer after the fact
@@ -56,8 +23,6 @@ contract Loan is IModule, ILoan, MutualUpgrade {
   uint256 public positionIds; // incremental ids of DebtPositions. 0 indexed
   
   mapping(uint => DebtPosition) public debts; // positionId -> DebtPosition
-
-
   // vars still missing
   // start time
   // term length
@@ -123,9 +88,9 @@ contract Loan is IModule, ILoan, MutualUpgrade {
     _;
   }
 
-  ////////////////
+  //////////////////////
   // MODULE INTERFACE //
-  ////////////////
+  //////////////////////
 
   function loan() override external returns(address) {
     return address(this);
@@ -137,7 +102,8 @@ contract Loan is IModule, ILoan, MutualUpgrade {
   */
   function init()
     mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    override external returns(bool)
+    override external
+    returns(bool)
   {
     // I lean towards option 1 vs option 2
     // on second thought i like option 2 because init can happen whenever, we only care that it happened
@@ -173,6 +139,7 @@ contract Loan is IModule, ILoan, MutualUpgrade {
       return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
       
     for(uint i; i < modules.length; i++) {
+       // should we differentiate failed calls vs bad statuses?
       status = IModule(modules[i]).healthcheck();
       if(status != LoanLib.STATUS.ACTIVE)
         return _updateLoanStatus(status);
@@ -180,11 +147,6 @@ contract Loan is IModule, ILoan, MutualUpgrade {
     
     return loanStatus;
   }
-
-  //
-  // Inititialiation
-  //
-
   
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -405,21 +367,18 @@ contract Loan is IModule, ILoan, MutualUpgrade {
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
     
-    uint256 availableToWithdraw = debt.deposit - debt.principal;
-    require(availableToWithdraw > 0, 'Loan: no liquidity');
+    require(amount <  debt.deposit - debt.principal, 'Loan: no liquidity');
 
-    uint256 amountToWithdraw = amount < availableToWithdraw ? amount : availableToWithdraw;
-    
-    debt.deposit -= amountToWithdraw;
+    debt.deposit -= amount;
     bool success = IERC20(debt.token).transferFrom(
       address(this),
       debt.lender,
-      amountToWithdraw
+      amount
     );
     require(success, 'Loan: withdraw failed');
 
 
-    emit Withdraw(debt.lender, debt.token, amountToWithdraw);
+    emit Withdraw(debt.lender, debt.token, amount);
 
     return true;
   }
