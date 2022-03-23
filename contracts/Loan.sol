@@ -61,8 +61,6 @@ contract Loan is ILoan, MutualUpgrade {
    * @param escrow_ - contract holding all collateral for borrower
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
-  IModule[4] public modules = [spigot, oracle, escrow, interestRateModel];
-
   constructor(
     uint256 maxDebtValue_,
     address oracle_,
@@ -225,12 +223,11 @@ contract Loan is ILoan, MutualUpgrade {
     return true;
   }
 
+  //
+  // Inititialiation
+  //
 
-  //////////////////
-  // MAINTAINENCE //
-  //////////////////
-
-
+  
   /**
     @notice see _accrueInterest()
   */
@@ -261,7 +258,6 @@ contract Loan is ILoan, MutualUpgrade {
   }
 
 
-  
   ///////////////
   // REPAYMENT //
   ///////////////
@@ -318,7 +314,6 @@ contract Loan is ILoan, MutualUpgrade {
     override external
     returns(bool)
   {
-
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
 
