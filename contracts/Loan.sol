@@ -6,13 +6,14 @@ import { LoanLib } from "./lib/LoanLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // module interfaces 
+import { ILoan } from "./interfaces/ILoan.sol";
 import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
 import { IInterestRate } from "./interfaces/IInterestRate.sol";
 import { IModule } from "./interfaces/IModule.sol";
 import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 
-contract Loan is IModule, MutualUpgrade {  
+contract Loan is IModule, ILoan, MutualUpgrade {  
 
   // Stakeholder data
   struct DebtPosition {
@@ -126,7 +127,7 @@ contract Loan is IModule, MutualUpgrade {
   // MODULE INTERFACE //
   ////////////////
 
-  function loan() external returns(address) {
+  function loan() override external returns(address) {
     return address(this);
   }
 
@@ -136,7 +137,7 @@ contract Loan is IModule, MutualUpgrade {
   */
   function init()
     mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    external returns(bool)
+    override external returns(bool)
   {
     // I lean towards option 1 vs option 2
     // on second thought i like option 2 because init can happen whenever, we only care that it happened
@@ -164,10 +165,10 @@ contract Loan is IModule, MutualUpgrade {
   }
 
   /**
-   *  @dev - loops through all modules and returns their status if required last to savegas on external calls
+   *  @dev - loops through all modules and returns their status if required last to savegas on override external calls
    *        returns early if returns non-ACTIVE
   */
-  function healthcheck() external returns(LoanLib.STATUS status) {
+  function healthcheck() override external returns(LoanLib.STATUS status) {
     if(principal + totalInterestAccrued > maxDebtValue)
       return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
       
@@ -199,7 +200,8 @@ contract Loan is IModule, MutualUpgrade {
     address lender
   )
     mutualUpgrade(lender, borrower) 
-    external
+    override external
+    returns(bool)
   {
     bool success = IERC20(token).transferFrom(
       lender,
@@ -220,6 +222,7 @@ contract Loan is IModule, MutualUpgrade {
     emit AddDebtPosition(lender, token, amount);
 
     // also add interest rate model here?
+    return true;
   }
 
 
@@ -231,7 +234,7 @@ contract Loan is IModule, MutualUpgrade {
   /**
     @notice see _accrueInterst()
   */
-  function accrueInterest() external returns(uint256) {
+  function accrueInterest() override external returns(uint256) {
     return _accrueInterest();
   }
 
@@ -252,7 +255,8 @@ contract Loan is IModule, MutualUpgrade {
     uint256 positionId,
     uint256 amount
   )
-    external
+    override external
+    returns(bool)
   {
     require(positionId <= positionIds);
     _accrueInterest();
@@ -269,6 +273,7 @@ contract Loan is IModule, MutualUpgrade {
     require(success, 'Loan: failed repayment');
 
     _repay(debt, amountToRepay);
+    return true;
   }
 
 
@@ -287,7 +292,8 @@ contract Loan is IModule, MutualUpgrade {
     bytes[] calldata zeroExTradeData
   )
     onlyBorrower
-    external
+    override external
+    returns(bool)
   {
     require(positionId <= positionIds);
 
@@ -315,6 +321,7 @@ contract Loan is IModule, MutualUpgrade {
     );
 
     _repay(debt, amountToRepay);
+    return true;
   }
 
    /**
@@ -322,7 +329,11 @@ contract Loan is IModule, MutualUpgrade {
             Only callable by borrower bc it closes position.
    * @param positionId -the debt position to pay down debt on and close
   */
-  function depositAndClose(uint256 positionId) onlyBorrower external {
+  function depositAndClose(uint256 positionId)
+    onlyBorrower
+    override external
+    returns(bool)
+  {
     require(positionId <= positionIds);
 
     _accrueInterest();
@@ -342,6 +353,7 @@ contract Loan is IModule, MutualUpgrade {
 
     require(_repay(debt, totalOwed));
     require(_close(debt, positionId));
+    return true;
   }
   
   ////////////////////
@@ -355,7 +367,8 @@ contract Loan is IModule, MutualUpgrade {
   */
   function borrow(uint256 positionId, uint256 amount)
     onlyBorrower
-    external returns(bool)
+    override external
+    returns(bool)
   {
     require(positionId <= positionIds);  
     _accrueInterest();
@@ -386,7 +399,7 @@ contract Loan is IModule, MutualUpgrade {
    * @param positionId -the debt position to pay down debt on and close
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
-  function withdraw(uint256 positionId, uint256 amount) external returns(bool) {
+  function withdraw(uint256 positionId, uint256 amount) override external returns(bool) {
     require(msg.sender == debts[positionId].lender);
     
     _accrueInterest();
@@ -417,12 +430,14 @@ contract Loan is IModule, MutualUpgrade {
    *        Only callable by borrower or lender for debt position
    * @param positionId -the debt position to close
   */
-  function close(uint256 positionId) external {
+  function close(uint256 positionId) override external returns(bool) {
     require(
       msg.sender == debts[positionId].lender ||
       msg.sender == borrower
     );
     require(_close(debts[positionId], positionId));
+    
+    return true;
   }
 
   // prviliged interal functions
