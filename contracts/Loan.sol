@@ -367,6 +367,7 @@ contract Loan is ILoan, MutualUpgrade {
 
     require(_repay(debt, totalOwed));
     require(_close(debt, positionId));
+
     return true;
   }
   
