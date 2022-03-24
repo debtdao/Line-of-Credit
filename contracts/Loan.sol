@@ -9,7 +9,7 @@ import { IInterestRate } from "./interfaces/IInterestRate.sol";
 import { IModule } from "./interfaces/IModule.sol";
 import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 
-contract Loan is IModule, MutualUpgrade {  
+contract Loan is IModule, MutualUpgrade {
   // Stakeholder data
   struct DebtPosition {
     address lender;
@@ -20,7 +20,7 @@ contract Loan is IModule, MutualUpgrade {
   }
 
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
-  event Liquidated(address user, uint256 purchaseAmount, IERC20 token);
+  event Liquidated(uint256 positionId, uint256 amount, address token);
 
   address immutable borrower;   // borrower being lent to
   
@@ -98,6 +98,11 @@ contract Loan is IModule, MutualUpgrade {
 
   modifier onlyArbiter(address addr) {
     require(addr == arbiter, 'Loan: only arbiter');
+    _;
+  }
+
+  modifier validPositionId(uint256 positionId) {
+    require(positionId <= positionIds, "Loan: invalid position ID");
     _;
   }
 
@@ -199,23 +204,23 @@ contract Loan is IModule, MutualUpgrade {
   // Liquidation
 
   function liquidate( // should this only be able to be called by the arbiter?
-        address _escrowContract,
-        address _user,
-        uint256 _purchaseAmount,
-        IERC20 token,
-        bool _receiveaToken
+        uint256 positionId,
+        uint256 amount
     )
-        external onlyArbiter
+        external onlyArbiter validPositionId(positionId)
     {
         // check to see if loan can be liquidated
         require(loanStatus = LoanLib.STATUS.LIQUIDATABLE, "Loan cannot be liquidated at this time");
 
+        // pull loan 
+        DebtPosition memory debt = debts[positionId];
+
         // call method within escrow contract
-        escrowContract = IEscrow(_escrowContract);
-        escrowContract.releaseCollateral(token, _purchaseAmount, arbiter);
+        escrowContract = IEscrow(escrow);
+        escrowContract.releaseCollateral(debt.token, amount, arbiter); // releasing everything to debt DAO multisig to be dealt with OTC
 
         // emit liquidated event
-        emit Liquidated(_user, _purchaseAmount, token);
+        emit Liquidated(positionId, amount, debt.token);
     }
 
   // Repayment
@@ -224,9 +229,9 @@ contract Loan is IModule, MutualUpgrade {
     uint256 positionId,
     uint256 amount
   )
-    external
+    external validPositionId(positionId)
   {
-    require(positionId <= positionIds);
+    
     DebtPosition memory debt = debts[positionId];
 
     // TODO check if early repayment is allowed on loan
@@ -247,10 +252,10 @@ contract Loan is IModule, MutualUpgrade {
     address claimToken,
     bytes[] calldata zeroExTradeData
   )
-    onlyBorrower(msg.sender)
-    external
+    onlyBorrower(msg.sender) 
+    validPositionId(positionId)
+    external  
   {
-    require(positionId <= positionIds);
     DebtPosition memory debt = debts[positionId];
 
     // need to check with 0x api on where bought tokens go to by default
