@@ -1,24 +1,18 @@
 pragma solidity ^0.8.9;
 
 // Helpers
-import { MutualUpgrade } from "./MutualUpgrade.sol";
-import { LoanLib } from "./lib/LoanLib.sol";
+import { MutualUpgrade } from "../../lib/MutualUpgrade.sol";
+import { LoanLib } from "../../lib/LoanLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // module interfaces 
-import { ILoan } from "./interfaces/ILoan.sol";
-import { IEscrow } from "./interfaces/IEscrow.sol";
-import { IOracle } from "./interfaces/IOracle.sol";
-import { IInterestRate } from "./interfaces/IInterestRate.sol";
-import { IModule } from "./interfaces/IModule.sol";
-import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
+import { ILoan } from "../../interfaces/ILoan.sol";
+import { IEscrow } from "../../interfaces/IEscrow.sol";
+import { IOracle } from "../../interfaces/IOracle.sol";
+import { IInterestRate } from "../../interfaces/IInterestRate.sol";
+import { IModule } from "../../interfaces/IModule.sol";
 
-/**
- * @title Debt DAO P2P Loan Contract
- * @author Kiba Gateaux
- * @notice Basic loan functionality used to create base for custom loan functionality in Debt DAO marketplace
- */
-contract Loan is ILoan, MutualUpgrade {
+abstract contract BaseLoan is ILoan, MutualUpgrade {  
   address immutable borrower;   // borrower being lent to
 
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
@@ -40,14 +34,13 @@ contract Loan is ILoan, MutualUpgrade {
   uint256 public maxDebtValue; // total amount of USD value to be pulled from loan
 
   // Loan Modules
-  address public spigot;
   address public oracle;  // could move to LoanLib and make singleton
   address public arbiter; // could make dynamic/harcoded ens('arbiter.debtdao.eth')
   address public escrow;
   address public interestRateModel;
 
   // ordered by most likely to return early in healthcheck() with non-ACTIVE status
-  address[4] public modules = [escrow, spigot, oracle, interestRateModel];
+  address[3] public modules = [escrow, oracle, interestRateModel];
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -64,7 +57,6 @@ contract Loan is ILoan, MutualUpgrade {
   constructor(
     uint256 maxDebtValue_,
     address oracle_,
-    address spigot_,
     address arbiter_,
     address borrower_,
     address escrow_,
@@ -77,7 +69,6 @@ contract Loan is ILoan, MutualUpgrade {
     escrow = escrow_;
     arbiter = arbiter_;
     oracle = oracle_;
-    spigot = spigot_;
 
     loanStatus = LoanLib.STATUS.INITIALIZED;
   }
@@ -110,6 +101,30 @@ contract Loan is ILoan, MutualUpgrade {
     require(debts[positionId].lender != address(0), "Loan: invalid position ID");
     _;
   }
+  ///////////
+  // HOOKS //
+  ///////////
+
+    /**
+   * @dev  Used to addc custom liquidation functionality until we create separate Liquidation module
+   * @param debt - debt position data for loan being repaid
+  */
+  function _liquidate(DebtPosition memory debt) virtual internal returns(uint256) {}
+
+  /**
+   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
+   * @param debt - debt position data for loan being repaid
+  */
+  function _getMaxRepayableAmount(DebtPosition memory debt) virtual internal returns(uint256) {}
+
+
+  /**
+   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
+   * @param debt - debt position data for loan being repaid
+   * @return outstanding balance for active interest rate
+   * @return total deposit available for passive interest rate
+  */
+  function _getBalancesForInterestPayment(DebtPosition memory debt) virtual internal returns(uint256, uint256) {}
 
   //////////////////////
   // MODULE INTERFACE //
@@ -129,12 +144,12 @@ contract Loan is ILoan, MutualUpgrade {
   }
 
   /**
-  @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
+   * @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
         Once agreed by both parties sets loanStatus to ACTIVE allowing borrwoing and interest accrual
   */
-  function init()
+  function _init()
     mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    override external
+    virtual internal
     returns(bool)
   {
     // I lean towards option 1 vs option 2
@@ -148,7 +163,7 @@ contract Loan is ILoan, MutualUpgrade {
     // );
     
     for(uint i; i < modules.length; i++) {
-      require(IModule(modules[i]).init(), 'Loan: misconfigured module');
+      // require(IModule(modules[i]).init(), 'Loan: misconfigured module');
     }
 
     // probably also need to check that the modules have this Loan contract
@@ -166,7 +181,7 @@ contract Loan is ILoan, MutualUpgrade {
    *  @dev - loops through all modules and returns their status if required last to savegas on override external calls
    *        returns early if returns non-ACTIVE
   */
-  function healthcheck() override external returns(LoanLib.STATUS status) {
+  function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
     if(principal + totalInterestAccrued > maxDebtValue)
       return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
       
@@ -289,53 +304,6 @@ contract Loan is ILoan, MutualUpgrade {
       amountToRepay
     );
     require(success, 'Loan: failed repayment');
-
-    _repay(debt, amountToRepay);
-    return true;
-  }
-
-
- /**
-   * @dev - 
-            Only callable by borrower for security pasing arbitrary data in contract call
-            and they are most incentivized to get best price on assets being sold.
-   * @notice see _repay() for more details
-   * @param positionId -the debt position to pay down debt on
-   * @param claimToken - The revenue token escrowed by Spigot to claim and use to repay debt
-   * @param zeroExTradeData - data generated by 0x API to trade `claimToken` against their exchange contract
-  */
-  function claimSpigotAndRepay(
-    bytes32 positionId,
-    address claimToken,
-    bytes[] calldata zeroExTradeData
-  )
-    onlyBorrower
-    validPositionId(positionId)
-    override external
-    returns(bool)
-  {
-    _accrueInterest();
-    DebtPosition memory debt = debts[positionId];
-
-    // need to check with 0x api on where bought tokens go to by default
-    // see if we can change that to Loan instead of SpigotConsumer
-    uint256 tokensBought = ISpigotConsumer(spigot).claimAndTrade(
-      claimToken,
-      debt.token,
-      zeroExTradeData
-    );
-
-    // TODO check if early repayment is allowed on loan
-    // then update logic here. Probs need an internal func
-    uint256 amountToRepay = debt.interestAccrued < tokensBought ?
-      debt.interestAccrued :
-      tokensBought;
-
-    // claim bought tokens from spigot to repay loan
-    require(
-      ISpigotConsumer(spigot).stream(address(this), debt.token, amountToRepay),
-      'Loan: failed repayment'
-    );
 
     _repay(debt, amountToRepay);
     return true;

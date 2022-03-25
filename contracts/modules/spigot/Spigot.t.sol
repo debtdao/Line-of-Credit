@@ -1,8 +1,9 @@
 pragma solidity 0.8.9;
+
 import { SpigotController } from "./Spigot.sol";
-import { DSTest } from  "../lib/ds-test/src/test.sol";
-import { RevenueToken } from "./mock/RevenueToken.sol";
-import { SimpleRevenueContract } from './mock/SimpleRevenueContract.sol';
+import { DSTest } from  "../../../lib/ds-test/src/test.sol";
+import { RevenueToken } from "../../mock/RevenueToken.sol";
+import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
 
 contract SpigotTest is DSTest {
     // spigot contracts/configurations to test against
