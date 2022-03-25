@@ -13,7 +13,7 @@ import { IInterestRate } from "./interfaces/IInterestRate.sol";
 import { IModule } from "./interfaces/IModule.sol";
 import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 
-contract Loan is ILoan, MutualUpgrade {  
+contract Loan is ILoan, MutualUpgrade {
   address immutable borrower;   // borrower being lent to
   
   // could make NFT ids to make it easier to transfer after the fact
@@ -85,6 +85,16 @@ contract Loan is ILoan, MutualUpgrade {
 
   modifier onlyBorrower() {
     require(msg.sender == borrower, 'Loan: only borrower');
+    _;
+  }
+
+  modifier onlyArbiter() {
+    require(msg.sender == arbiter, 'Loan: only arbiter');
+    _;
+  }
+
+  modifier validPositionId(uint256 positionId) {
+    require(positionId <= positionIds, "Loan: invalid position ID");
     _;
   }
 
@@ -201,6 +211,28 @@ contract Loan is ILoan, MutualUpgrade {
   }
 
 
+
+  // Liquidation
+
+  function liquidate(
+    uint256 positionId,
+    uint256 amount,
+    address escrowToken
+  )
+    onlyArbiter
+    validPositionId(positionId)
+    external
+  {
+    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+
+    // call method within escrow contract
+    // releasing everything to debt DAO multisig to be dealt with OTC
+    IEscrow(escrow).releaseCollateral(amount, escrowToken, arbiter);
+
+    emit Liquidated(positionId, amount, escrowToken);
+  }
+
+
   
   ///////////////
   // REPAYMENT //
@@ -217,10 +249,10 @@ contract Loan is ILoan, MutualUpgrade {
     uint256 positionId,
     uint256 amount
   )
+    validPositionId(positionId)
     override external
     returns(bool)
   {
-    require(positionId <= positionIds);
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
 
@@ -254,10 +286,10 @@ contract Loan is ILoan, MutualUpgrade {
     bytes[] calldata zeroExTradeData
   )
     onlyBorrower
+    validPositionId(positionId)
     override external
     returns(bool)
   {
-    require(positionId <= positionIds);
 
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
@@ -293,11 +325,10 @@ contract Loan is ILoan, MutualUpgrade {
   */
   function depositAndClose(uint256 positionId)
     onlyBorrower
+    validPositionId(positionId)
     override external
     returns(bool)
   {
-    require(positionId <= positionIds);
-
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
 
@@ -329,10 +360,10 @@ contract Loan is ILoan, MutualUpgrade {
   */
   function borrow(uint256 positionId, uint256 amount)
     onlyBorrower
+    validPositionId(positionId)
     override external
     returns(bool)
   {
-    require(positionId <= positionIds);  
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
     

@@ -24,6 +24,8 @@ interface ILoan is IModule {
 
   event Repay(address indexed lender, address indexed token, uint256 indexed amount);
 
+  event Liquidated(uint256 indexed positionId, uint256 indexed amount, address indexed token);
+
   // General Events
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
