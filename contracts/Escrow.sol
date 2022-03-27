@@ -78,6 +78,7 @@ contract Escrow is IEscrow {
         );
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
         deposited[token] += amount;
+        emit CollateralAdded(token, amount);
         _updateCollateralRatio();
     }
 
