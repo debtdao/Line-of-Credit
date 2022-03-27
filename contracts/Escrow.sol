@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 import { IEscrow } from "./interfaces/IEscrow.sol";
 import { LoanLib } from "./lib/LoanLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IOracle } from "./interfaces/IOracle.sol";
 
 contract Escrow is IEscrow {
 
@@ -19,11 +20,15 @@ contract Escrow is IEscrow {
     constructor(
         uint _minimumCollateralRatio,
         address _loanContract,
-        address _oracle
+        address _oracle,
+        address _lender,
+        address _borrower
     ) public {
         minimumCollateralRatio = minimumCollateralRatio;
         loanContract = loanContract;
         oracle = _oracle;
+        lender = _lender;
+        borrower = _borrower;
         currentStatus = LoanLib.STATUS.UNINITIALIZED; // TODO at what point does the escrow become initialized?
     }
 
@@ -59,7 +64,13 @@ contract Escrow is IEscrow {
     * @dev see IEscrow.sol
     */
     function addCollateral(uint amount, address token) public {
-        revert("Not implemented");
+        require(
+            IOracle(oracle).getLatestAnswer(token) != 0,
+            "Escrow: deposited token does not have a price feed"
+        );
+        require(IERC20(token).transferFrom(msg.sender, address(this), amount));
+        deposited[token] += amount;
+        _updateHealthCheck();
     }
 
     /*
