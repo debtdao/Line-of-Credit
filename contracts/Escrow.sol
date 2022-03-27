@@ -27,7 +27,7 @@ contract Escrow is IEscrow {
         address _arbiter
     ) public {
         minimumCollateralRatio = minimumCollateralRatio;
-        loan = loan;
+        loan = _loanContract;
         oracle = _oracle;
         lender = _lender;
         borrower = _borrower;
@@ -45,22 +45,27 @@ contract Escrow is IEscrow {
     /*
     * @dev see IModule.sol
     */
+    // TODO sanity check the statuses that are calculable in Escrow
     function healthcheck() public returns (LoanLib.STATUS status) {
-        revert("Not implemented");
+        if(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED) {
+            return lastUpdatedStatus;
+        }
+        uint cratio = _updateCollateralRatio();
+        if(cratio > minimumCollateralRatio) {
+            lastUpdatedStatus = LoanLib.STATUS.ACTIVE;
+        } else {
+            lastUpdatedStatus = LoanLib.STATUS.LIQUIDATABLE;
+        }
+
+        return lastUpdatedStatus;
     }
 
     /*
-    * @dev updates the current status by checking the cratio with the latest information
+    * @dev updates the cratio according to the collateral value vs loan value
+    * returns the updated collateral ratio
     */
-    function _updateCollateralRatio() internal {
+    function _updateCollateralRatio() internal returns(uint) {
         revert("Not implemented");
-    }
-
-    /*
-    * @dev see IModule.sol
-    */
-    function loan() external returns (address) {
-        return loan;
     }
 
     /*
