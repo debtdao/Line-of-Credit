@@ -21,15 +21,18 @@ contract EscrowTest is DSTest {
         unsupportedToken.mint(msg.sender, 1000000000);
         unsupportedToken.approve(address(this), 1000000000);
         oracle = new SimpleOracle(address(revenueToken));
-        _initEscrow(10, msg.sender, address(oracle));
+        _initEscrow(10, msg.sender, address(oracle), address(0), msg.sender, address(0));
     }
 
     function _initEscrow(
         uint _minimumCollateralRatio,
         address _loanContract,
-        address _oracle
+        address _oracle,
+        address _lender,
+        address _borrower,
+        address _arbiter
     ) internal {
-        escrow = new Escrow(_minimumCollateralRatio, _loanContract, _oracle);
+        escrow = new Escrow(_minimumCollateralRatio, _loanContract, _oracle, _lender, _borrower, _arbiter);
     }
 
     function test_health_check_is_uninitialized() public {
@@ -59,7 +62,7 @@ contract EscrowTest is DSTest {
     }
 
     function test_cratio_adjusts_when_collateral_price_changes() public {
-        escrow.addCollateral(1000, address(revenueToken), msg.sender);
+        escrow.addCollateral(1000, address(revenueToken));
         uint escrowRatio = escrow.getCollateralRatio();
         oracle.changePrice(10000);
         uint newEscrowRatio = escrow.getCollateralRatio();
