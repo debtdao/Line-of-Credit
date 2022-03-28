@@ -21,7 +21,7 @@ contract EscrowTest is DSTest {
         unsupportedToken.mint(msg.sender, 1000000000);
         unsupportedToken.approve(address(this), 1000000000);
         oracle = new SimpleOracle(address(revenueToken));
-        _initEscrow(10, msg.sender, address(oracle), address(0), msg.sender, address(0));
+        _initEscrow(10, msg.sender, address(oracle), address(1), msg.sender, address(2));
     }
 
     function _initEscrow(
@@ -46,19 +46,23 @@ contract EscrowTest is DSTest {
     }
 
     function test_can_add_collateral() public {
+        uint userBalance = revenueToken.balanceOf(msg.sender);
         escrow.addCollateral(1000, address(revenueToken));
+        assert(userBalance == revenueToken.balanceOf(msg.sender) - 1000);
     }
 
     function test_can_remove_collateral() public {
         escrow.addCollateral(1000, address(revenueToken));
+        uint userBalance = revenueToken.balanceOf(msg.sender);
         escrow.releaseCollateral(100, address(revenueToken), msg.sender);
+        assert(userBalance == revenueToken.balanceOf(msg.sender) + 100);
     }
 
     function test_cratio_adjusts_when_collateral_changes() public {
         uint escrowRatio = escrow.getCollateralRatio();
         escrow.addCollateral(1000, address(revenueToken));
         uint newEscrowRatio = escrow.getCollateralRatio();
-        require(newEscrowRatio > escrowRatio);
+        assert(newEscrowRatio > escrowRatio);
     }
 
     function test_cratio_adjusts_when_collateral_price_changes() public {
@@ -66,17 +70,20 @@ contract EscrowTest is DSTest {
         uint escrowRatio = escrow.getCollateralRatio();
         oracle.changePrice(10000);
         uint newEscrowRatio = escrow.getCollateralRatio();
-        require(newEscrowRatio > escrowRatio);
+        // TODO assert how much the ratio should have changed rather than just >
+        assert(newEscrowRatio > escrowRatio);
     }
 
     function test_can_liquidate() public {
         // todo need to make loan
         escrow.addCollateral(1000, address(revenueToken));
         oracle.changePrice(0);
+        assert(escrow.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
         escrow.liquidate(address(revenueToken), 1000);
+        assert(revenueToken.balanceOf(address(2)) == 1000);
     }
 
-    function testFail_cannot_remove_collateral_when_undercollateralized() public {
+    function testFail_cannot_remove_collateral_when_under_collateralized() public {
         // todo need to make loan
         escrow.addCollateral(1000, address(revenueToken));
         escrow.releaseCollateral(100, address(revenueToken), msg.sender);

@@ -65,6 +65,10 @@ contract Escrow is IEscrow {
     * @returns the updated collateral ratio
     */
     function _updateCollateralRatio() internal returns(uint) {
+        // iterate over all the debt positions in the loan contract
+        // calculate the total debt value of the positions
+        // compare the value of the debt against the collateral held in escrow
+        // check if the cratio is higher than the minimumCollateralRatio
         revert("Not implemented");
     }
 
