@@ -87,7 +87,14 @@ contract Escrow is IEscrow {
     * @dev see IEscrow.sol
     */
     function releaseCollateral(uint amount, address token, address to) public returns(uint) {
-        revert("Not implemented");
+        require(msg.sender == borrower, "Escrow: only borrower can call");
+        require(IERC20(token).transferFrom(address(this), to, amount));
+        deposited[token] -= amount;
+        uint cratio = _updateCollateralRatio();
+        require(cratio >= minimumCollateralRatio, "Escrow: cannot release collateral if cratio becomes lower than the minimum");
+        emit CollateralRemoved(token, amount);
+
+        return cratio;
     }
 
     /*
