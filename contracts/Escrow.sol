@@ -62,7 +62,7 @@ contract Escrow is IEscrow {
 
     /*
     * @dev updates the cratio according to the collateral value vs loan value
-    * returns the updated collateral ratio
+    * @returns the updated collateral ratio
     */
     function _updateCollateralRatio() internal returns(uint) {
         revert("Not implemented");
@@ -71,7 +71,7 @@ contract Escrow is IEscrow {
     /*
     * @dev see IEscrow.sol
     */
-    function addCollateral(uint amount, address token) public {
+    function addCollateral(uint amount, address token) public returns(uint) {
         require(
             IOracle(oracle).getLatestAnswer(token) != 0,
             "Escrow: deposited token does not have a price feed"
@@ -79,13 +79,14 @@ contract Escrow is IEscrow {
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
         deposited[token] += amount;
         emit CollateralAdded(token, amount);
-        _updateCollateralRatio();
+
+        return _updateCollateralRatio();
     }
 
     /*
     * @dev see IEscrow.sol
     */
-    function releaseCollateral(uint amount, address token, address to) public {
+    function releaseCollateral(uint amount, address token, address to) public returns(uint) {
         revert("Not implemented");
     }
 

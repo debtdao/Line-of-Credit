@@ -24,8 +24,9 @@ interface IEscrow is IModule {
     * @dev requires that the token deposited can be valued by the escrow's oracle & the depositor has approved this contract
     * @param amount - the amount of collateral to add
     * @param token - the token address of the deposited token
+    * @returns - the updated cratio
     */
-    function addCollateral(uint amount, address token) external;
+    function addCollateral(uint amount, address token) external returns(uint);
 
     /*
     * @dev calculates the cratio
@@ -41,8 +42,9 @@ interface IEscrow is IModule {
     * @param amount - the amount of collateral to release
     * @param token - the token address to withdraw
     * @param to - who should receive the funds
+    * @returns - the updated cratio
     */
-    function releaseCollateral(uint amount, address token, address to) external;
+    function releaseCollateral(uint amount, address token, address to) external returns(uint);
 
     /*
     * @dev liquidates borrowers collateral by token and amount
