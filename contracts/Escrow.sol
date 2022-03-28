@@ -112,6 +112,7 @@ contract Escrow is IEscrow {
         require(healthcheck() == LoanLib.STATUS.LIQUIDATABLE, "Escrow: not eligible for liquidation");
         require(IERC20(token).transferFrom(address(this), arbiter, amount));
         deposited[token] -= amount;
+        emit Liquidated(token, amount);
     }
 
     // TODO @smokey
