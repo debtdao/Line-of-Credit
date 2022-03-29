@@ -13,6 +13,10 @@ contract SimpleOracle is IOracle {
         price  = 1000;
     }
 
+    function init() external returns(bool) {
+        return true;
+    }
+
     function changePrice(uint newPrice) external {
         price = newPrice;
     }

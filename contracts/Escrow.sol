@@ -35,11 +35,13 @@ contract Escrow is IEscrow {
         lastUpdatedStatus = LoanLib.STATUS.UNINITIALIZED;
     }
 
-    function init() external {
+    function init() external returns(bool) {
         require(msg.sender == borrower, "Escrow: only borrower can call");
         require(!initCalled, "Escrow: init() has already been called");
         lastUpdatedStatus = LoanLib.STATUS.INITIALIZED;
         initCalled = true;
+
+        return true; 
     }
 
     /*
