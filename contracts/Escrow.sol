@@ -4,6 +4,7 @@ import { IEscrow } from "./interfaces/IEscrow.sol";
 import { LoanLib } from "./lib/LoanLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IOracle } from "./interfaces/IOracle.sol";
+import { ILoan } from "./interfaces/ILoan.sol";
 
 contract Escrow is IEscrow {
 
@@ -41,7 +42,7 @@ contract Escrow is IEscrow {
         lastUpdatedStatus = LoanLib.STATUS.INITIALIZED;
         initCalled = true;
 
-        return true; 
+        return true;
     }
 
     /*
