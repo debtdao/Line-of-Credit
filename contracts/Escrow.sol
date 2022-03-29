@@ -32,11 +32,11 @@ contract Escrow is IEscrow {
         lender = _lender;
         borrower = _borrower;
         arbiter = _arbiter;
-        lastUpdatedStatus = LoanLib.STATUS.UNINITIALIZED; // TODO at what point does the escrow become initialized?
+        lastUpdatedStatus = LoanLib.STATUS.UNINITIALIZED;
     }
 
     function init() external {
-        // TODO
+        require(msg.sender == borrower, "Escrow: only borrower can call");
         require(!initCalled, "Escrow: init() has already been called");
         lastUpdatedStatus = LoanLib.STATUS.INITIALIZED;
         initCalled = true;
@@ -45,7 +45,6 @@ contract Escrow is IEscrow {
     /*
     * @dev see IModule.sol
     */
-    // TODO sanity check the statuses that are calculable in Escrow
     function healthcheck() public returns (LoanLib.STATUS status) {
         if(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED) {
             return lastUpdatedStatus;
@@ -65,10 +64,12 @@ contract Escrow is IEscrow {
     * @returns the updated collateral ratio
     */
     function _updateCollateralRatio() internal returns(uint) {
-        // iterate over all the debt positions in the loan contract
-        // calculate the total debt value of the positions
-        // compare the value of the debt against the collateral held in escrow
-        // check if the cratio is higher than the minimumCollateralRatio
+        // get debt value from the loan contract
+        // compare the collateral value against the debt value
+        // calculate the amount of collateral required by obtaining the debt value by minimumCollateralRatio
+        // calculate the value of the collateral and check that it against the min collateral value obtained above
+        // if the cratio is below the minimumCollateralRatio, call the healthcheck() to update the lastUpdatedStatus
+        // return the cratio based on the calculation
         revert("Not implemented");
     }
 
