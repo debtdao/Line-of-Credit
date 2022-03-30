@@ -18,6 +18,16 @@ interface IEscrow is IModule {
     event Liquidated(address indexed token, uint amount);
 
     /*
+    * @dev only borrower can call
+    * @dev sets the status to "active" and allows the borrower to post collateral and be eligible for the loan
+    * @dev requires that the tokens deposited can be valued by the escrow's oracle
+    * @param tokensToDeposit - the token addresses of the deposited tokens
+    * @param amounts - the amounts of collateral to add
+    * @returns - boolean
+    */
+    function activate(address[] memory tokensToDeposit, uint[] memory amounts) external returns(bool);
+
+    /*
     * @dev add collateral to your position
     * @dev anyone can call
     * @dev updates cratio

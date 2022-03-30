@@ -42,6 +42,23 @@ contract Escrow is IEscrow {
     }
 
     /*
+    * @dev see IEscrow.sol
+    */
+    function activate(address[] memory tokensToDeposit, uint[] memory amounts) public returns(bool) {
+        require(msg.sender == borrower, "Escrow: only borrower can call");
+        require(lastUpdatedStatus == LoanLib.STATUS.INITIALIZED, "Escrow: must be in the initialized status");
+        require(tokensToDeposit.length == amounts.length, "Escrow: array length mismatch");
+        for(uint i = 0; i < tokensToDeposit.length; i++) {
+            require(IOracle(oracle).getLatestAnswer(tokensToDeposit[i]) != 0, "Escrow: token cannot be valued");
+            require(IERC20(tokensToDeposit[i]).transferFrom(msg.sender, address(this), amounts[i]));
+            deposited[tokensToDeposit[i]] += amounts[i];
+        }
+        lastUpdatedStatus = LoanLib.STATUS.ACTIVE;
+
+        return true;
+    }
+
+    /*
     * @dev see IModule.sol
     */
     function healthcheck() public returns (LoanLib.STATUS status) {
@@ -78,6 +95,11 @@ contract Escrow is IEscrow {
     * @dev see IEscrow.sol
     */
     function addCollateral(uint amount, address token) public returns(uint) {
+        require(
+            lastUpdatedStatus == LoanLib.STATUS.ACTIVE
+            || lastUpdatedStatus == LoanLib.STATUS.LIQUIDATABLE,
+            "Escrow: must be in the ACTIVE/LIQUIDATABLE status"
+        );
         require(
             IOracle(oracle).getLatestAnswer(token) != 0,
             "Escrow: deposited token does not have a price feed"

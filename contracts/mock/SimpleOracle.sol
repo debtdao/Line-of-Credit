@@ -5,25 +5,24 @@ import { LoanLib } from "../lib/LoanLib.sol";
 
 contract SimpleOracle is IOracle {
 
-    address supportedToken;
-    uint price;
+    mapping(address => uint) prices;
 
-    constructor(address _supportedToken) {
-        supportedToken = _supportedToken;
-        price  = 1000;
+    constructor(address _supportedToken1, address _supportedToken2) {
+        prices[_supportedToken1] = 1000;
+        prices[_supportedToken2] = 1000;
     }
 
     function init() external returns(bool) {
         return true;
     }
 
-    function changePrice(uint newPrice) external {
-        price = newPrice;
+    function changePrice(address token, uint newPrice) external {
+        prices[token] = newPrice;
     }
 
     function getLatestAnswer(address token) external returns(uint256) {
-        require(token == supportedToken, "SimpleOracle: unsupported token");
-        return price;
+        require(prices[token] != 0, "SimpleOracle: unsupported token");
+        return prices[token];
     }
 
     function healthcheck() external returns (LoanLib.STATUS status) {
