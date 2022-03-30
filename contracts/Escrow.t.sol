@@ -24,19 +24,18 @@ contract EscrowTest is DSTest {
         unsupportedToken.mint(msg.sender, 1000000000);
         unsupportedToken.approve(address(this), 1000000000);
         oracle = new SimpleOracle(address(revenueToken));
-        address escrow = _initEscrow(10, msg.sender, address(oracle), address(1), msg.sender, address(2));
+        address escrow = _initEscrow(10, address(oracle), address(1), msg.sender, address(2));
         loan = new Loan(100, address(oracle), address(0), address(0), msg.sender, escrow, address(0));
     }
 
     function _initEscrow(
         uint _minimumCollateralRatio,
-        address _loanContract,
         address _oracle,
         address _lender,
         address _borrower,
         address _arbiter
     ) internal returns(address) {
-        escrow = new Escrow(_minimumCollateralRatio, _loanContract, _oracle, _lender, _borrower, _arbiter);
+        escrow = new Escrow(_minimumCollateralRatio, _oracle, _lender, _borrower, _arbiter);
 
         return address(escrow);
     }
@@ -47,7 +46,7 @@ contract EscrowTest is DSTest {
 
     function test_can_update_health_check_from_uninitialized_to_initialized() public {
         assert(escrow.healthcheck() == LoanLib.STATUS.UNINITIALIZED);
-        loan.init();
+        escrow.init();
         assert(escrow.healthcheck() == LoanLib.STATUS.INITIALIZED);
     }
 

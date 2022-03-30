@@ -14,21 +14,18 @@ contract Escrow is IEscrow {
     address public lender;
     address public borrower;
     address public arbiter;
-    bool public initCalled = false;
     LoanLib.STATUS public lastUpdatedStatus; // this status can constantly change, hence last updated status
     mapping(address => uint) public deposited; // tokens used as collateral (must be able to value with oracle)
     mapping(address => Farm) public farmedTokens; // collateral tokens that have been used for farming
 
     constructor(
         uint _minimumCollateralRatio,
-        address _loanContract,
         address _oracle,
         address _lender,
         address _borrower,
         address _arbiter
     ) public {
         minimumCollateralRatio = minimumCollateralRatio;
-        loan = _loanContract;
         oracle = _oracle;
         lender = _lender;
         borrower = _borrower;
@@ -37,10 +34,9 @@ contract Escrow is IEscrow {
     }
 
     function init() external returns(bool) {
-        require(msg.sender == borrower, "Escrow: only borrower can call");
-        require(!initCalled, "Escrow: init() has already been called");
+        require(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED, "Escrow: init() has already been called");
         lastUpdatedStatus = LoanLib.STATUS.INITIALIZED;
-        initCalled = true;
+        loan = msg.sender;
 
         return true;
     }
@@ -49,7 +45,9 @@ contract Escrow is IEscrow {
     * @dev see IModule.sol
     */
     function healthcheck() public returns (LoanLib.STATUS status) {
-        if(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED) {
+        if(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED
+            || lastUpdatedStatus == LoanLib.STATUS.INITIALIZED
+        ) {
             return lastUpdatedStatus;
         }
         uint cratio = _updateCollateralRatio();
