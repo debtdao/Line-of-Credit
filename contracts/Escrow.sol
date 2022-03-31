@@ -8,15 +8,30 @@ import { ILoan } from "./interfaces/ILoan.sol";
 
 contract Escrow is IEscrow {
 
-    uint public minimumCollateralRatio; // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
+    // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
+    uint public minimumCollateralRatio;
+
+    // Stakeholders and contracts used in Escrow
     address public loan;
-    address public oracle; // used to value assets, must be an approved source
+    address public oracle;
     address public lender;
     address public borrower;
     address public arbiter;
-    LoanLib.STATUS public lastUpdatedStatus; // this status can constantly change, hence last updated status
-    mapping(address => uint) public deposited; // tokens used as collateral (must be able to value with oracle)
-    mapping(address => Farm) public farmedTokens; // collateral tokens that have been used for farming
+
+    // this status can constantly change, hence last updated status
+    LoanLib.STATUS public lastUpdatedStatus;
+
+    // tracking tokens that were deposited
+    address[] private _tokensUsedAsCollateral;
+
+    // mapping to check uniqueness of tokensUsedAsCollateral
+    mapping(address => bool) private _tokensUsed;
+
+    // tokens used as collateral (must be able to value with oracle)
+    mapping(address => uint) public deposited;
+
+    // collateral tokens that have been used for farming
+    mapping(address => Farm) public farmedTokens;
 
     constructor(
         uint _minimumCollateralRatio,
@@ -33,6 +48,9 @@ contract Escrow is IEscrow {
         lastUpdatedStatus = LoanLib.STATUS.UNINITIALIZED;
     }
 
+    /*
+    * @dev see IModule.sol
+    */
     function init() external returns(bool) {
         require(lastUpdatedStatus == LoanLib.STATUS.UNINITIALIZED, "Escrow: init() has already been called");
         lastUpdatedStatus = LoanLib.STATUS.INITIALIZED;
@@ -44,14 +62,16 @@ contract Escrow is IEscrow {
     /*
     * @dev see IEscrow.sol
     */
-    function activate(address[] memory tokensToDeposit, uint[] memory amounts) public returns(bool) {
+    function activate(address[] calldata tokensToDeposit, uint[] calldata amounts) external returns(bool) {
         require(msg.sender == borrower, "Escrow: only borrower can call");
         require(lastUpdatedStatus == LoanLib.STATUS.INITIALIZED, "Escrow: must be in the initialized status");
         require(tokensToDeposit.length == amounts.length, "Escrow: array length mismatch");
         for(uint i = 0; i < tokensToDeposit.length; i++) {
             require(IOracle(oracle).getLatestAnswer(tokensToDeposit[i]) != 0, "Escrow: token cannot be valued");
-            require(IERC20(tokensToDeposit[i]).transferFrom(msg.sender, address(this), amounts[i]));
+            require(IERC20(tokensToDeposit[i]).transferFrom(borrower, address(this), amounts[i]));
             deposited[tokensToDeposit[i]] += amounts[i];
+            _addTokenUsed(tokensToDeposit[i]);
+            emit CollateralAdded(tokensToDeposit[i], amounts[i]);
         }
         lastUpdatedStatus = LoanLib.STATUS.ACTIVE;
 
@@ -67,7 +87,7 @@ contract Escrow is IEscrow {
         ) {
             return lastUpdatedStatus;
         }
-        uint cratio = _updateCollateralRatio();
+        uint cratio = _getLatestCollateralRatio();
         if(cratio > minimumCollateralRatio) {
             lastUpdatedStatus = LoanLib.STATUS.ACTIVE;
         } else {
@@ -81,20 +101,35 @@ contract Escrow is IEscrow {
     * @dev updates the cratio according to the collateral value vs loan value
     * @returns the updated collateral ratio
     */
-    function _updateCollateralRatio() internal returns(uint) {
-        // get debt value from the loan contract
-        // compare the collateral value against the debt value
-        // calculate the amount of collateral required by obtaining the debt value by minimumCollateralRatio
-        // calculate the value of the collateral and check that it against the min collateral value obtained above
-        // if the cratio is below the minimumCollateralRatio, call the healthcheck() to update the lastUpdatedStatus
-        // return the cratio based on the calculation
-        revert("Not implemented");
+    function _getLatestCollateralRatio() internal returns(uint) {
+        // TODO sanity check the math here
+        uint debtValue = ILoan(loan).accrueInterest();
+        uint collateralValue = _getCollateralValue();
+
+        return collateralValue / debtValue;
+    }
+
+    /*
+    * @dev calculate the USD value of the collateral stored
+    * @returns - the collateral's USD value
+    */
+    function _getCollateralValue() internal returns(uint) {
+        uint collateralValue = 0;
+        for(uint i = 0; i < _tokensUsedAsCollateral.length; i++) {
+            uint price = IOracle(oracle).getLatestAnswer(_tokensUsedAsCollateral[i]);
+            // TODO will need to scale by token decimal
+            // uint tokenDecimals = IERC20(_tokensUsedAsCollateral[i]).decimals();
+            // collateralValue += price * (deposited[_tokensUsedAsCollateral[i]] / tokenDecimals);
+            collateralValue += price * deposited[_tokensUsedAsCollateral[i]];
+        }
+
+        return collateralValue;
     }
 
     /*
     * @dev see IEscrow.sol
     */
-    function addCollateral(uint amount, address token) public returns(uint) {
+    function addCollateral(uint amount, address token) external returns(uint) {
         require(
             lastUpdatedStatus == LoanLib.STATUS.ACTIVE
             || lastUpdatedStatus == LoanLib.STATUS.LIQUIDATABLE,
@@ -107,18 +142,26 @@ contract Escrow is IEscrow {
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
         deposited[token] += amount;
         emit CollateralAdded(token, amount);
+        _addTokenUsed(token);
 
-        return _updateCollateralRatio();
+        return _getLatestCollateralRatio();
+    }
+
+    function _addTokenUsed(address token) internal {
+        if(!_tokensUsed[token]) {
+            _tokensUsed[token] = true;
+            _tokensUsedAsCollateral.push(token);
+        }
     }
 
     /*
     * @dev see IEscrow.sol
     */
-    function releaseCollateral(uint amount, address token, address to) public returns(uint) {
+    function releaseCollateral(uint amount, address token, address to) external returns(uint) {
         require(msg.sender == borrower, "Escrow: only borrower can call");
         require(IERC20(token).transferFrom(address(this), to, amount));
         deposited[token] -= amount;
-        uint cratio = _updateCollateralRatio();
+        uint cratio = _getLatestCollateralRatio();
         require(cratio >= minimumCollateralRatio, "Escrow: cannot release collateral if cratio becomes lower than the minimum");
         emit CollateralRemoved(token, amount);
 
@@ -128,14 +171,14 @@ contract Escrow is IEscrow {
     /*
     * @dev see IEscrow.sol
     */
-    function getCollateralRatio() public returns(uint) {
-        revert("Not implemented");
+    function getCollateralRatio() external returns(uint) {
+        return _getLatestCollateralRatio();
     }
 
     /*
     * @dev see IEscrow.sol
     */
-    function liquidate(address token, uint amount) public {
+    function liquidate(address token, uint amount) external {
         require(msg.sender == loan, "Escrow: msg.sender must be the loan contract");
         require(healthcheck() == LoanLib.STATUS.LIQUIDATABLE, "Escrow: not eligible for liquidation");
         require(IERC20(token).transferFrom(address(this), arbiter, amount));

@@ -25,7 +25,7 @@ interface IEscrow is IModule {
     * @param amounts - the amounts of collateral to add
     * @returns - boolean
     */
-    function activate(address[] memory tokensToDeposit, uint[] memory amounts) external returns(bool);
+    function activate(address[] calldata tokensToDeposit, uint[] calldata amounts) external returns(bool);
 
     /*
     * @dev add collateral to your position

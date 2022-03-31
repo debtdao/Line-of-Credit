@@ -15,23 +15,36 @@ contract EscrowTest is DSTest {
     RevenueToken unsupportedToken;
     SimpleOracle oracle;
     Loan loan;
+    uint mintAmount = 100 ether;
+    uint approveAmount = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint minCollateral = 1 ether; // 100%
+    uint maxDebtUSD = 100 * 1e8; // 100 USD
+
+    address borrower;
+    address lender = address(1);
+    address arbiter = address(2);
 
     function setUp() public {
+        borrower = address(this);
         supportedToken1 = new RevenueToken();
-        supportedToken1.mint(msg.sender, 1000000000);
-        supportedToken1.approve(address(this), 1000000000);
         supportedToken2 = new RevenueToken();
-        supportedToken2.mint(msg.sender, 1000000000);
-        supportedToken2.approve(address(this), 1000000000);
         unsupportedToken = new RevenueToken();
-        unsupportedToken.mint(msg.sender, 1000000000);
-        unsupportedToken.approve(address(this), 1000000000);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        address escrow = _initEscrow(10, address(oracle), address(1), msg.sender, address(2));
-        loan = new Loan(100, address(oracle), address(0), address(0), msg.sender, escrow, address(0));
+        _createEscrow(minCollateral, address(oracle), lender, borrower, arbiter);
+        loan = new Loan(maxDebtUSD, address(oracle), address(0), arbiter, borrower, address(escrow), address(0));
+        _mintAndApprove();
     }
 
-    function _initEscrow(
+    function _mintAndApprove() internal {
+        supportedToken1.mint(borrower, mintAmount);
+        supportedToken1.approve(address(escrow), approveAmount);
+        supportedToken2.mint(borrower, mintAmount);
+        supportedToken2.approve(address(escrow), approveAmount);
+        unsupportedToken.mint(borrower, mintAmount);
+        unsupportedToken.approve(address(escrow), approveAmount);
+    }
+
+    function _createEscrow(
         uint _minimumCollateralRatio,
         address _oracle,
         address _lender,
@@ -47,7 +60,7 @@ contract EscrowTest is DSTest {
         address[] memory tokensToDeposit = new address[](1);
         uint[] memory amounts = new uint[](1);
         tokensToDeposit[0] = address(supportedToken1);
-        amounts[0] = 100;
+        amounts[0] = 1 ether;
         escrow.activate(tokensToDeposit, amounts);
     }
 
@@ -61,29 +74,36 @@ contract EscrowTest is DSTest {
         assert(escrow.healthcheck() == LoanLib.STATUS.INITIALIZED);
     }
 
+    function test_can_activate() public {
+        escrow.init();
+        activate();
+        assert(escrow.lastUpdatedStatus() == LoanLib.STATUS.ACTIVE);
+    }
+
     function test_can_add_collateral() public {
         escrow.init();
         activate();
-        uint userBalance = supportedToken1.balanceOf(msg.sender);
-        escrow.addCollateral(1000, address(supportedToken1));
-        assert(userBalance == supportedToken1.balanceOf(msg.sender) - 1000);
+        _mintAndApprove();
+        uint borrowerBalance = supportedToken1.balanceOf(borrower);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assert(borrowerBalance == supportedToken1.balanceOf(borrower) - mintAmount);
     }
 
     function test_can_remove_collateral() public {
         escrow.init();
         activate();
-        escrow.addCollateral(1000, address(supportedToken1));
+        escrow.addCollateral(mintAmount, address(supportedToken1));
         uint userBalance = supportedToken1.balanceOf(msg.sender);
-        escrow.releaseCollateral(100, address(supportedToken1), msg.sender);
-        assert(userBalance == supportedToken1.balanceOf(msg.sender) + 100);
+        escrow.releaseCollateral(mintAmount, address(supportedToken1), msg.sender);
+        assert(userBalance == supportedToken1.balanceOf(msg.sender) + mintAmount);
     }
 
     function test_cratio_adjusts_when_collateral_changes() public {
         loan.init();
         activate();
-        loan.addDebtPosition(100, address(supportedToken1), address(0));
+        loan.addDebtPosition(1 ether, address(supportedToken1), address(0));
         uint escrowRatio = escrow.getCollateralRatio();
-        escrow.addCollateral(1000, address(supportedToken1));
+        escrow.addCollateral(1 ether, address(supportedToken1));
         uint newEscrowRatio = escrow.getCollateralRatio();
         assert(newEscrowRatio > escrowRatio);
     }
@@ -91,8 +111,8 @@ contract EscrowTest is DSTest {
     function test_cratio_adjusts_when_collateral_price_changes() public {
         loan.init();
         activate();
-        escrow.addCollateral(1000, address(supportedToken1));
-        loan.addDebtPosition(100, address(supportedToken1), address(0));
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        loan.addDebtPosition(1 ether, address(supportedToken1), address(0));
         uint escrowRatio = escrow.getCollateralRatio();
         oracle.changePrice(address(supportedToken1), 10000);
         uint newEscrowRatio = escrow.getCollateralRatio();
@@ -103,12 +123,16 @@ contract EscrowTest is DSTest {
     function test_can_liquidate() public {
         loan.init();
         activate();
-        escrow.addCollateral(1000, address(supportedToken1));
-        loan.addDebtPosition(100, address(supportedToken2), address(0));
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        loan.addDebtPosition(1 ether, address(supportedToken2), address(0));
         oracle.changePrice(address(supportedToken1), 0);
         assert(escrow.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
-        escrow.liquidate(address(supportedToken1), 1000);
+        escrow.liquidate(address(supportedToken1), 1 ether);
         assert(supportedToken1.balanceOf(address(2)) == 1000);
+    }
+
+    function testFail_cannot_activate_if_uninitialized() public {
+        activate();
     }
 
     function testFail_cannot_remove_collateral_when_under_collateralized() public {
