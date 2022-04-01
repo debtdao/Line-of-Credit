@@ -1,5 +1,10 @@
 pragma solidity 0.8.9;
 
+/**
+ * @title Debt DAO P2P Loan Library
+ * @author Kiba Gateaux
+ * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
+ */
 library LoanLib {
     address constant DEBT_TOKEN = address(0xdebf);
 

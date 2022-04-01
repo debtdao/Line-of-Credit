@@ -13,6 +13,11 @@ import { IInterestRate } from "./interfaces/IInterestRate.sol";
 import { IModule } from "./interfaces/IModule.sol";
 import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 
+/**
+ * @title Debt DAO P2P Loan Contract
+ * @author Kiba Gateaux
+ * @notice Basic loan functionality used to create base for custom loan functionality in Debt DAO marketplace
+ */
 contract Loan is ILoan, MutualUpgrade {
   address immutable borrower;   // borrower being lent to
   
@@ -48,6 +53,18 @@ contract Loan is ILoan, MutualUpgrade {
   // ordered by most likely to return early in healthcheck() with non-ACTIVE status
   address[4] public modules = [escrow, spigot, oracle, interestRateModel];
 
+  /**
+   * @dev - Loan borrower and proposed lender agree on terms
+            and add it to potential options for borrower to drawdown on
+            Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
+   * @param maxDebtValue_ - total debt accross all lenders that borrower is allowed to create
+   * @param oracle_ - price oracle to use for getting all token values
+   * @param spigot_ - contract securing/repaying loan from borrower revenue streams
+   * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
+   * @param borrower_ - the debitor for all debt positions in this contract
+   * @param escrow_ - contract holding all collateral for borrower
+   * @param interestRateModel_ - contract calculating lender interest from debt position values
+  */
   constructor(
     uint256 maxDebtValue_,
     address oracle_,
