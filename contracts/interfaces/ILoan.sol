@@ -46,5 +46,6 @@ interface ILoan is IModule {
   ) external returns(bool);
 
   function accrueInterest() external returns(uint256 amountAccrued);
+  function getOutstandingDebt() external returns(uint256 totalDebt);
   // function liquidate() external returns(uint256 totalValueLiquidated);
 }

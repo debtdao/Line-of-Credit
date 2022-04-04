@@ -34,7 +34,7 @@ contract Loan is ILoan, MutualUpgrade {
   LoanLib.STATUS public loanStatus;
   // all deonminated in USD
   uint256 public principal; // initial loan  drawdown
-  uint256 public totalInterestAccrued;// principal + interest
+  uint256 public totalInterestAccrued;// unpaid interest
 
   // i dont think we need to keep global var on this. only check per debt position
   uint256 public maxDebtValue; // total amount of USD value to be pulled from loan
@@ -117,6 +117,15 @@ contract Loan is ILoan, MutualUpgrade {
 
   function loan() override external returns(address) {
     return address(this);
+  }
+
+  /**
+  @dev Returns total debt obligation of borrower.
+       Aggregated across all lenders.
+       Denominated in USD.
+  */
+  function getOutstandingDebt() override external returns(uint256) {
+    return principal + totalInterestAccrued;
   }
 
   /**
