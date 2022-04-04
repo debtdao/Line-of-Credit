@@ -259,10 +259,10 @@ contract SpigotController is ReentrancyGuard {
      */
     function _addSpigot(address revenueContract, SpigotSettings memory setting) internal returns (bool) {
         require(revenueContract != address(this));
-        require(settings[revenueContract].ownerSplit == 0, "Spigot: Setting already exists");
+        require(settings[revenueContract].transferOwnerFunction == bytes4(0), "Spigot: Setting already exists");
         
         require(setting.transferOwnerFunction != bytes4(0), "Spigot: Invalid spigot setting");
-        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit > 0, "Spigot: Invalid split rate");
+        require(setting.ownerSplit <= MAX_SPLIT, "Spigot: Invalid split rate");
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -297,6 +297,16 @@ contract SpigotController is ReentrancyGuard {
 
         return true;
     }
+
+    function updateOwnerSplit(address revenueContract, uint8 newSplit) external returns(bool) {
+      require(msg.sender == owner);
+      require(newSplit <= MAX_SPLIT);
+      require(settings[revenueContract].transferOwnerFunction != bytes4(0), "Spigot: does not exist");
+      settings[revenueContract].ownerSplit = newSplit;
+      
+      return true;
+    }
+    
 
     /**
      * @dev Update Owner role of SpigotController contract.
