@@ -42,7 +42,7 @@ interface ILoan is IModule {
   function claimSpigotAndRepay(
     bytes32 positionId,
     address token,
-    bytes[] calldata zeroExTradeData
+    bytes calldata zeroExTradeData
   ) external returns(bool);
 
   function accrueInterest() external returns(uint256 amountAccrued);

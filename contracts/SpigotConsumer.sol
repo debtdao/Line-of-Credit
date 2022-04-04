@@ -1,4 +1,5 @@
 import { ISpigot } from "./interfaces/ISpigot.sol";
+import { ISpigotConsumer } from "./interfaces/ISpigotConsumer.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -8,17 +9,19 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  * @notice Used to progromattically manage a spigot for a loan contract
  * @dev Should be deployed once per Loan/Spigot
  */
-contract SpigotConsumer is ReentrancyGuard {
-  address constant ZERO_EX_EXCHANGE = address(0);
+contract SpigotConsumer is ISpigotConsumer, ReentrancyGuard {
+  address immutable ZERO_EX_EXCHANGE;
   
   ISpigot immutable spigot;
   address immutable loan;
   constructor(
     address _spigot,
-    address _loan
+    address _loan,
+    address exchangeAddress
   ) {
     spigot = ISpigot(_spigot);
     loan = _loan;
+    ZERO_EX_EXCHANGE = exchangeAddress;
   }
 
   modifier onlyLoan() {
@@ -26,16 +29,37 @@ contract SpigotConsumer is ReentrancyGuard {
     _;
   }
 
+  /**
+   * @notice Transfers ownership of spigot and all revenue streams it holds to new address.
+   *          Used to give borrower control after loan repaid or repo if defaulted. 
+   * @dev This will prevent SpigotConsumer from working and may cause calls to Loan to fail.
+   * @param newOwner - address thst will control spigot 
+   * @return success bool
+   */
   function transferSpigotOwner(address newOwner) external onlyLoan returns(bool) {
     require(spigot.updateOwner(newOwner));
     return true;
   }
 
+  /**
+   * @notice Update % revenue split between Spigot and borrower
+   * @dev assumes validity checks to be done in Spigot contract
+   * @param revenueContract- spigot to uopate split on
+   * @param newSplit - % revenue split going forward
+   * @return success bool
+   */
   function updateRevenueSplit(address revenueContract, uint8 newSplit) external onlyLoan returns(bool) {
     require(spigot.updateOwnerSplit(revenueContract, newSplit));
     return true;
   }
 
+  /**
+   * @notice Claims revenues tokens from Spigot and trades them on 0x to a token that borrwer lent out
+   * @param claimToken- revenue token escrowed in Spigot to claim
+   * @param targetToken- token t hat debt is denominated in that must be repaid
+   * @param zeroExTradeData - data returned by 0x API to execute trade
+   * @return available amount of `targetToken` that can be used to repay loan
+   */
   function claimAndTrade(
     address claimToken, 
     address targetToken, 
@@ -66,18 +90,34 @@ contract SpigotConsumer is ReentrancyGuard {
     return newBalance;
   }
 
+
+  /**
+   * @notice 
+   * @param token -revenue token escrowed in Spigot to claim
+   * @return amount of tokens claimed from Spigot
+   */
   function claimTokens(address token) external returns(uint256) {
     return spigot.claimEscrow(token);
   }
 
+  /**
+   * @notice Gets the total amount of tokens held in SpigotConsumer + Spigot escrow that can be used to trade for debt tokens
+   * @param token - token to retrieve data on
+   * @return amount of tokens
+   */
   function getTotalTradableTokens(address token) external returns(uint256) {
     return _balanceOf(token) + spigot.getEscrowBalance(token);
   }
 
   /**
-   * @notice sends tokens claimed/traded from spigot revenue to
+   * @notice Transfers token from SpigotConsumer to `to` address.
+             Useful if extra debt tokens held in Soigot Consumer because there is not enough debt to spend them all at the time of claiming/trading
+   * @param to - who to send tokens to
+   * @param token - token to send
+   * @param amount - amoutn of token to send
+   * @return success bool
    */
-  function stream(address lender, address token, uint256 amount)
+  function stream(address to, address token, uint256 amount)
     external
     nonReentrant
     onlyLoan
@@ -87,11 +127,13 @@ contract SpigotConsumer is ReentrancyGuard {
 
     bool success;
     if(token == address(0)) {
-      (success, ) = lender.call{value: amount}("");
+      (success, ) = to.call{value: amount}("");
     } else {
-      success = IERC20(token).transfer(lender, amount);
+      success = IERC20(token).transfer(to, amount);
     }
     require(success);
+
+    return true;
   }
 
   function _balanceOf(address token) internal view returns(uint256) {

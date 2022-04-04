@@ -300,7 +300,7 @@ contract Loan is ILoan, MutualUpgrade {
   function claimSpigotAndRepay(
     bytes32 positionId,
     address claimToken,
-    bytes[] calldata zeroExTradeData
+    bytes calldata zeroExTradeData
   )
     onlyBorrower
     validPositionId(positionId)
