@@ -24,7 +24,7 @@ interface ILoan is IModule {
 
   event Repay(address indexed lender, address indexed token, uint256 indexed amount);
 
-  event Liquidated(uint256 indexed positionId, uint256 indexed amount, address indexed token);
+  event Liquidated(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 
   // General Events
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
@@ -32,14 +32,14 @@ interface ILoan is IModule {
 
   // External Functions  
   function addDebtPosition(uint256 amount, address token, address lender) external returns(bool);
-  function withdraw(uint256 positionId, uint256 amount) external returns(bool);
-  function borrow(uint256 positionId, uint256 amount) external returns(bool);
-  function close(uint256 positionId) external returns(bool);
+  function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
+  function borrow(bytes32 positionId, uint256 amount) external returns(bool);
+  function close(bytes32 positionId) external returns(bool);
 
-  function depositAndRepay(uint256 positionId, uint256 amount) external returns(bool);
-  function depositAndClose(uint256 positionId) external returns(bool);
+  function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
+  function depositAndClose(bytes32 positionId) external returns(bool);
   function claimSpigotAndRepay(
-    uint256 positionId,
+    bytes32 positionId,
     address token,
     bytes[] calldata zeroExTradeData
   ) external returns(bool);
