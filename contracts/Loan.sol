@@ -257,7 +257,7 @@ contract Loan is ILoan, MutualUpgrade {
 
   /**
    * @dev - Transfers token used in debt position from msg.sender to Loan contract.
-   * @notice - see repay() for more details
+   * @notice - see _repay() for more details
    * @param positionId -the debt position to pay down debt on
    * @param amount - amount of `token` in `positionId` to pay back
   */
@@ -349,12 +349,10 @@ contract Loan is ILoan, MutualUpgrade {
     _accrueInterest();
     DebtPosition memory debt = debts[positionId];
 
-    // TODO check early repayment logic
     uint256 totalOwed = debt.principal + debt.interestAccrued;
-    IERC20 token = IERC20(debt.token);
 
     // borrwer deposits remaining balance not already repaid and held in contract
-    bool success = token.transferFrom(
+    bool success = IERC20(debt.token).transferFrom(
       msg.sender,
       address(this),
       totalOwed
@@ -438,11 +436,39 @@ contract Loan is ILoan, MutualUpgrade {
    * @param positionId -the debt position to close
   */
   function close(bytes32 positionId) override external returns(bool) {
+    DebtPosition memory debt = debts[positionId];
     require(
-      msg.sender == debts[positionId].lender ||
+      msg.sender == debt.lender ||
       msg.sender == borrower
     );
-    require(_close(debts[positionId], positionId));
+    require(debt.principal + debt.interestAccrued == 0, 'Loan: close failed. debt owed');
+    
+    // repay lender initial deposit + accrued interest
+    if(debt.deposit > 0) {
+      require(IERC20(debt.token).transfer(debt.lender, debt.deposit));
+    }
+
+    require(_close(debt, positionId));
+    
+    return true;
+  }
+
+
+  /**
+   * @dev - Allows lender to pull all funds from contract, realizing any losses from non-payment.
+   * @param positionId -the debt position to close
+  */
+  function emergencyClose(bytes32 positionId) override external returns(bool) {
+    DebtPosition memory debt = debts[positionId];
+    require(msg.sender == debt.lender);
+
+    if(debt.deposit > 0) {
+      uint256 availableFunds = IERC20(debt.token).balanceOf(address(this));
+      uint256 recoverableFunds = availableFunds > debt.deposit ? debt.deposit : availableFunds;
+      require(IERC20(debt.token).transfer(debt.lender, recoverableFunds));
+    }
+
+    require(_close(debt, positionId));
     
     return true;
   }
@@ -518,14 +544,14 @@ contract Loan is ILoan, MutualUpgrade {
   }
 
   function _close(DebtPosition memory debt, bytes32 positionId) internal returns(bool) {
-    // potential attacck vector, currently only lender can reduce deposit.
-    // If lender gets interest on deposit, not just principal, borrower can be forced
-    // to pay interest even if they repaid debt and want to close
-    require(debt.deposit == 0, 'Loan: close failed. debt owed');
-
     // delete position and remove from active list
     delete debts[positionId]; // yay gas refunds!!!
     positionIds = LoanLib.removePosition(positionIds, positionId);
+
+    // brick loan contract if all positions closed
+    if(positionIds.length == 0) {
+      loanStatus = LoanLib.STATUS.REPAID;
+    }
 
     emit CloseDebtPosition(debt.lender, debt.token);
 

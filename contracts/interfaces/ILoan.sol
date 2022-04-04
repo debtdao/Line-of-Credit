@@ -35,6 +35,7 @@ interface ILoan is IModule {
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
   function borrow(bytes32 positionId, uint256 amount) external returns(bool);
   function close(bytes32 positionId) external returns(bool);
+  function emergencyClose(bytes32 positionId) external returns(bool);
 
   function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
   function depositAndClose(bytes32 positionId) external returns(bool);
