@@ -1,4 +1,10 @@
 
+/**
+ * @title Spigot Consumer Module for Debt DAO P2P Loans
+ * @author Kiba Gateaux
+ * @notice Used to progromattically manage a spigot for a loan contract
+ * @dev Should be deployed once per Loan/Spigot
+ */
 contract SpigotConsumer {
   constructor() {
 

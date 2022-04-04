@@ -7,15 +7,15 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  * @title SpigotController
  * @author Kiba Gateaux
  * @notice Contract allowing Owner to secure revenue streams from a DAO and split payments between them
+ * @dev Should be deployed once per loan. Can attach multiple revenue contracts
  */
-
 contract SpigotController is ReentrancyGuard {
 
     struct SpigotSettings {
-        address token;
-        uint8 ownerSplit; // x/100 to Owner, rest to Treasury
-        bytes4 claimFunction;
-        bytes4 transferOwnerFunction;
+        address token;                // token to claim as revenue from contract
+        uint8 ownerSplit;             // x/100 % to Owner, rest to Treasury
+        bytes4 claimFunction;         // function signature on contract to call and claim revenue
+        bytes4 transferOwnerFunction; // function signature on conract to call and transfer ownership 
     }
 
     // Constants 
