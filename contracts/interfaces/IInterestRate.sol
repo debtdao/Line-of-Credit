@@ -1,4 +1,4 @@
-import { LoanLib } from "../lib/LoanLib.sol";
+import { LoanLib } from "../utils/LoanLib.sol";
 import { IModule } from "./IModule.sol";
 
 interface IInterestRate is IModule {

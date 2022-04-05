@@ -1,8 +1,8 @@
 pragma solidity ^0.8.9;
 
 // Helpers
-import { MutualUpgrade } from "../../lib/MutualUpgrade.sol";
-import { LoanLib } from "../../lib/LoanLib.sol";
+import { MutualUpgrade } from "../../utils/MutualUpgrade.sol";
+import { LoanLib } from "../../utils/LoanLib.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // module interfaces 
@@ -48,7 +48,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
             Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
    * @param maxDebtValue_ - total debt accross all lenders that borrower is allowed to create
    * @param oracle_ - price oracle to use for getting all token values
-   * @param spigot_ - contract securing/repaying loan from borrower revenue streams
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
    * @param escrow_ - contract holding all collateral for borrower
@@ -163,7 +162,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // );
     
     for(uint i; i < modules.length; i++) {
-      // require(IModule(modules[i]).init(), 'Loan: misconfigured module');
+      require(IModule(modules[i]).init(), 'Loan: misconfigured module');
     }
 
     // probably also need to check that the modules have this Loan contract

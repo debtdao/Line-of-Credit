@@ -1,8 +1,8 @@
 
 pragma solidity ^0.8.9;
 
-import { BaseLoan } from "./BaseLoan.sol";
-import { LoanLib } from "../../lib/LoanLib.sol";
+import { LoanLib } from "../../utils/LoanLib.sol";
+import { ILoan } from "../../interfaces/ILoan.sol";
 
 abstract contract TermLoan {
   LoanLib.STATUS loanStatus;
@@ -18,6 +18,7 @@ abstract contract TermLoan {
   }
 
 
+  function _getMaxRepayableAmount(ILoan.DebtPosition memory deb) virtual internal returns(uint256) { }
   function _liquidate() virtual internal {
     require(loanStatus == LoanLib.STATUS.DELINQUENT);
     loanStatus = LoanLib.STATUS.LIQUIDATABLE;

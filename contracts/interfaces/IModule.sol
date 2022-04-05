@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import { LoanLib } from "../lib/LoanLib.sol";
+import { LoanLib } from "../utils/LoanLib.sol";
 
 interface IModule {
   function healthcheck() external returns (LoanLib.STATUS status);
