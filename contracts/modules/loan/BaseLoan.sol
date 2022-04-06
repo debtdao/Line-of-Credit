@@ -31,11 +31,10 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   // Loan Modules
   address public oracle;  // could move to LoanLib and make singleton
   address public arbiter; // could make dynamic/harcoded ens('arbiter.debtdao.eth')
-  address public escrow;
   address public interestRateModel;
 
   // ordered by most likely to return early in healthcheck() with non-ACTIVE status
-  address[3] public modules = [escrow, oracle, interestRateModel];
+  address[] public modules;
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -45,7 +44,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param oracle_ - price oracle to use for getting all token values
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
-   * @param escrow_ - contract holding all collateral for borrower
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
   constructor(
@@ -53,14 +51,12 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     address oracle_,
     address arbiter_,
     address borrower_,
-    address escrow_,
     address interestRateModel_
   ) {
     maxDebtValue = maxDebtValue_;
 
     borrower = borrower_;
     interestRateModel = interestRateModel_;
-    escrow = escrow_;
     arbiter = arbiter_;
     oracle = oracle_;
 
@@ -99,15 +95,26 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   // HOOKS //
   ///////////
 
-    /**
+  /**
    * @dev  Used to addc custom liquidation functionality until we create separate Liquidation module
    * @param debt - debt position data for loan being repaid
-   * @return usd value of assets liquidated
+   * @param positionId - deterministic id on loan, passed to use in Liquidate event without recomputing
+   * @param amount - expected amount of `targetToken` to be liquidated
+   * @param targetToken - token to liquidate to repay debt
+   * @return amount of tokens actually liquidated
   */
-  function _liquidate(DebtPosition memory debt) virtual internal returns(uint256) {
-    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+  function _liquidate(
+    DebtPosition memory debt,
+    bytes32 positionId,
+    uint256 amount,
+    address targetToken
+  )
+    virtual internal
+    returns(uint256)
+  {
     return 0;
   }
+
 
   /**
    * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
@@ -115,7 +122,15 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param requestedRepayAmount - amount of debt that the borrower would like to pay
    * @return - amount borrower is allowedto repay. Returns 0 if repayment is not allowed
   */
-  function _getMaxRepayableAmount(DebtPosition memory debt, uint256 requestedRepayAmount) virtual internal returns(uint256) {}
+  function _getMaxRepayableAmount(
+    DebtPosition memory debt,
+    uint256 requestedRepayAmount
+  )
+    virtual internal
+    returns(uint256)
+  {
+
+  }
 
 
   /**
@@ -123,7 +138,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param debt - debt position data for loan being calculated
    * @return total interest to add to position
   */
-  function _getInterestPaymentAmount(DebtPosition memory debt) virtual internal returns(uint256) {}
+  function _getInterestPaymentAmount(
+    DebtPosition memory debt
+  )
+    virtual internal
+    returns(uint256)
+  {
+
+  }
 
   /**
    * @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
@@ -141,14 +163,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
     if(principal + totalInterestAccrued > maxDebtValue)
       return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
-      
-    for(uint i; i < modules.length; i++) {
-       // should we differentiate failed calls vs bad statuses?
-      status = IModule(modules[i]).healthcheck();
-      if(status != LoanLib.STATUS.ACTIVE)
-        return _updateLoanStatus(status);
-    }
-    
+
     return loanStatus;
   }
   
@@ -214,23 +229,27 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
 
   // Liquidation
+  /**
+   * @notice - Forcefully take collateral from borrower and repay debt for lender
+   * @dev - only called by neutral arbiter party/contract
+   * @dev - `loanStatus` must be LIQUIDATABLE
+   * @param positionId -the debt position to pay down debt on
+   * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
+   * @param targetToken - token that is expected to be sold of to repay positionId
+   */
 
   function liquidate(
     bytes32 positionId,
     uint256 amount,
-    address escrowToken
+    address targetToken
   )
     onlyArbiter
     validPositionId(positionId)
     external
   {
     require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
-
-    // call method within escrow contract
-    // releasing everything to debt DAO multisig to be dealt with OTC
-    IEscrow(escrow).liquidate(amount, escrowToken, arbiter);
-
-    emit Liquidated(positionId, amount, escrowToken);
+    DebtPosition memory debt = debts[positionId];
+    _liquidate(debt, amount, targetToken);
   }
 
 

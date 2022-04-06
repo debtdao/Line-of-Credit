@@ -5,7 +5,7 @@ import { BaseLoan } from "./BaseLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { ISpigotConsumer } from "../../interfaces/ISpigotConsumer.sol";
 
-contract SpigotLoan is BaseLoan {
+contract SpigotedLoan is BaseLoan {
   address public spigot;
 
     /**
@@ -15,7 +15,6 @@ contract SpigotLoan is BaseLoan {
    * @param spigot_ - contract securing/repaying loan from borrower revenue streams
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
-   * @param escrow_ - contract holding all collateral for borrower
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
   constructor(
@@ -23,11 +22,10 @@ contract SpigotLoan is BaseLoan {
     address oracle_,
     address arbiter_,
     address borrower_,
-    address escrow_,
     address interestRateModel_,
     address spigot_
   )
-    BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, escrow_, interestRateModel_)
+    BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, interestRateModel_)
   {
     maxDebtValue = maxDebtValue_;
 
