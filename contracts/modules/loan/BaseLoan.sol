@@ -18,14 +18,9 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
   bytes32[] positionIds; // all active positions
 
-  // vars still missing
-  // start time
-  // term length
-  // ability to repay interest or principal too
-  // compounding rate
-
   // Loan Financials aggregated accross all existing  DebtPositions
   LoanLib.STATUS public loanStatus;
+
   // all deonminated in USD
   uint256 public principal; // initial loan  drawdown
   uint256 public totalInterestAccrued;// unpaid interest
@@ -107,71 +102,34 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     /**
    * @dev  Used to addc custom liquidation functionality until we create separate Liquidation module
    * @param debt - debt position data for loan being repaid
+   * @return usd value of assets liquidated
   */
-  function _liquidate(DebtPosition memory debt) virtual internal returns(uint256) {}
+  function _liquidate(DebtPosition memory debt) virtual internal returns(uint256) {
+    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+    return 0;
+  }
 
   /**
    * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
    * @param debt - debt position data for loan being repaid
+   * @param requestedRepayAmount - amount of debt that the borrower would like to pay
+   * @return - amount borrower is allowedto repay. Returns 0 if repayment is not allowed
   */
-  function _getMaxRepayableAmount(DebtPosition memory debt) virtual internal returns(uint256) {}
+  function _getMaxRepayableAmount(DebtPosition memory debt, uint256 requestedRepayAmount) virtual internal returns(uint256) {}
 
 
   /**
-   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
-   * @param debt - debt position data for loan being repaid
-   * @return outstanding balance for active interest rate
-   * @return total deposit available for passive interest rate
+   * @dev  Calls interestRate contract and gets amount of interest owned on debt position
+   * @param debt - debt position data for loan being calculated
+   * @return total interest to add to position
   */
-  function _getBalancesForInterestPayment(DebtPosition memory debt) virtual internal returns(uint256, uint256) {}
-
-  //////////////////////
-  // MODULE INTERFACE //
-  //////////////////////
-
-  function loan() override external returns(address) {
-    return address(this);
-  }
-
-  /**
-  @dev Returns total debt obligation of borrower.
-       Aggregated across all lenders.
-       Denominated in USD.
-  */
-  function getOutstandingDebt() override external returns(uint256) {
-    return principal + totalInterestAccrued;
-  }
+  function _getInterestPaymentAmount(DebtPosition memory debt) virtual internal returns(uint256) {}
 
   /**
    * @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
         Once agreed by both parties sets loanStatus to ACTIVE allowing borrwoing and interest accrual
   */
-  function _init()
-    mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    virtual internal
-    returns(bool)
-  {
-    // I lean towards option 1 vs option 2
-    // on second thought i like option 2 because init can happen whenever, we only care that it happened
-    // e.g. someone besides borrower puts up the collateral
-    // require(IEscrow(escrow).init(borrower)); // transfer all required collateral before activating loan
-    // require(
-    //   module.loan() == this &&
-    //   module.healthcheck() == LoanLib.STATUS.ACTIVE,
-    //   'Loan: no collateral to init'
-    // );
-    
-    for(uint i; i < modules.length; i++) {
-      require(IModule(modules[i]).init(), 'Loan: misconfigured module');
-    }
-
-    // probably also need to check that the modules have this Loan contract
-
-    // check spigot has control of revenue contracts here?
-    // transfer DEBT as origination fee?
-
-    // or can make initialized and have separate function for executing everything after agreed updon in mutualUpgrade.
-    // just annoying if one module doesnt work, both parties have to keep calling init() to ACTIVE loan instead of 
+  function _init() virtual internal returns(bool) {
     _updateLoanStatus(LoanLib.STATUS.ACTIVE);
     return true;
   }
@@ -194,6 +152,15 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return loanStatus;
   }
   
+  /**
+  @dev Returns total debt obligation of borrower.
+       Aggregated across all lenders.
+       Denominated in USD.
+  */
+  function getOutstandingDebt() override external returns(uint256) {
+    return principal + totalInterestAccrued;
+  }
+
   /**
    * @dev - Loan borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
@@ -236,11 +203,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // also add interest rate model here?
     return true;
   }
-
-  //
-  // Inititialiation
-  //
-
   
   /**
     @notice see _accrueInterest()

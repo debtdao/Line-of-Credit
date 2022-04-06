@@ -2,7 +2,7 @@ import { IModule } from "./IModule.sol";
 import { IModule } from "./IModule.sol";
 import { LoanLib } from "../utils/LoanLib.sol";
 
-interface ILoan is IModule {
+interface ILoan {
   // Stakeholder data
   struct DebtPosition {
     address lender;           // person to repay
