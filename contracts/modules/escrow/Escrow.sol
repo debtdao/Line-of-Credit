@@ -150,7 +150,7 @@ contract Escrow is IEscrow {
     /*
     * @dev see IEscrow.sol
     */
-    function liquidate(uint amount, address token, address to) external {
+    function liquidate(uint amount, address token, address to) external returns(bool) {
         require(amount > 0, "Escrow: amount is 0");
         require(msg.sender == loan, "Escrow: msg.sender must be the loan contract");
         require(minimumCollateralRatio > _getLatestCollateralRatio(), "Escrow: not eligible for liquidation");
@@ -158,6 +158,8 @@ contract Escrow is IEscrow {
         deposited[token] -= amount;
         require(IERC20(token).transfer(to, amount));
         emit Liquidated(token, amount);
+
+        return true;
     }
 
     // TODO @smokey

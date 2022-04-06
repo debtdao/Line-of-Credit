@@ -56,8 +56,9 @@ interface IEscrow {
     * @param amount - the amount of tokens to liquidate
     * @param token - the address of the token to draw funds from
     * @param to - the address to receive the funds
+    * @returns - true if successful
     */
-    function liquidate(uint amount, address token, address to) external;
+    function liquidate(uint amount, address token, address to) external returns(bool);
 
     // TODO @smokey
     function stakeCollateral(address token, uint amount, Farm memory farm) external;
