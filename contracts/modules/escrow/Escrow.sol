@@ -1,9 +1,9 @@
 pragma solidity 0.8.9;
 
-import { IEscrow } from "./interfaces/IEscrow.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IOracle } from "./interfaces/IOracle.sol";
-import { ILoan } from "./interfaces/ILoan.sol";
+import { IEscrow } from "../../interfaces/IEscrow.sol";
+import { IOracle } from "../../interfaces/IOracle.sol";
+import { ILoan } from "../../interfaces/ILoan.sol";
 
 contract Escrow is IEscrow {
 

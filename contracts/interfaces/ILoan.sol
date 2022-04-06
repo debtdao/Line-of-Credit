@@ -1,6 +1,7 @@
 import { IModule } from "./IModule.sol";
 import { IModule } from "./IModule.sol";
-import { LoanLib } from "../lib/LoanLib.sol";
+import { LoanLib } from "../utils/LoanLib.sol";
+
 interface ILoan is IModule {
   // Stakeholder data
   struct DebtPosition {
@@ -42,7 +43,7 @@ interface ILoan is IModule {
   function claimSpigotAndRepay(
     bytes32 positionId,
     address token,
-    bytes[] calldata zeroExTradeData
+    bytes calldata zeroExTradeData
   ) external returns(bool);
 
   function accrueInterest() external returns(uint256 amountAccrued);

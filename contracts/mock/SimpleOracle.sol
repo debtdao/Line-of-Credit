@@ -1,7 +1,7 @@
 pragma solidity 0.8.9;
 
 import { IOracle } from "../interfaces/IOracle.sol";
-import { LoanLib } from "../lib/LoanLib.sol";
+import { LoanLib } from "../utils/LoanLib.sol";
 
 contract SimpleOracle is IOracle {
 
