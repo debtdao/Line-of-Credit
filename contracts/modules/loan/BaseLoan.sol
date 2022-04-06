@@ -266,7 +266,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     // call method within escrow contract
     // releasing everything to debt DAO multisig to be dealt with OTC
-    IEscrow(escrow).releaseCollateral(amount, escrowToken, arbiter);
+    IEscrow(escrow).liquidate(amount, escrowToken, arbiter);
 
     emit Liquidated(positionId, amount, escrowToken);
   }
