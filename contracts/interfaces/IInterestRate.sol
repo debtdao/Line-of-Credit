@@ -3,7 +3,7 @@ import { IModule } from "./IModule.sol";
 
 interface IInterestRate is IModule {
   function accrueInterest(
-    uint256 lenderId, 
+    bytes32 positionId, 
     uint256 amount, 
     LoanLib.STATUS currentStatus
   ) external returns(uint256);

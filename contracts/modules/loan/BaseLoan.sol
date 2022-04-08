@@ -139,25 +139,21 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @return total interest to add to position
   */
   function _getInterestPaymentAmount(
-    DebtPosition memory debt
+    DebtPosition memory debt,
+    bytes32 positionId
   )
     virtual internal
     returns(uint256)
   {
-
+    return IInterestRate(interestRateModel).accrueInterest(
+      positionId,
+      debt.principal,
+      loanStatus
+    );
   }
 
   /**
-   * @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
-        Once agreed by both parties sets loanStatus to ACTIVE allowing borrwoing and interest accrual
-  */
-  function _init() virtual internal returns(bool) {
-    _updateLoanStatus(LoanLib.STATUS.ACTIVE);
-    return true;
-  }
-
-  /**
-   *  @dev - loops through all modules and returns their status if required last to savegas on override external calls
+   *  @notice - loops through all modules and returns their status if required last to savegas on override external calls
    *        returns early if returns non-ACTIVE
   */
   function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
@@ -440,17 +436,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     DebtPosition memory debt,
     uint256 amount
   )
-    isOperational(loanStatus)
-    internal
+    virtual internal
     returns(bool)
   {
-    // should we refresh all values in usd here?
-    if(amount < debt.interestAccrued) {
+    uint256 price = _getTokenPrice(debt.token);
+    if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
-      totalInterestAccrued -= _getUsdValue(debt.token, amount);
+      totalInterestAccrued -= price * amount;
     } else {
-      uint256 price = _getTokenPrice(debt.token);
-      
       // update global debt denominated in usd
       principal -= price * (amount - debt.interestAccrued);
       totalInterestAccrued -= price * debt.interestAccrued;
@@ -472,18 +465,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
             Also updates global USD values for `totalInterestAccrued`.
             Can only be called when loan is not in distress
   */
-  function _accrueInterest() internal isOperational(loanStatus) returns (uint256 accruedAmount) {
+  function _accrueInterest() isActive internal returns (uint256 accruedAmount) {
     uint256 len = positionIds.length;
     DebtPosition memory debt;
 
     for(uint256 i = 0; i < len; i++) {
       debt = debts[positionIds[len]];
       // get token demoninated interest accrued
-      uint256 tokenIncrease = IInterestRate(interestRateModel).accrueInterest(
-        len, // IR settings break if positionID changes. need constant/deterministic id
-        debt.principal,
-        loanStatus
-      );
+      uint256 tokenIncrease = _getInterestPaymentAmount(debt, positionIds[len]);
 
       // update debts balance
       debt.interestAccrued += tokenIncrease;
@@ -491,7 +480,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       debt.deposit += tokenIncrease;
 
       // get USD value of interest accrued
-      accruedAmount += _getUsdValue(debt.token, tokenIncrease);
+      accruedAmount += _getTokenPrice(debt.token) * tokenIncrease;
     }
 
     totalInterestAccrued += accruedAmount;
