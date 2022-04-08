@@ -32,7 +32,6 @@ abstract contract EscrowedLoan is ILoan {
 
   /** @dev see BaseLoan._liquidate */
   function _liquidate(
-    ILoan.DebtPosition memory debt,
     bytes32 positionId,
     uint256 amount,
     address targetToken

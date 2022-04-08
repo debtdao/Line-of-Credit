@@ -67,9 +67,7 @@ contract SpigotedLoan is BaseLoan, ISpigotedLoan {
 
     // TODO check if early repayment is allowed on loan
     // then update logic here. Probs need an internal func
-    uint256 amountToRepay = debt.interestAccrued < tokensBought ?
-      debt.interestAccrued :
-      tokensBought;
+    uint256 amountToRepay = _getMaxRepayableAmount(positionId, tokensBought);
 
     // claim bought tokens from spigot to repay loan
     require(
@@ -77,7 +75,13 @@ contract SpigotedLoan is BaseLoan, ISpigotedLoan {
       'Loan: failed repayment'
     );
 
-    _repay(debt, amountToRepay);
+    _repay(positionId, amountToRepay);
+
+    emit RevenuePayment(
+      claimToken,
+      _getTokenPrice(debt.token) * amountToRepay
+    );
+
     return true;
   }
 }
