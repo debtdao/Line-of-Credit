@@ -48,6 +48,7 @@ contract MaximumSecurityLoan is SpigotedLoan, EscrowedLoan {
   ) override(BaseLoan, EscrowedLoan) internal returns(uint256) {
     return EscrowedLoan._liquidate(
       debt,
+      positionId,
       amount,
       targetToken
     );

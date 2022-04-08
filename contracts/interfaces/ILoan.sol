@@ -34,18 +34,12 @@ interface ILoan {
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
   function borrow(bytes32 positionId, uint256 amount) external returns(bool);
   function close(bytes32 positionId) external returns(bool);
+  function liquidate(bytes32 positionId, uint256 amount, address targetToken) external returns(uint256);
 
   function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
   function depositAndClose(bytes32 positionId) external returns(bool);
-  function claimSpigotAndRepay(
-    bytes32 positionId,
-    address token,
-    bytes calldata zeroExTradeData
-  ) external returns(bool);
 
   function accrueInterest() external returns(uint256 amountAccrued);
   function getOutstandingDebt() external returns(uint256 totalDebt);
-
   function healthcheck() external returns(LoanLib.STATUS);
-  // function liquidate() external returns(uint256 totalValueLiquidated);
 }

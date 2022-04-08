@@ -6,7 +6,7 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 
 abstract contract EscrowedLoan is ILoan {
   // contract holding all collateral for borrower
-  Escrow immutable escrow;
+  Escrow immutable public escrow;
 
   constructor(
     uint _minimumCollateralRatio,

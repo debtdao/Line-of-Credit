@@ -237,10 +237,11 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     onlyArbiter
     validPositionId(positionId)
     external
+    returns(uint256)
   {
     require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
     DebtPosition memory debt = debts[positionId];
-    _liquidate(debt, positionId, amount, targetToken);
+    return _liquidate(debt, positionId, amount, targetToken);
   }
 
 
