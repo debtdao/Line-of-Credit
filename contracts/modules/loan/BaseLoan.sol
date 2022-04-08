@@ -171,46 +171,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return principal + totalInterestAccrued;
   }
 
-  /**
-   * @dev - Loan borrower and proposed lender agree on terms
-            and add it to potential options for borrower to drawdown on
-            Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
-   * @param amount - amount of `token` to initially deposit
-   * @param token - the token to be lent out
-   * @param lender - address that will manage debt position 
-  */
-  function addDebtPosition(
-    uint256 amount,
-    address token,
-    address lender
-  )
-    isActive
-    mutualUpgrade(lender, borrower) 
-    virtual
-    override
-    external
-    returns(bool)
-  {
-    bool success = IERC20(token).transferFrom(
-      lender,
-      address(this),
-      amount
-    );
-    require(success, 'Loan: no tokens to lend');
-
-
-    _createDebtPosition(lender, token, amount);
-    // also add interest rate model here?
-    return true;
-  }
-  
-  /**
-    @notice see _accrueInterest()
-  */
-  function accrueInterest() override external returns(uint256) {
-    return _accrueInterest();
-  }
-
 
 
   // Liquidation
@@ -444,6 +404,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     // get USD value of interest accrued
     accruedValue = _getTokenPrice(debts[positionId].token) * accruedToken;
+
     totalInterestAccrued += accruedValue;
 
     emit InterestAccrued(positionId, accruedToken, accruedValue);

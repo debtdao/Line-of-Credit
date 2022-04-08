@@ -47,12 +47,10 @@ contract RevolverLoan is BaseLoan {
     );
     require(success, 'Loan: no tokens to lend');
 
-
     bytes32 id = _createDebtPosition(lender, token, amount, 0);
 
     positionIds.push(id);
 
-    // also add interest rate model here?
     return true;
   }
 
@@ -66,7 +64,6 @@ contract RevolverLoan is BaseLoan {
       (, uint256 accruedTokenValue) = _accrueInterest(positionIds[i]);
       accruedValue += accruedTokenValue;
     }
-
   }
 
    /**
