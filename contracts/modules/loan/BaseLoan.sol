@@ -139,6 +139,10 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   }
 
   function healthcheck() external returns(LoanLib.STATUS) {
+    // if loan is in a final end state then do not run _healthcheck()
+    if(loanStatus == LoanLib.STATUS.REPAID || loanStatus == LoanLib.STATUS.INSOLVENT) {
+      return loanStatus;
+    }
     return _updateLoanStatus(_healthcheck());
   }
   /**
