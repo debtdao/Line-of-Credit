@@ -153,7 +153,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     if(principal + totalInterestAccrued > maxDebtValue)
       return LoanLib.STATUS.OVERDRAWN;
 
-    return loanStatus;
+    return LoanLib.STATUS.ACTIVE;
   }
   
   /**
@@ -180,14 +180,11 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   )
     isActive
     mutualUpgrade(lender, borrower) 
-    override external
+    virtual
+    override
+    external
     returns(bool)
   {
-    bytes32 positionId = LoanLib.computePositionId(address(this), lender, token);
-    
-    // MUST not double add position. otherwise we can not _close()
-    require(debts[positionId].lender == address(0), 'Loan: position exists');
-
     bool success = IERC20(token).transferFrom(
       lender,
       address(this),
@@ -195,16 +192,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     );
     require(success, 'Loan: no tokens to lend');
 
-    debts[positionId] = DebtPosition({
-      lender: lender,
-      token: token,
-      principal: 0,
-      interestAccrued: 0,
-      deposit: amount
-    });
 
-    emit AddDebtPosition(lender, token, amount);
-
+    _createDebtPosition(lender, token, amount);
     // also add interest rate model here?
     return true;
   }
@@ -264,12 +253,12 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   {
     _accrueInterest();
 
-    // TODO check if early repayment is allowed on loan
     uint256 amountToRepay = _getMaxRepayableAmount(positionId, amount);
+    require(amountToRepay > 0, "Loan: nothing to repay yet");
 
     bool success = IERC20(debts[positionId].token).transferFrom(
       msg.sender,
-      debts[positionId].lender,
+      address(this),
       amountToRepay
     );
     require(success, 'Loan: failed repayment');
@@ -293,6 +282,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     DebtPosition memory debt = debts[positionId];
 
     uint256 totalOwed = debt.principal + debt.interestAccrued;
+    require(totalOwed == _getMaxRepayableAmount(positionId, totalOwed));
 
     // borrwer deposits remaining balance not already repaid and held in contract
     bool success = IERC20(debt.token).transferFrom(
@@ -413,6 +403,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(bool)
   {
+    // move all this logic to Revolver.sol
     DebtPosition memory debt = debts[positionId];
     
     uint256 price = _getTokenPrice(debt.token);
@@ -488,6 +479,34 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     delete debts[positionId]; // yay gas refunds!!!
 
     return true;
+  }
+
+  function _createDebtPosition(
+    address lender,
+    address token,
+    uint256 amount
+  )
+    internal
+    returns(bytes32 positionId)
+  {
+    positionId = LoanLib.computePositionId(address(this), lender, token);
+    
+    // MUST not double add position. otherwise we can not _close()
+    require(debts[positionId].lender == address(0), 'Loan: position exists');
+
+    debts[positionId] = DebtPosition({
+      lender: lender,
+      token: token,
+      principal: 0,
+      interestAccrued: 0,
+      deposit: amount
+    });
+
+    positionIds.push(positionId);
+
+    emit AddDebtPosition(lender, token, amount);
+
+    return positionId;
   }
 
   // Helper functions
