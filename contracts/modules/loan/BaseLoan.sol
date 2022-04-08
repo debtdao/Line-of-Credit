@@ -397,26 +397,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return true;
   }
 
-
-  /**
-   * @dev - Allows lender to pull all funds from contract, realizing any losses from non-payment.
-   * @param positionId -the debt position to close
-  */
-  function emergencyClose(bytes32 positionId) override external returns(bool) {
-    DebtPosition memory debt = debts[positionId];
-    require(msg.sender == debt.lender);
-
-    if(debt.deposit > 0) {
-      uint256 availableFunds = IERC20(debt.token).balanceOf(address(this));
-      uint256 recoverableFunds = availableFunds > debt.deposit ? debt.deposit : availableFunds;
-      require(IERC20(debt.token).transfer(debt.lender, recoverableFunds));
-    }
-
-    require(_close(debt, positionId));
-    
-    return true;
-  }
-
   // prviliged interal functions
   /**
    * @dev - Reduces `principal` and/or `interestAccrued` on debt position, increases lender's `deposit`.
