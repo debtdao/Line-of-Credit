@@ -6,7 +6,7 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 
 abstract contract EscrowedLoan is ILoan {
   // contract holding all collateral for borrower
-  Escrow immutable escrow;
+  Escrow immutable public escrow;
 
   constructor(
     uint _minimumCollateralRatio,
@@ -32,7 +32,6 @@ abstract contract EscrowedLoan is ILoan {
 
   /** @dev see BaseLoan._liquidate */
   function _liquidate(
-    ILoan.DebtPosition memory debt,
     bytes32 positionId,
     uint256 amount,
     address targetToken
@@ -43,7 +42,7 @@ abstract contract EscrowedLoan is ILoan {
     // assumes Loan.liquidate is privileged function and sender is in charge of liquidating
     require(escrow.liquidate(amount, targetToken, msg.sender));
 
-    emit Liquidated(positionId, amount, targetToken);
+    emit Liquidate(positionId, amount, targetToken);
 
     return amount;
   }

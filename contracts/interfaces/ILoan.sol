@@ -12,18 +12,24 @@ interface ILoan {
   }
 
   // Lender Events
-  event Withdraw(address indexed lender, address indexed token, uint256 indexed amount);
 
   event AddDebtPosition(address indexed lender, address indexed token, uint256 indexed deposit);
+  // can reference only positionId once AddDebtPosition is emmitted because it will be stored in subgraph
 
-  event CloseDebtPosition(address indexed lender, address indexed token);
+  event Withdraw(bytes32 indexed positionId, uint256 indexed amount);
+
+  event CloseDebtPosition(bytes32 indexed positionId);
+
+  event InterestAccrued(bytes32 indexed positionId, uint256 indexed tokenAmount, uint256 indexed value);
 
   // Borrower Events
-  event Borrow(address indexed lender, address indexed token, uint256 indexed amount);
+  event Borrow(bytes32 indexed positionId, uint256 indexed amount);
 
-  event Repay(address indexed lender, address indexed token, uint256 indexed amount);
+  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount);
 
-  event Liquidated(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
+  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount);
+
+  event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 
   // General Events
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
@@ -34,18 +40,12 @@ interface ILoan {
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
   function borrow(bytes32 positionId, uint256 amount) external returns(bool);
   function close(bytes32 positionId) external returns(bool);
+  function liquidate(bytes32 positionId, uint256 amount, address targetToken) external returns(uint256);
 
   function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
   function depositAndClose(bytes32 positionId) external returns(bool);
-  function claimSpigotAndRepay(
-    bytes32 positionId,
-    address token,
-    bytes calldata zeroExTradeData
-  ) external returns(bool);
 
   function accrueInterest() external returns(uint256 amountAccrued);
   function getOutstandingDebt() external returns(uint256 totalDebt);
-
   function healthcheck() external returns(LoanLib.STATUS);
-  // function liquidate() external returns(uint256 totalValueLiquidated);
 }

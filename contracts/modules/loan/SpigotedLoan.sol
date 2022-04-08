@@ -2,11 +2,12 @@
 pragma solidity ^0.8.9;
 
 import { BaseLoan } from "./BaseLoan.sol";
+import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { ISpigotConsumer } from "../../interfaces/ISpigotConsumer.sol";
 
-contract SpigotedLoan is BaseLoan {
-  address public spigot;
+contract SpigotedLoan is BaseLoan, ISpigotedLoan {
+  address immutable public spigot;
 
     /**
    * @dev - BaseLoan contract with additional functionality for integrating with Spigot and borrower revenue streams to repay loans
@@ -27,8 +28,6 @@ contract SpigotedLoan is BaseLoan {
   )
     BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, interestRateModel_)
   {
-    maxDebtValue = maxDebtValue_;
-
     spigot = spigot_;
 
     loanStatus = LoanLib.STATUS.INITIALIZED;
@@ -68,9 +67,7 @@ contract SpigotedLoan is BaseLoan {
 
     // TODO check if early repayment is allowed on loan
     // then update logic here. Probs need an internal func
-    uint256 amountToRepay = debt.interestAccrued < tokensBought ?
-      debt.interestAccrued :
-      tokensBought;
+    uint256 amountToRepay = _getMaxRepayableAmount(positionId, tokensBought);
 
     // claim bought tokens from spigot to repay loan
     require(
@@ -78,7 +75,13 @@ contract SpigotedLoan is BaseLoan {
       'Loan: failed repayment'
     );
 
-    _repay(debt, amountToRepay);
+    _repay(positionId, amountToRepay);
+
+    emit RevenuePayment(
+      claimToken,
+      _getTokenPrice(debt.token) * amountToRepay
+    );
+
     return true;
   }
 }
