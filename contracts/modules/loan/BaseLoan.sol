@@ -13,7 +13,10 @@ import { IInterestRate } from "../../interfaces/IInterestRate.sol";
 import { IModule } from "../../interfaces/IModule.sol";
 
 abstract contract BaseLoan is ILoan, MutualUpgrade {  
-  address immutable borrower;   // borrower being lent to
+  address immutable public borrower;   // borrower being lent to
+  address immutable public oracle; 
+  address immutable public arbiter;
+  address immutable public interestRateModel;
 
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
   bytes32[] positionIds; // all active positions
@@ -26,15 +29,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   uint256 public totalInterestAccrued;// unpaid interest
 
   // i dont think we need to keep global var on this. only check per debt position
-  uint256 public maxDebtValue; // total amount of USD value to be pulled from loan
+  uint256 immutable public maxDebtValue; // total amount of USD value to be pulled from loan
 
-  // Loan Modules
-  address public oracle;  // could move to LoanLib and make singleton
-  address public arbiter; // could make dynamic/harcoded ens('arbiter.debtdao.eth')
-  address public interestRateModel;
-
-  // ordered by most likely to return early in healthcheck() with non-ACTIVE status
-  address[] public modules;
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -60,20 +56,15 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     arbiter = arbiter_;
     oracle = oracle_;
 
-    loanStatus = LoanLib.STATUS.INITIALIZED;
+    loanStatus = LoanLib.STATUS.ACTIVE;
   }
 
   ///////////////
   // MODIFIERS //
   ///////////////
 
-  // TODO better naming for this function
-  modifier isOperational(LoanLib.STATUS status) {
-    require(
-      status >= LoanLib.STATUS.ACTIVE && 
-      status <= LoanLib.STATUS.DELINQUENT,
-      'Loan: no op'
-    );
+  modifier isActive() {
+    require(loanStatus == LoanLib.STATUS.ACTIVE, 'Loan: no op');
     _;
   }
 
@@ -158,7 +149,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   */
   function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
     if(principal + totalInterestAccrued > maxDebtValue)
-      return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
+      return LoanLib.STATUS.OVERDRAWN;
 
     return loanStatus;
   }
@@ -185,6 +176,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     address token,
     address lender
   )
+    isActive
     mutualUpgrade(lender, borrower) 
     override external
     returns(bool)
@@ -324,6 +316,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
   function borrow(bytes32 positionId, uint256 amount)
+    isActive
     onlyBorrower
     validPositionId(positionId)
     override external

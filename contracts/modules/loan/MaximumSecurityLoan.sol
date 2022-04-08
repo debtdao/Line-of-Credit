@@ -29,17 +29,15 @@ contract MaximumSecurityLoan is SpigotedLoan, EscrowedLoan {
       spigot_
     )
   {
-    modules.push(address(escrow));
-    modules.push(address(spigot));
-  }
 
+  }
   function _healthcheck() override(EscrowedLoan, BaseLoan) internal returns(LoanLib.STATUS) {
     // check cheap calls usingi nternal data first
     if(BaseLoan._healthcheck() != LoanLib.STATUS.ACTIVE) {
-      return BaseLoan._healthcheck();
+      return _updateLoanStatus(BaseLoan._healthcheck());
     }
     // then call external contracts 
-    return EscrowedLoan._healthcheck();
+    return _updateLoanStatus(EscrowedLoan._healthcheck());
   }
 
   function _liquidate(

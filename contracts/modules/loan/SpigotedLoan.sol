@@ -30,16 +30,8 @@ contract SpigotedLoan is BaseLoan {
     maxDebtValue = maxDebtValue_;
 
     spigot = spigot_;
-    modules[modules.length] = spigot_;
 
     loanStatus = LoanLib.STATUS.INITIALIZED;
-  }
-
-  /**
-   * @notice see BaseLoan._init()
-  */
-  function init() virtual external returns(bool) {
-    return _init();
   }
 
 

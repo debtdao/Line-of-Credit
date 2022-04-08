@@ -13,7 +13,6 @@ abstract contract EscrowedLoan is ILoan {
     address _oracle,
     address _borrower
   ) {
-    // make sure you modules.push(escrow) in implementation contract constructor
     escrow = new Escrow(
       _minimumCollateralRatio,
       _oracle,
@@ -27,6 +26,7 @@ abstract contract EscrowedLoan is ILoan {
     if(escrow.getCollateralRatio() < escrow.minimumCollateralRatio()) {
       return LoanLib.STATUS.LIQUIDATABLE;
     }
+
     return LoanLib.STATUS.ACTIVE;
   }
 
