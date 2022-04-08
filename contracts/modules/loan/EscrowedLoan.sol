@@ -40,6 +40,7 @@ abstract contract EscrowedLoan is ILoan {
     virtual internal
     returns(uint256)
   { 
+    // assumes Loan.liquidate is privileged function and sender is in charge of liquidating
     require(escrow.liquidate(amount, targetToken, msg.sender));
 
     emit Liquidated(positionId, amount, targetToken);

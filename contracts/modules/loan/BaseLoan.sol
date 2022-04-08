@@ -108,7 +108,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
 
   /**
-   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
+   * @notice  Get amount of debt that borrower is currently allowed to repay.
+   * @dev Modules can overwrite e.g. for bullet loans to prevent principal repayments
    * @param debt - debt position data for loan being repaid
    * @param requestedRepayAmount - amount of debt that the borrower would like to pay
    * @return - amount borrower is allowedto repay. Returns 0 if repayment is not allowed
@@ -120,7 +121,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(uint256)
   {
-
+    return requestedRepayAmount;
   }
 
 
@@ -237,7 +238,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   {
     require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
     DebtPosition memory debt = debts[positionId];
-    _liquidate(debt, amount, targetToken);
+    _liquidate(debt, positionId, amount, targetToken);
   }
 
 
@@ -328,7 +329,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.principal += amount;
-    principal += _getUsdValue(debt.token, amount);
+    principal += _getTokenPrice(debt.token) * amount;
     // TODO call escrow contract and see if loan is still healthy before sending funds
 
     bool success = IERC20(debt.token).transferFrom(
@@ -509,15 +510,4 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   function _getTokenPrice(address token) internal returns (uint256) {
     return IOracle(oracle).getLatestAnswer(token);
   }
-
-    /**
-   * @dev - Calls Oracle module to get most recent price for token.
-            All prices denominated in USD.
-   * @param token - token to get price for
-   * @param amount - amount of tokens to get total usd value for
-  */
-  function _getUsdValue(address token, uint256 amount) internal returns (uint256) {
-    return _getTokenPrice(token) * amount;
-  }
-
 }

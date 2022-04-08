@@ -42,9 +42,10 @@ contract MaximumSecurityLoan is SpigotedLoan, EscrowedLoan {
 
   function _liquidate(
     DebtPosition memory debt,
+    bytes32 positionId,
     uint256 amount,
     address targetToken
-  ) override(EscrowedLoan, BaseLoan) internal returns(uint256) {
+  ) override(BaseLoan, EscrowedLoan) internal returns(uint256) {
     return EscrowedLoan._liquidate(
       debt,
       amount,
