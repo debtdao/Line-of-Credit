@@ -1,7 +1,6 @@
 import { LoanLib } from "../utils/LoanLib.sol";
-import { IModule } from "./IModule.sol";
 
-interface ISpigotConsumer is IModule {
+interface ISpigotConsumer {
   
   function claimAndTrade(
     address claimToken, 
@@ -9,6 +8,4 @@ interface ISpigotConsumer is IModule {
     bytes calldata zeroExTradeData
   ) external returns(uint256 tokensBought);
   function stream(address lender, address token, uint256 amount) external returns(bool);
-
-  function healthcheck() external returns (LoanLib.STATUS status);
 }

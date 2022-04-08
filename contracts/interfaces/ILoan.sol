@@ -1,8 +1,6 @@
-import { IModule } from "./IModule.sol";
-import { IModule } from "./IModule.sol";
 import { LoanLib } from "../utils/LoanLib.sol";
 
-interface ILoan is IModule {
+interface ILoan {
   // Stakeholder data
   struct DebtPosition {
     address lender;           // person to repay
@@ -36,7 +34,6 @@ interface ILoan is IModule {
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
   function borrow(bytes32 positionId, uint256 amount) external returns(bool);
   function close(bytes32 positionId) external returns(bool);
-  function emergencyClose(bytes32 positionId) external returns(bool);
 
   function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
   function depositAndClose(bytes32 positionId) external returns(bool);
@@ -48,5 +45,7 @@ interface ILoan is IModule {
 
   function accrueInterest() external returns(uint256 amountAccrued);
   function getOutstandingDebt() external returns(uint256 totalDebt);
+
+  function healthcheck() external returns(LoanLib.STATUS);
   // function liquidate() external returns(uint256 totalValueLiquidated);
 }

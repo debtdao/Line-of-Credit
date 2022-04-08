@@ -10,37 +10,26 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 import { IEscrow } from "../../interfaces/IEscrow.sol";
 import { IOracle } from "../../interfaces/IOracle.sol";
 import { IInterestRate } from "../../interfaces/IInterestRate.sol";
-import { IModule } from "../../interfaces/IModule.sol";
 
 abstract contract BaseLoan is ILoan, MutualUpgrade {  
-  address immutable borrower;   // borrower being lent to
+  address immutable public borrower;   // borrower being lent to
+  address immutable public oracle; 
+  address immutable public arbiter;
+  address immutable public interestRateModel;
 
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
   bytes32[] positionIds; // all active positions
 
-  // vars still missing
-  // start time
-  // term length
-  // ability to repay interest or principal too
-  // compounding rate
-
   // Loan Financials aggregated accross all existing  DebtPositions
   LoanLib.STATUS public loanStatus;
+
   // all deonminated in USD
   uint256 public principal; // initial loan  drawdown
   uint256 public totalInterestAccrued;// unpaid interest
 
   // i dont think we need to keep global var on this. only check per debt position
-  uint256 public maxDebtValue; // total amount of USD value to be pulled from loan
+  uint256 immutable public maxDebtValue; // total amount of USD value to be pulled from loan
 
-  // Loan Modules
-  address public oracle;  // could move to LoanLib and make singleton
-  address public arbiter; // could make dynamic/harcoded ens('arbiter.debtdao.eth')
-  address public escrow;
-  address public interestRateModel;
-
-  // ordered by most likely to return early in healthcheck() with non-ACTIVE status
-  address[3] public modules = [escrow, oracle, interestRateModel];
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -50,7 +39,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param oracle_ - price oracle to use for getting all token values
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
-   * @param escrow_ - contract holding all collateral for borrower
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
   constructor(
@@ -58,31 +46,24 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     address oracle_,
     address arbiter_,
     address borrower_,
-    address escrow_,
     address interestRateModel_
   ) {
     maxDebtValue = maxDebtValue_;
 
     borrower = borrower_;
     interestRateModel = interestRateModel_;
-    escrow = escrow_;
     arbiter = arbiter_;
     oracle = oracle_;
 
-    loanStatus = LoanLib.STATUS.INITIALIZED;
+    loanStatus = LoanLib.STATUS.ACTIVE;
   }
 
   ///////////////
   // MODIFIERS //
   ///////////////
 
-  // TODO better naming for this function
-  modifier isOperational(LoanLib.STATUS status) {
-    require(
-      status >= LoanLib.STATUS.ACTIVE && 
-      status <= LoanLib.STATUS.DELINQUENT,
-      'Loan: no op'
-    );
+  modifier isActive() {
+    require(loanStatus == LoanLib.STATUS.ACTIVE, 'Loan: no op');
     _;
   }
 
@@ -104,35 +85,78 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   // HOOKS //
   ///////////
 
-    /**
+  /**
    * @dev  Used to addc custom liquidation functionality until we create separate Liquidation module
    * @param debt - debt position data for loan being repaid
+   * @param positionId - deterministic id on loan, passed to use in Liquidate event without recomputing
+   * @param amount - expected amount of `targetToken` to be liquidated
+   * @param targetToken - token to liquidate to repay debt
+   * @return amount of tokens actually liquidated
   */
-  function _liquidate(DebtPosition memory debt) virtual internal returns(uint256) {}
-
-  /**
-   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
-   * @param debt - debt position data for loan being repaid
-  */
-  function _getMaxRepayableAmount(DebtPosition memory debt) virtual internal returns(uint256) {}
-
-
-  /**
-   * @dev  Called in _repay() to get amount of debt that borrower is currently allowed to repay
-   * @param debt - debt position data for loan being repaid
-   * @return outstanding balance for active interest rate
-   * @return total deposit available for passive interest rate
-  */
-  function _getBalancesForInterestPayment(DebtPosition memory debt) virtual internal returns(uint256, uint256) {}
-
-  //////////////////////
-  // MODULE INTERFACE //
-  //////////////////////
-
-  function loan() override external returns(address) {
-    return address(this);
+  function _liquidate(
+    DebtPosition memory debt,
+    bytes32 positionId,
+    uint256 amount,
+    address targetToken
+  )
+    virtual internal
+    returns(uint256)
+  {
+    return 0;
   }
 
+
+  /**
+   * @notice  Get amount of debt that borrower is currently allowed to repay.
+   * @dev Modules can overwrite e.g. for bullet loans to prevent principal repayments
+   * @param debt - debt position data for loan being repaid
+   * @param requestedRepayAmount - amount of debt that the borrower would like to pay
+   * @return - amount borrower is allowedto repay. Returns 0 if repayment is not allowed
+  */
+  function _getMaxRepayableAmount(
+    DebtPosition memory debt,
+    uint256 requestedRepayAmount
+  )
+    virtual internal
+    returns(uint256)
+  {
+    return requestedRepayAmount;
+  }
+
+
+  /**
+   * @dev  Calls interestRate contract and gets amount of interest owned on debt position
+   * @param debt - debt position data for loan being calculated
+   * @return total interest to add to position
+  */
+  function _getInterestPaymentAmount(
+    DebtPosition memory debt,
+    bytes32 positionId
+  )
+    virtual internal
+    returns(uint256)
+  {
+    return IInterestRate(interestRateModel).accrueInterest(
+      positionId,
+      debt.principal,
+      loanStatus
+    );
+  }
+
+  function healthcheck() external returns(LoanLib.STATUS) {
+    return _updateLoanStatus(_healthcheck());
+  }
+  /**
+   *  @notice - loops through all modules and returns their status if required last to savegas on override external calls
+   *        returns early if returns non-ACTIVE
+  */
+  function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
+    if(principal + totalInterestAccrued > maxDebtValue)
+      return LoanLib.STATUS.OVERDRAWN;
+
+    return loanStatus;
+  }
+  
   /**
   @dev Returns total debt obligation of borrower.
        Aggregated across all lenders.
@@ -142,58 +166,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return principal + totalInterestAccrued;
   }
 
-  /**
-   * @dev  2/2 multisig between borrower and arbiter (on behalf of al llenders) to agree on T&C of loan
-        Once agreed by both parties sets loanStatus to ACTIVE allowing borrwoing and interest accrual
-  */
-  function _init()
-    mutualUpgrade(arbiter, borrower) // arbiter atm for efficiency so no parsing lender array
-    virtual internal
-    returns(bool)
-  {
-    // I lean towards option 1 vs option 2
-    // on second thought i like option 2 because init can happen whenever, we only care that it happened
-    // e.g. someone besides borrower puts up the collateral
-    // require(IEscrow(escrow).init(borrower)); // transfer all required collateral before activating loan
-    // require(
-    //   module.loan() == this &&
-    //   module.healthcheck() == LoanLib.STATUS.ACTIVE,
-    //   'Loan: no collateral to init'
-    // );
-    
-    for(uint i; i < modules.length; i++) {
-      require(IModule(modules[i]).init(), 'Loan: misconfigured module');
-    }
-
-    // probably also need to check that the modules have this Loan contract
-
-    // check spigot has control of revenue contracts here?
-    // transfer DEBT as origination fee?
-
-    // or can make initialized and have separate function for executing everything after agreed updon in mutualUpgrade.
-    // just annoying if one module doesnt work, both parties have to keep calling init() to ACTIVE loan instead of 
-    _updateLoanStatus(LoanLib.STATUS.ACTIVE);
-    return true;
-  }
-
-  /**
-   *  @dev - loops through all modules and returns their status if required last to savegas on override external calls
-   *        returns early if returns non-ACTIVE
-  */
-  function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
-    if(principal + totalInterestAccrued > maxDebtValue)
-      return _updateLoanStatus(LoanLib.STATUS.OVERDRAWN);
-      
-    for(uint i; i < modules.length; i++) {
-       // should we differentiate failed calls vs bad statuses?
-      status = IModule(modules[i]).healthcheck();
-      if(status != LoanLib.STATUS.ACTIVE)
-        return _updateLoanStatus(status);
-    }
-    
-    return loanStatus;
-  }
-  
   /**
    * @dev - Loan borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
@@ -207,6 +179,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     address token,
     address lender
   )
+    isActive
     mutualUpgrade(lender, borrower) 
     override external
     returns(bool)
@@ -236,11 +209,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // also add interest rate model here?
     return true;
   }
-
-  //
-  // Inititialiation
-  //
-
   
   /**
     @notice see _accrueInterest()
@@ -252,23 +220,27 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
 
   // Liquidation
+  /**
+   * @notice - Forcefully take collateral from borrower and repay debt for lender
+   * @dev - only called by neutral arbiter party/contract
+   * @dev - `loanStatus` must be LIQUIDATABLE
+   * @param positionId -the debt position to pay down debt on
+   * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
+   * @param targetToken - token that is expected to be sold of to repay positionId
+   */
 
   function liquidate(
     bytes32 positionId,
     uint256 amount,
-    address escrowToken
+    address targetToken
   )
     onlyArbiter
     validPositionId(positionId)
     external
   {
     require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
-
-    // call method within escrow contract
-    // releasing everything to debt DAO multisig to be dealt with OTC
-    IEscrow(escrow).releaseCollateral(amount, escrowToken, arbiter);
-
-    emit Liquidated(positionId, amount, escrowToken);
+    DebtPosition memory debt = debts[positionId];
+    _liquidate(debt, positionId, amount, targetToken);
   }
 
 
@@ -347,6 +319,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
   function borrow(bytes32 positionId, uint256 amount)
+    isActive
     onlyBorrower
     validPositionId(positionId)
     override external
@@ -358,7 +331,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.principal += amount;
-    principal += _getUsdValue(debt.token, amount);
+    principal += _getTokenPrice(debt.token) * amount;
     // TODO call escrow contract and see if loan is still healthy before sending funds
 
     bool success = IERC20(debt.token).transferFrom(
@@ -426,26 +399,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return true;
   }
 
-
-  /**
-   * @dev - Allows lender to pull all funds from contract, realizing any losses from non-payment.
-   * @param positionId -the debt position to close
-  */
-  function emergencyClose(bytes32 positionId) override external returns(bool) {
-    DebtPosition memory debt = debts[positionId];
-    require(msg.sender == debt.lender);
-
-    if(debt.deposit > 0) {
-      uint256 availableFunds = IERC20(debt.token).balanceOf(address(this));
-      uint256 recoverableFunds = availableFunds > debt.deposit ? debt.deposit : availableFunds;
-      require(IERC20(debt.token).transfer(debt.lender, recoverableFunds));
-    }
-
-    require(_close(debt, positionId));
-    
-    return true;
-  }
-
   // prviliged interal functions
   /**
    * @dev - Reduces `principal` and/or `interestAccrued` on debt position, increases lender's `deposit`.
@@ -459,17 +412,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     DebtPosition memory debt,
     uint256 amount
   )
-    isOperational(loanStatus)
-    internal
+    virtual internal
     returns(bool)
   {
-    // should we refresh all values in usd here?
-    if(amount < debt.interestAccrued) {
+    uint256 price = _getTokenPrice(debt.token);
+    if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
-      totalInterestAccrued -= _getUsdValue(debt.token, amount);
+      totalInterestAccrued -= price * amount;
     } else {
-      uint256 price = _getTokenPrice(debt.token);
-      
       // update global debt denominated in usd
       principal -= price * (amount - debt.interestAccrued);
       totalInterestAccrued -= price * debt.interestAccrued;
@@ -491,18 +441,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
             Also updates global USD values for `totalInterestAccrued`.
             Can only be called when loan is not in distress
   */
-  function _accrueInterest() internal isOperational(loanStatus) returns (uint256 accruedAmount) {
+  function _accrueInterest() isActive internal returns (uint256 accruedAmount) {
     uint256 len = positionIds.length;
     DebtPosition memory debt;
 
     for(uint256 i = 0; i < len; i++) {
       debt = debts[positionIds[len]];
       // get token demoninated interest accrued
-      uint256 tokenIncrease = IInterestRate(interestRateModel).accrueInterest(
-        len, // IR settings break if positionID changes. need constant/deterministic id
-        debt.principal,
-        loanStatus
-      );
+      uint256 tokenIncrease = _getInterestPaymentAmount(debt, positionIds[len]);
 
       // update debts balance
       debt.interestAccrued += tokenIncrease;
@@ -510,7 +456,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       debt.deposit += tokenIncrease;
 
       // get USD value of interest accrued
-      accruedAmount += _getUsdValue(debt.token, tokenIncrease);
+      accruedAmount += _getTokenPrice(debt.token) * tokenIncrease;
     }
 
     totalInterestAccrued += accruedAmount;
@@ -546,15 +492,4 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   function _getTokenPrice(address token) internal returns (uint256) {
     return IOracle(oracle).getLatestAnswer(token);
   }
-
-    /**
-   * @dev - Calls Oracle module to get most recent price for token.
-            All prices denominated in USD.
-   * @param token - token to get price for
-   * @param amount - amount of tokens to get total usd value for
-  */
-  function _getUsdValue(address token, uint256 amount) internal returns (uint256) {
-    return _getTokenPrice(token) * amount;
-  }
-
 }

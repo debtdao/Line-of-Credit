@@ -1,12 +1,9 @@
 import { LoanLib } from "../utils/LoanLib.sol";
-import { IModule } from "./IModule.sol";
 
-interface IInterestRate is IModule {
+interface IInterestRate {
   function accrueInterest(
-    uint256 lenderId, 
+    bytes32 positionId, 
     uint256 amount, 
     LoanLib.STATUS currentStatus
   ) external returns(uint256);
-
-  function healthcheck() external returns (LoanLib.STATUS status);
 }
