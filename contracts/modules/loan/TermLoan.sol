@@ -37,7 +37,6 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     isActive
     mutualUpgrade(lender, borrower) 
     virtual
-    override
     external
     returns(bool)
   {
@@ -64,8 +63,15 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     // also add interest rate model here?
     return true;
   }
+  function accrueInterest() external returns(uint256 accruedValue) {
+    (, accruedValue) = _accrueInterest(loanPositionId);
+    totalInterestAccrued += accruedValue;
+  }
 
-  function _repay(bytes32 positionId, uint256 amount) override internal returns(bool) {
+  function _repay(
+    bytes32 positionId,
+    uint256 amount
+  ) override internal returns(bool) {
         // move all this logic to Revolver.sol
     DebtPosition memory debt = debts[positionId];
     
