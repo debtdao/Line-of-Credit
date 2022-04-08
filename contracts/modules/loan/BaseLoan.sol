@@ -143,6 +143,9 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     );
   }
 
+  function healthcheck() external returns(LoanLib.STATUS) {
+    return _updateLoanStatus(_healthcheck());
+  }
   /**
    *  @notice - loops through all modules and returns their status if required last to savegas on override external calls
    *        returns early if returns non-ACTIVE

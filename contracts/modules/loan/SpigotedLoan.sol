@@ -34,15 +34,6 @@ contract SpigotedLoan is BaseLoan {
     loanStatus = LoanLib.STATUS.INITIALIZED;
   }
 
-
-  /**
-   * @notice see BaseLoan._healthcheck()
-  */
-  function healthcheck() virtual external returns(LoanLib.STATUS) {
-    return _healthcheck();
-  }
-
-
  /**
    * @dev - Claims revenue tokens from Spigot attached to borrowers revenue generating tokens
             and sells them via 0x protocol to repay debts
