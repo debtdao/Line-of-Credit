@@ -10,7 +10,6 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 import { IEscrow } from "../../interfaces/IEscrow.sol";
 import { IOracle } from "../../interfaces/IOracle.sol";
 import { IInterestRate } from "../../interfaces/IInterestRate.sol";
-import { IModule } from "../../interfaces/IModule.sol";
 
 abstract contract BaseLoan is ILoan, MutualUpgrade {  
   address immutable public borrower;   // borrower being lent to

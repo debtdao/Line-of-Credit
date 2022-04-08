@@ -1,5 +1,3 @@
-import { IModule } from "./IModule.sol";
-import { IModule } from "./IModule.sol";
 import { LoanLib } from "../utils/LoanLib.sol";
 
 interface ILoan {
