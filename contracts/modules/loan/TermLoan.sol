@@ -37,6 +37,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     isActive
     mutualUpgrade(lender, borrower) 
     virtual
+    override
     external
     returns(bool)
   {
@@ -62,19 +63,8 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     // also add interest rate model here?
     return true;
   }
-  function accrueInterest() external returns(uint256 accruedValue) {
-    (, accruedValue) = _accrueInterest(loanPositionId);
-  }
 
-  function _close(bytes32 positionId) virtual override internal returns(bool) {
-    loanStatus = LoanLib.STATUS.REPAID; // can only close if full loan is repaid
-    return super._close(positionId);
-  }
-
-  function _repay(
-    bytes32 positionId,
-    uint256 amount
-  ) override internal returns(bool) {
+  function _repay(bytes32 positionId, uint256 amount) override internal returns(bool) {
         // move all this logic to Revolver.sol
     DebtPosition memory debt = debts[positionId];
     
@@ -124,6 +114,14 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     debts[positionId] = debt;
 
     return true;
+  }
+  function accrueInterest() external returns(uint256 accruedValue) {
+    (, accruedValue) = _accrueInterest(loanPositionId);
+  }
+
+  function _close(bytes32 positionId) virtual override internal returns(bool) {
+    loanStatus = LoanLib.STATUS.REPAID; // can only close if full loan is repaid
+    return super._close(positionId);
   }
 
   function _healthcheck() virtual override(BaseLoan) internal returns(LoanLib.STATUS) {
