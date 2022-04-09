@@ -67,6 +67,11 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     totalInterestAccrued += accruedValue;
   }
 
+  function _close(bytes32 positionId) virtutal override internal returns(bool) {
+    loanStatus = LoanLib.STATUS.REPAID;
+    return super._close(positionId);
+  }
+
   function _repay(
     bytes32 positionId,
     uint256 amount

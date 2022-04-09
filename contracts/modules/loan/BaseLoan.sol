@@ -144,6 +144,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return true;
   }
 
+  function _close(bytes32 positionId) virtual internal returns(bool) {    
+    delete debts[positionId]; // yay gas refunds!!!
+
+    emit CloseDebtPosition(positionId);    
+
+    return true;
+  }
+
   function healthcheck() external returns(LoanLib.STATUS) {
     // if loan is in a final end state then do not run _healthcheck()
     if(loanStatus == LoanLib.STATUS.REPAID || loanStatus == LoanLib.STATUS.INSOLVENT) {
@@ -441,33 +449,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return positionId;
   }
 
-  function _createDebtPosition(
-    address lender,
-    address token,
-    uint256 amount
-  )
-    internal
-    returns(bytes32 positionId)
-  {
-    positionId = LoanLib.computePositionId(address(this), lender, token);
-    
-    // MUST not double add position. otherwise we can not _close()
-    require(debts[positionId].lender == address(0), 'Loan: position exists');
-
-    debts[positionId] = DebtPosition({
-      lender: lender,
-      token: token,
-      principal: 0,
-      interestAccrued: 0,
-      deposit: amount
-    });
-
-    positionIds.push(positionId);
-
-    emit AddDebtPosition(lender, token, amount);
-
-    return positionId;
-  }
 
   // Helper functions
   function _updateLoanStatus(LoanLib.STATUS status) internal returns(LoanLib.STATUS) {

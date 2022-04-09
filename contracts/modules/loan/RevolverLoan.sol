@@ -61,9 +61,12 @@ contract RevolverLoan is BaseLoan {
     uint256 len = positionIds.length;
 
     for(uint256 i = 0; i < len; i++) {
-      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[i]);
+      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[len]);
       accruedValue += accruedTokenValue;
     }
+
+    totalInterestAccrued += accruedValue;
+    return accruedValue;
   }
 
    /**
@@ -108,7 +111,10 @@ contract RevolverLoan is BaseLoan {
       debt.interestAccrued = 0;
       
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> move positionIds array to revolver loan and modify _close functionality for revolver vs term loans
     debts[positionId] = debt;
 
     return true;
