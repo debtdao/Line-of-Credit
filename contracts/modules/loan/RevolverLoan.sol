@@ -1,6 +1,7 @@
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
+import { LoanLib } from "../../utils/LoanLib.sol";
 import { BaseLoan } from "./BaseLoan.sol";
+
 contract RevolverLoan is BaseLoan {
   bytes32[] positionIds; // all active positions
 
@@ -115,7 +116,7 @@ contract RevolverLoan is BaseLoan {
     return true;
   }
 
-  function _close(bytes32 positionId) virtual override returns(bool) {
+  function _close(bytes32 positionId) virtual override internal returns(bool) {
     // remove from active list
     positionIds = LoanLib.removePosition(positionIds, positionId);
 

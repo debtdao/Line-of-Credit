@@ -117,7 +117,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(uint256)
   {
-    uint256 totalOwed = debts[positionId].principal +debts[positionId].interestOwed;
+    uint256 totalOwed = debts[positionId].principal + debts[positionId].interestAccrued;
     // cap repayable amount by total outstanding debt
     return totalOwed > requestedRepayAmount ? requestedRepayAmount : totalOwed;
   }
@@ -140,6 +140,11 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   }
 
   function _close(bytes32 positionId) virtual internal returns(bool) {    
+    require(
+      debts[positionId].principal + debts[positionId].interestAccrued == 0,
+      'Loan: close failed. debt owed'
+    );
+
     delete debts[positionId]; // yay gas refunds!!!
 
     emit CloseDebtPosition(positionId);    
@@ -338,13 +343,12 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    *        Only callable by borrower or lender for debt position
    * @param positionId -the debt position to close
   */
-  function close(bytes32 positionId) override external returns(bool) {
+  function close(bytes32 positionId) validPositionId(positionId) override external returns(bool) {
     DebtPosition memory debt = debts[positionId];
     require(
       msg.sender == debt.lender ||
       msg.sender == borrower
     );
-    require(debt.principal + debt.interestAccrued == 0, 'Loan: close failed. debt owed');
     
     // repay lender initial deposit + accrued interest
     if(debt.deposit > 0) {
