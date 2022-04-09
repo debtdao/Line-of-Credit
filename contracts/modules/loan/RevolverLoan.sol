@@ -2,6 +2,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { BaseLoan } from "./BaseLoan.sol";
 contract RevolverLoan is BaseLoan {
+  bytes32[] positionIds; // all active positions
+
   constructor(
     uint256 maxDebtValue_,
     address oracle_,
@@ -46,6 +48,9 @@ contract RevolverLoan is BaseLoan {
 
 
     _createDebtPosition(lender, token, amount);
+
+    positionIds.push(positionId);
+
     // also add interest rate model here?
     return true;
   }
@@ -108,5 +113,17 @@ contract RevolverLoan is BaseLoan {
 
 
     return true;
+  }
+
+  function _close(bytes32 positionId) virtual override returns(bool) {
+    // remove from active list
+    positionIds = LoanLib.removePosition(positionIds, positionId);
+
+    // brick loan contract if all positions closed
+    if(positionIds.length == 0) {
+      loanStatus = LoanLib.STATUS.REPAID;
+    }
+
+    return super._close(positionId);
   }
 }

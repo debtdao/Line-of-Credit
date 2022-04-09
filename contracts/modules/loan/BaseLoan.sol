@@ -18,7 +18,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   address immutable public interestRateModel;
 
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
-  bytes32[] positionIds; // all active positions
 
   // Loan Financials aggregated accross all existing  DebtPositions
   LoanLib.STATUS public loanStatus;
@@ -136,6 +135,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       debts[positionId].principal,
       loanStatus
     );
+  }
+
+  function _close(bytes32 positionId) virtual internal returns(bool) {    
+    delete debts[positionId]; // yay gas refunds!!!
+
+    emit CloseDebtPosition(positionId);    
+
+    return true;
   }
 
   function healthcheck() external returns(LoanLib.STATUS) {
@@ -391,23 +398,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return (accruedToken, accruedValue);
   }
 
-  function _close(bytes32 positionId) internal returns(bool) {
-    // remove from active list
-    positionIds = LoanLib.removePosition(positionIds, positionId);
-
-    // brick loan contract if all positions closed
-    if(positionIds.length == 0) {
-      loanStatus = LoanLib.STATUS.REPAID;
-    }
-    
-    // emit event before data is deleted
-    emit CloseDebtPosition(positionId);
-    
-    delete debts[positionId]; // yay gas refunds!!!
-
-    return true;
-  }
-
   function _createDebtPosition(
     address lender,
     address token,
@@ -428,8 +418,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       interestAccrued: 0,
       deposit: amount
     });
-
-    positionIds.push(positionId);
 
     emit AddDebtPosition(lender, token, amount);
 
