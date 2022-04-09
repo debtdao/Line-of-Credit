@@ -64,7 +64,6 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   }
   function accrueInterest() external returns(uint256 accruedValue) {
     (, accruedValue) = _accrueInterest(loanPositionId);
-    totalInterestAccrued += accruedValue;
   }
 
   function _close(bytes32 positionId) virtual override internal returns(bool) {

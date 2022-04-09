@@ -65,8 +65,6 @@ contract RevolverLoan is BaseLoan {
       accruedValue += accruedTokenValue;
     }
 
-    totalInterestAccrued += accruedValue;
-    return accruedValue;
   }
 
    /**
