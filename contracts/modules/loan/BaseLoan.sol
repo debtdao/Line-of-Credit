@@ -117,7 +117,9 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(uint256)
   {
-    return requestedRepayAmount;
+    uint256 totalOwed = debts[positionId].principal +debts[positionId].interestOwed;
+    // cap repayable amount by total outstanding debt
+    return totalOwed > requestedRepayAmount ? requestedRepayAmount : totalOwed;
   }
 
 
