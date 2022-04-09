@@ -50,10 +50,9 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     );
     require(success, 'Loan: deposit failed');
 
-    bytes32 id = _createDebtPosition(lender, token, amount);
+    bytes32 id = _createDebtPosition(lender, token, amount, amount);
     
-     // tokens already sent so set principal to loan amount
-    debts[id].principal = amount;
+    emit Borrow(id, amount); // loan is automatically borrowed
 
     // start countdown to next payment due
     lastPaymentTimestamp = block.timestamp;
@@ -65,7 +64,6 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   }
   function accrueInterest() external returns(uint256 accruedValue) {
     (, accruedValue) = _accrueInterest(loanPositionId);
-    totalInterestAccrued += accruedValue;
   }
 
   function _close(bytes32 positionId) virtual override internal returns(bool) {

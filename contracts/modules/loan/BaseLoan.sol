@@ -398,6 +398,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     // get USD value of interest accrued
     accruedValue = _getTokenPrice(debts[positionId].token) * accruedToken;
+    totalInterestAccrued += accruedValue;
 
     emit InterestAccrued(positionId, accruedToken, accruedValue);
 
@@ -407,7 +408,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   function _createDebtPosition(
     address lender,
     address token,
-    uint256 amount
+    uint256 amount,
+    uint256 initialPrincipal
   )
     internal
     returns(bytes32 positionId)
@@ -420,7 +422,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     debts[positionId] = DebtPosition({
       lender: lender,
       token: token,
-      principal: 0,
+      principal: initialPrincipal,
       interestAccrued: 0,
       deposit: amount
     });
