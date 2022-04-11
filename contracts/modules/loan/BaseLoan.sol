@@ -18,7 +18,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   address immutable public interestRateModel;
 
   mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
-  bytes32[] positionIds; // all active positions
 
   // Loan Financials aggregated accross all existing  DebtPositions
   LoanLib.STATUS public loanStatus;
@@ -118,7 +117,9 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(uint256)
   {
-    return requestedRepayAmount;
+    uint256 totalOwed = debts[positionId].principal + debts[positionId].interestAccrued;
+    // cap repayable amount by total outstanding debt
+    return totalOwed > requestedRepayAmount ? requestedRepayAmount : totalOwed;
   }
 
 
@@ -138,6 +139,19 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     );
   }
 
+  function _close(bytes32 positionId) virtual internal returns(bool) {    
+    require(
+      debts[positionId].principal + debts[positionId].interestAccrued == 0,
+      'Loan: close failed. debt owed'
+    );
+
+    delete debts[positionId]; // yay gas refunds!!!
+
+    emit CloseDebtPosition(positionId);    
+
+    return true;
+  }
+
   function healthcheck() external returns(LoanLib.STATUS) {
     // if loan is in a final end state then do not run _healthcheck()
     if(loanStatus == LoanLib.STATUS.REPAID || loanStatus == LoanLib.STATUS.INSOLVENT) {
@@ -153,7 +167,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     if(principal + totalInterestAccrued > maxDebtValue)
       return LoanLib.STATUS.OVERDRAWN;
 
-    return loanStatus;
+    return LoanLib.STATUS.ACTIVE;
   }
   
   /**
@@ -163,57 +177,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   */
   function getOutstandingDebt() override external returns(uint256) {
     return principal + totalInterestAccrued;
-  }
-
-  /**
-   * @dev - Loan borrower and proposed lender agree on terms
-            and add it to potential options for borrower to drawdown on
-            Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
-   * @param amount - amount of `token` to initially deposit
-   * @param token - the token to be lent out
-   * @param lender - address that will manage debt position 
-  */
-  function addDebtPosition(
-    uint256 amount,
-    address token,
-    address lender
-  )
-    isActive
-    mutualUpgrade(lender, borrower) 
-    override external
-    returns(bool)
-  {
-    bytes32 positionId = LoanLib.computePositionId(address(this), lender, token);
-    
-    // MUST not double add position. otherwise we can not _close()
-    require(debts[positionId].lender == address(0), 'Loan: position exists');
-
-    bool success = IERC20(token).transferFrom(
-      lender,
-      address(this),
-      amount
-    );
-    require(success, 'Loan: no tokens to lend');
-
-    debts[positionId] = DebtPosition({
-      lender: lender,
-      token: token,
-      principal: 0,
-      interestAccrued: 0,
-      deposit: amount
-    });
-
-    emit AddDebtPosition(lender, token, amount);
-
-    // also add interest rate model here?
-    return true;
-  }
-  
-  /**
-    @notice see _accrueInterest()
-  */
-  function accrueInterest() override external returns(uint256) {
-    return _accrueInterest();
   }
 
 
@@ -262,14 +225,14 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     override external
     returns(bool)
   {
-    _accrueInterest();
+    _accrueInterest(positionId);
 
-    // TODO check if early repayment is allowed on loan
     uint256 amountToRepay = _getMaxRepayableAmount(positionId, amount);
+    require(amountToRepay > 0, "Loan: nothing to repay yet");
 
     bool success = IERC20(debts[positionId].token).transferFrom(
       msg.sender,
-      debts[positionId].lender,
+      address(this),
       amountToRepay
     );
     require(success, 'Loan: failed repayment');
@@ -289,10 +252,11 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     override external
     returns(bool)
   {
-    _accrueInterest();
+    _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
 
     uint256 totalOwed = debt.principal + debt.interestAccrued;
+    require(totalOwed == _getMaxRepayableAmount(positionId, totalOwed));
 
     // borrwer deposits remaining balance not already repaid and held in contract
     bool success = IERC20(debt.token).transferFrom(
@@ -323,7 +287,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     override external
     returns(bool)
   {
-    _accrueInterest();
+    _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
     
     require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
@@ -354,7 +318,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   function withdraw(bytes32 positionId, uint256 amount) override external returns(bool) {
     require(msg.sender == debts[positionId].lender);
     
-    _accrueInterest();
+    _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
     
     require(amount <  debt.deposit - debt.principal, 'Loan: no liquidity');
@@ -379,13 +343,12 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    *        Only callable by borrower or lender for debt position
    * @param positionId -the debt position to close
   */
-  function close(bytes32 positionId) override external returns(bool) {
+  function close(bytes32 positionId) validPositionId(positionId) override external returns(bool) {
     DebtPosition memory debt = debts[positionId];
     require(
       msg.sender == debt.lender ||
       msg.sender == borrower
     );
-    require(debt.principal + debt.interestAccrued == 0, 'Loan: close failed. debt owed');
     
     // repay lender initial deposit + accrued interest
     if(debt.deposit > 0) {
@@ -413,31 +376,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     virtual internal
     returns(bool)
   {
-    DebtPosition memory debt = debts[positionId];
-    
-    uint256 price = _getTokenPrice(debt.token);
-
-    if(amount <= debt.interestAccrued) {
-      debt.interestAccrued -= amount;
-      totalInterestAccrued -= price * amount;
-      emit RepayInterest(positionId, amount);
-    } else {
-      uint256 principalPayment = amount - debt.interestAccrued;
-      // update global debt denominated in usd
-      principal -= price * principalPayment;
-      totalInterestAccrued -= price * debt.interestAccrued;
-
-      emit RepayPrincipal(positionId, principalPayment);
-      // update before set to 0
-      emit RepayInterest(positionId, debt.interestAccrued);
-      
-      // update individual debt position denominated in token
-      debt.principal -= principalPayment;
-      // TODO update debt.deposit here or _accureInterest()?
-      debt.interestAccrued = 0;
-    }
-
-
     return true;
   }
 
@@ -447,47 +385,51 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
             Also updates global USD values for `totalInterestAccrued`.
             Can only be called when loan is not in distress
   */
-  function _accrueInterest() isActive internal returns (uint256 accruedAmount) {
-    uint256 len = positionIds.length;
-    bytes32 id;
-    DebtPosition memory debt;
+  function _accrueInterest(bytes32 positionId)
+    isActive
+    internal
+    returns (uint256 accruedToken, uint256 accruedValue)
+  {
+    // get token demoninated interest accrued
+    accruedToken = _getInterestPaymentAmount(positionId);
 
-    for(uint256 i = 0; i < len; i++) {
-      id = positionIds[len];
-      debt = debts[id];
-      // get token demoninated interest accrued
-      uint256 tokenIncrease = _getInterestPaymentAmount(id);
+    // update debts balance
+    debts[positionId].interestAccrued += accruedToken;
 
-      // update debts balance
-      debt.interestAccrued += tokenIncrease;
-      // should we be increaseing deposit here or in _repay()?
-      debt.deposit += tokenIncrease;
+    // get USD value of interest accrued
+    accruedValue = _getTokenPrice(debts[positionId].token) * accruedToken;
+    totalInterestAccrued += accruedValue;
 
-      // get USD value of interest accrued
-      uint256 interestValue = _getTokenPrice(debt.token) * tokenIncrease;
-      accruedAmount += interestValue;
+    emit InterestAccrued(positionId, accruedToken, accruedValue);
 
-      emit InterestAccrued(id, tokenIncrease, interestValue);
-    }
-
-    totalInterestAccrued += accruedAmount;
+    return (accruedToken, accruedValue);
   }
 
-  function _close(bytes32 positionId) internal returns(bool) {
-    // remove from active list
-    positionIds = LoanLib.removePosition(positionIds, positionId);
-
-    // brick loan contract if all positions closed
-    if(positionIds.length == 0) {
-      loanStatus = LoanLib.STATUS.REPAID;
-    }
+  function _createDebtPosition(
+    address lender,
+    address token,
+    uint256 amount,
+    uint256 initialPrincipal
+  )
+    internal
+    returns(bytes32 positionId)
+  {
+    positionId = LoanLib.computePositionId(address(this), lender, token);
     
-    // emit event before data is deleted
-    emit CloseDebtPosition(positionId);
-    
-    delete debts[positionId]; // yay gas refunds!!!
+    // MUST not double add position. otherwise we can not _close()
+    require(debts[positionId].lender == address(0), 'Loan: position exists');
 
-    return true;
+    debts[positionId] = DebtPosition({
+      lender: lender,
+      token: token,
+      principal: initialPrincipal,
+      interestAccrued: 0,
+      deposit: amount
+    });
+
+    emit AddDebtPosition(lender, token, amount);
+
+    return positionId;
   }
 
   // Helper functions

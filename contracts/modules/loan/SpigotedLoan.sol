@@ -6,7 +6,7 @@ import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { ISpigotConsumer } from "../../interfaces/ISpigotConsumer.sol";
 
-contract SpigotedLoan is BaseLoan, ISpigotedLoan {
+abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
   address immutable public spigot;
 
     /**
@@ -54,7 +54,7 @@ contract SpigotedLoan is BaseLoan, ISpigotedLoan {
     returns(bool)
   {
 
-    _accrueInterest();
+    _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
 
     // need to check with 0x api on where bought tokens go to by default
