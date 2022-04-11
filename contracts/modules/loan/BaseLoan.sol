@@ -324,8 +324,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(amount <  debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.deposit -= amount;
-    bool success = IERC20(debt.token).transferFrom(
-      address(this),
+    bool success = IERC20(debt.token).transfer(
       debt.lender,
       amount
     );
