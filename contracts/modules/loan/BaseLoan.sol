@@ -434,6 +434,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
   // Helper functions
   function _updateLoanStatus(LoanLib.STATUS status) internal returns(LoanLib.STATUS) {
+    if(loanStatus == status) return loanStatus;
     loanStatus = status;
     emit UpdateLoanStatus(uint256(status));
     return status;
