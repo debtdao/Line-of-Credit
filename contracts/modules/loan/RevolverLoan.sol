@@ -3,7 +3,7 @@ import { LoanLib } from "../../utils/LoanLib.sol";
 import { BaseLoan } from "./BaseLoan.sol";
 
 contract RevolverLoan is BaseLoan {
-  bytes32[] positionIds; // all active positions
+  bytes32[] public positionIds; // all active positions
 
   constructor(
     uint256 maxDebtValue_,
@@ -63,7 +63,7 @@ contract RevolverLoan is BaseLoan {
     uint256 len = positionIds.length;
 
     for(uint256 i = 0; i < len; i++) {
-      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[len]);
+      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[i]);
       accruedValue += accruedTokenValue;
     }
 
