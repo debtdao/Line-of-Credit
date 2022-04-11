@@ -201,6 +201,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     external
     returns(uint256)
   {
+    _updateLoanStatus(_healthcheck());
     require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
     return _liquidate(positionId, amount, targetToken);
   }
