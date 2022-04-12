@@ -295,7 +295,11 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     debt.principal += amount;
     principal += _getTokenPrice(debt.token) * amount;
-    // TODO call escrow contract and see if loan is still healthy before sending funds
+
+    require(
+      _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
+      'Loan: cant borrow'
+    );
 
     bool success = IERC20(debt.token).transferFrom(
       address(this),
