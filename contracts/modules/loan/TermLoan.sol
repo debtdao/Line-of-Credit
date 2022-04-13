@@ -91,34 +91,35 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       emit RepayInterest(positionId, amount);
     } else {
       // pay off interest then any overdue payments then principal
-
       amount -= debt.interestAccrued;
-      totalInterestAccrued -= price * debt.interestAccrued;
-
       debt.interestRepaid += debt.interestAccrued;
 
       // emit before set to 0
       emit RepayInterest(positionId, debt.interestAccrued);
       debt.interestAccrued = 0;
+      totalInterestAccrued = 0;
 
       if(missedPaymentsOwed > amount) {
         // not enough to payback all past due or take out principal
 
-        // TODO  we should also be reducing principal here right?????
         missedPaymentsOwed -= amount;
+        debt.principal -= amount;
+        principal -= price * amount;
+
         emit RepayOverdue(positionId, amount);
+        emit RepayPrincipal(positionId, amount);
       } else {
-        amount -= missedPaymentsOwed;
-        // emit 
+        // payback missed payments + principal
+
+        // emit before set to 9
         emit RepayOverdue(positionId, missedPaymentsOwed);
         missedPaymentsOwed = 0;
 
         debt.principal -= amount;
         principal -= price * amount ;
+        
         emit RepayPrincipal(positionId, amount);
       }
-      
-      // TODO update debt.accruedInterst here
     }
 
     debts[positionId] = debt;
