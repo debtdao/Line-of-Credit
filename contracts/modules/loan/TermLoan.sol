@@ -149,6 +149,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     }
     // believe it or not, miss 2 payments, straight to debtor jail
     if(timeSinceRepayment > repaymentPeriodLength * 2 + GRACE_PERIOD) {
+      emit Default(loanPositionId);
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 

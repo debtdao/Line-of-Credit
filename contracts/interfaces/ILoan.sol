@@ -32,6 +32,8 @@ interface ILoan {
 
   event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 
+  event Default(bytes32 indexed positionId);
+
   // General Events
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
