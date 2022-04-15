@@ -9,7 +9,6 @@ contract InterestRateRevolver is IInterestRateRevolver {
 
     ///////////  VARIABLES  ///////////
     uint256 public lastPayment; // timestamp in unix
-    uint256 public paymentInterval; // timestamp in unix
     uint256 public drawnRate; // in bps
     uint256 public facilityRate; // in bps
     address loanContract;
@@ -51,17 +50,14 @@ contract InterestRateRevolver is IInterestRateRevolver {
     * @return repayBalance amount to be repaid for this interest period
     * @return missedPayment whether the borrower has missed this past interest period
     *  */
-    function accrueInterest(uint256 drawnBalance, uint256 facilityBalance) external view override returns (uint256 repayBalance, bool missedPayment) {
+    function accrueInterest(uint256 drawnBalance, uint256 facilityBalance) external view override returns (uint256 repayBalance) {
         // calculate interest for payment period
         repayBalance = 
         drawnBalance * (drawnRate / RATE_DENOMINATOR) + 
         facilityBalance * (facilityRate / RATE_DENOMINATOR);
 
-        // check if missed payment using timestamp
-        missedPayment = 
-        (block.timestamp - lastPayment >= paymentInterval) ? 
-        true : 
-        false;
+        // reset last payment
+        lastPayment = block.timestamp;
     }
 
     /** 

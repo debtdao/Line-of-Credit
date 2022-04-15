@@ -9,7 +9,6 @@ contract InterestRateTerm is IInterestRateTerm {
 
     ///////////  VARIABLES  ///////////
     uint256 public lastPayment; // timestamp in unix
-    uint256 public paymentInterval; // timestamp in unix
     uint256 public interestRate; // in bps
     address loanContract;
 
@@ -47,15 +46,12 @@ contract InterestRateTerm is IInterestRateTerm {
     * @return repayBalance amount to be repaid for this interest period
     * @return missedPayment whether the borrower has missed this past interest period
     *  */
-    function accrueInterest(uint256 balance) external view override returns (uint256 repayBalance, bool missedPayment) {
+    function accrueInterest(uint256 balance) external view override returns (uint256 repayBalance) {
         // calculate interest for payment period
         repayBalance = balance * (interestRate / RATE_DENOMINATOR);
 
-        // check if missed payment using timestamp
-        missedPayment = 
-        (block.timestamp - lastPayment >= paymentInterval) ? 
-        true : 
-        false;
+        // reset last payment
+        lastPayment = block.timestamp;
     }
 
     /** 
