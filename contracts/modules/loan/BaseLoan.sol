@@ -301,8 +301,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       'Loan: cant borrow'
     );
 
-    bool success = IERC20(debt.token).transferFrom(
-      address(this),
+    bool success = IERC20(debt.token).transfer(
       borrower,
       amount
     );
