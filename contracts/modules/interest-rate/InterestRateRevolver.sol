@@ -6,12 +6,11 @@ import { IInterestRateRevolver } from "../../interfaces/IInterestRateRevolver.so
 contract InterestRateRevolver is IInterestRateRevolver {
 
     ///////////  CONSTANTS  ///////////
-    uint256 constant RATE_DENOMINATOR = 10000;
+    uint256 constant RATE_DENOMINATOR = 10000; // adding two zeroes to account for bps in numerator
 
     ///////////  VARIABLES  ///////////
-    uint256 public lastAccrual; // timestamp in unix
-    uint256 public drawnRate; // in bps
-    uint256 public facilityRate; // in bps
+    uint256 public immutable drawnRate; // in bps (RIGHT NOW THIS EXPECTS THE RATE BY PERIOD, NOT APY)
+    uint256 public immutable facilityRate; // in bps (RIGHT NOW THIS EXPECTS THE RATE BY PERIOD, NOT APY)
     address loanContract;
     
     ///////////  CONSTRUCTOR  ///////////
@@ -45,25 +44,10 @@ contract InterestRateRevolver is IInterestRateRevolver {
     * @param facilityBalance balance of facility funds
     * @return repayBalance amount to be repaid for this interest period
     *  */
-    function accrueInterest(uint256 drawnBalance, uint256 facilityBalance) external override returns (uint256 repayBalance) {
-        // reset last payment
-        lastAccrual = block.timestamp;
-
+    function accrueInterest(uint256 drawnBalance, uint256 facilityBalance) external view override returns (uint256 repayBalance) {
         // calculate interest for payment period
         repayBalance = 
         drawnBalance * (drawnRate / RATE_DENOMINATOR) + 
         facilityBalance * (facilityRate / RATE_DENOMINATOR);
-
-        
-    }
-
-    /** 
-    * @dev change rate
-    * @param _drawnRate new drawn rate
-    * @param _facilityRate new facility rate
-     */
-    function changeRates(uint256 _drawnRate, uint256 _facilityRate) external override onlyLoanContract {
-        drawnRate = _drawnRate;
-        facilityRate = _facilityRate;
     }
 }

@@ -4,7 +4,5 @@ interface IInterestRateRevolver {
   function accrueInterest(
     uint256 drawnAmount,
     uint256 facilityAmount
-  ) external returns(uint256 repayBalance);
-
-  function changeRates(uint256 _drawnRate, uint256 _facilityRate) external;
+  ) external view returns(uint256 repayBalance);
 }

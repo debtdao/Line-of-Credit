@@ -5,14 +5,11 @@ import { IInterestRateTerm } from "../../interfaces/IInterestRateTerm.sol";
 contract InterestRateTerm is IInterestRateTerm {
 
     ///////////  CONSTANTS  ///////////
-    uint256 constant RATE_DENOMINATOR = 10000;
+    uint256 constant RATE_DENOMINATOR = 10000; // adding two zeroes to account for bps in numerator
 
     ///////////  VARIABLES  ///////////
-    uint256 public lastAccrual; // timestamp in unix
-    uint256 public interestRate; // in bps
+    uint256 public immutable interestRate; // in bps (RIGHT NOW THIS EXPECTS THE RATE BY PERIOD, NOT APY)
     address loanContract;
-
-    
     
     ///////////  CONSTRUCTOR  ///////////
 
@@ -21,7 +18,6 @@ contract InterestRateTerm is IInterestRateTerm {
     * @param _interestRate interest rate for loan
      */
     constructor (
-        uint256 _paymentInterval,
         uint256 _interestRate
     ) {
         loanContract = msg.sender;
@@ -42,19 +38,8 @@ contract InterestRateTerm is IInterestRateTerm {
     * @param balance amount of balance in the loan contract 
     * @return repayBalance amount to be repaid for this interest period
     *  */
-    function accrueInterest(uint256 balance) external override returns (uint256 repayBalance) {
+    function accrueInterest(uint256 balance) external view override returns (uint256 repayBalance) {
         // calculate interest for payment period
         repayBalance = balance * (interestRate / RATE_DENOMINATOR);
-
-        // reset last payment
-        lastAccrual = block.timestamp;
-    }
-
-    /** 
-    * @dev change rate
-    * @param _interestRate rate of interest for undrawn component
-     */
-    function changeRate(uint256 _interestRate) external override onlyLoanContract {
-        interestRate = _interestRate;
     }
 }
