@@ -62,6 +62,11 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     // also add interest rate model here?
     return true;
   }
+
+  function _getInterestPaymentAmount(bytes32 positionId) virtual override returns(uint256) {
+    // return InterestRateTerm.accrueInterest(debts[positionId].principal, repaymentPeriodLength)
+  }
+
   function accrueInterest() external returns(uint256 accruedValue) {
     (, accruedValue) = _accrueInterest(loanPositionId);
   }
@@ -100,26 +105,18 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       totalInterestAccrued = 0;
 
       if(missedPaymentsOwed > amount) {
-        // not enough to payback all past due or take out principal
-
-        missedPaymentsOwed -= amount;
-        debt.principal -= amount;
-        principal -= price * amount;
-
         emit RepayOverdue(positionId, amount);
-        emit RepayPrincipal(positionId, amount);
+        missedPaymentsOwed -= amount;
       } else {
-        // payback missed payments + principal
-
-        // emit before set to 9
         emit RepayOverdue(positionId, missedPaymentsOwed);
         missedPaymentsOwed = 0;
-
-        debt.principal -= amount;
-        principal -= price * amount ;
-        
-        emit RepayPrincipal(positionId, amount);
       }
+
+      // missed payments get added to principal so missed payments + extra $ reduce principal
+      debt.principal -= amount;
+      principal -= price * amount ;
+
+      emit RepayPrincipal(positionId, amount);
     }
 
     debts[positionId] = debt;
@@ -136,9 +133,9 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   }
 
   function _healthcheck() virtual override(BaseLoan) internal returns(LoanLib.STATUS) {
-    // if loan was already repaid then this _healthcheck shouldn't be called so loan wasn't repaid
+    // if loan was already repaid then _healthcheck isn't called so must be defaulted
     if(block.timestamp > endTime) {
-      // should be INSOLVENT? 
+      emit Default(loanPositionId);
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 
@@ -156,5 +153,29 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     return BaseLoan._healthcheck();
   }
 
-  function _getMissedPayments() virtual internal view returns(uint256 totalMissedPayments) {}
+  function _getMissedPayments() virtual internal returns(uint256) {
+    if(lastPaymentTimestamp + repaymentPeriodLength > block.timestamp) {
+      // haven't missed a payment this cycle. may still owe from last missed cycles
+      return missedPaymentsOwed;
+    }
+
+    // sol automatically rounds down so current period isn't included
+    uint256 totalPeriodsMissed = (block.timestamp - lastPaymentTimestamp) / repaymentPeriodLength;
+
+    DebtPosition memory debt = debts[loanPositionId];
+
+    uint256 totalMissedPayments = missedPaymentsOwed + debt.interestAccrued;
+    debt.principal += debt.interestAccrued;
+    debt.interestAccrued = 0;
+    totalInterestAccrued = 0;
+
+    for(uint i; i <= totalPeriodsMissed; i++) {
+      // update storage directly because _accrueInterest uses/updates the values
+      uint256 interestOwed = _getInterestPaymentAmount(loanPositionId);
+      debt.principal += interestOwed;
+      totalMissedPayments += interestOwed;
+    }
+
+    return totalMissedPayments;
+  }
 }

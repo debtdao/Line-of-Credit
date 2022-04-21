@@ -20,16 +20,14 @@ abstract contract BulletLoan is TermLoan {
     internal
     returns(uint256) {
 
-    // no early repayment until payment period is over
-    // TODO move into time range? in repay set lstTimestamp to lastTimestamp + periodLength instead of timestamp?
     if(block.timestamp - currentPaymentPeriodStart < repaymentPeriodLength) {
       return 0;
     }
 
-    missedPaymentsOwed += _getMissedPayments();
+    missedPaymentsOwed = _getMissedPayments();
 
     uint256 totalOwed;
-    bool isEnd = endTime - block.timestamp < repaymentPeriodLength;
+    bool isEnd = endTime - block.timestamp <= repaymentPeriodLength;
 
     // must already _accrueInterest in depositAndRepay/_getMissedPayments
     totalOwed = isEnd ? 
@@ -38,6 +36,7 @@ abstract contract BulletLoan is TermLoan {
       // normal interest payment
       debts[positionId].interestAccrued + missedPaymentsOwed;
 
+    // _get shouldn't have side effects i feel like
     if(requestedRepayAmount < totalOwed) {
       totalOwed = requestedRepayAmount;
       // if they can't make full payment then update status. if loan is ended that means they cant repay and is insolvent
