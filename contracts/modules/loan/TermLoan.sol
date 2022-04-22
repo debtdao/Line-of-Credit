@@ -116,6 +116,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       
       // TODO update debt.accruedInterst here
     }
+    debts[positionId] = debt;
 
     return true;
   }

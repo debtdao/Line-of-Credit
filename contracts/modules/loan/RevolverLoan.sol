@@ -109,7 +109,7 @@ contract RevolverLoan is BaseLoan {
       // TODO update debt.deposit here or _accureInterest()?
       debt.interestAccrued = 0;
     }
-
+    debts[positionId] = debt;
 
     return true;
   }
