@@ -417,6 +417,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     internal
     returns(bytes32 positionId)
   {
+    require(IOracle(oracle).getLatestAnswer(token) > 0, "Loan: token cannot be valued");
     positionId = LoanLib.computePositionId(address(this), lender, token);
     
     // MUST not double add position. otherwise we can not _close()
