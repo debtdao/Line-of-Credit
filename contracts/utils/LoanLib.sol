@@ -66,8 +66,6 @@ library LoanLib {
           }
       }
 
-      require(newPositions.length == newLength, "LoanLib: array length mismatch");
-
       return newPositions;
     }
 }
