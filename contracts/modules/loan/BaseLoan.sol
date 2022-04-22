@@ -296,6 +296,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     debt.principal += amount;
     principal += _getTokenPrice(debt.token) * amount;
 
+    debts[positionId] = debt;
+
     require(
       _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
       'Loan: cant borrow'
