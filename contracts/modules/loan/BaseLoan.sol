@@ -356,8 +356,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // repay lender initial deposit + accrued interest
     if(debt.deposit > 0) {
       require(IERC20(debt.token).transfer(debt.lender, debt.deposit));
-      debts[positionId].principal = 0;
-      debts[positionId].interestAccrued = 0;
+      _repay(positionId, debt.deposit);
     }
 
     require(_close(positionId));
