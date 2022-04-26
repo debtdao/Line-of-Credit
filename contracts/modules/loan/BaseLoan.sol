@@ -259,7 +259,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     uint256 totalOwed = debt.principal + debt.interestAccrued;
     require(totalOwed == _getMaxRepayableAmount(positionId, totalOwed));
 
-    // borrwer deposits remaining balance not already repaid and held in contract
+    // borrower deposits remaining balance not already repaid and held in contract
     bool success = IERC20(debt.token).transferFrom(
       msg.sender,
       address(this),
@@ -267,7 +267,12 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     );
     require(success, 'Loan: deposit failed');
 
-    require(_repay(positionId, totalOwed));
+    emit RepayInterest(positionId, debt.interestAccrued);
+    emit RepayPrincipal(positionId, debt.principal);
+
+    debts[positionId].principal = 0;
+    debts[positionId].interestAccrued = 0;
+
     require(_close(positionId));
     return true;
   }
@@ -295,6 +300,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     debt.principal += amount;
     principal += _getTokenPrice(debt.token) * amount;
+
+    debts[positionId] = debt;
 
     require(
       _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
@@ -334,6 +341,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     );
     require(success, 'Loan: withdraw failed');
 
+    debts[positionId] = debt;
 
     emit Withdraw(positionId, amount);
 
@@ -356,6 +364,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // repay lender initial deposit + accrued interest
     if(debt.deposit > 0) {
       require(IERC20(debt.token).transfer(debt.lender, debt.deposit));
+      debts[positionId].principal = 0;
+      debts[positionId].interestAccrued = 0;
     }
 
     require(_close(positionId));
