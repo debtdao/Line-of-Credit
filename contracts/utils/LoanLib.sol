@@ -56,19 +56,16 @@ library LoanLib {
      */
     function removePosition(bytes32[] calldata positions, bytes32 id) external view returns(bytes32[] memory) {
       uint256 newLength = positions.length - 1;
-      uint256 count; // index in new positions array to push id next id to
+      uint256 count = 0;
       bytes32[] memory newPositions = new bytes32[](newLength);
 
-      for (uint256 i; i <= newLength;) {
-        if(newPositions[i] == id) continue;
-        newPositions[count] = positions[i];
-        unchecked {
-          ++i;
-          ++count;
-        }
+      for(uint i = 0; i < positions.length; i++) {
+          if(positions[i] != id) {
+              newPositions[count] = positions[i];
+              count++;
+          }
       }
 
-      require(newPositions.length == newLength);
       return newPositions;
     }
 }
