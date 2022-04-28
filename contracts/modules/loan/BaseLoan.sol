@@ -324,7 +324,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
     
-    require(amount <  debt.deposit - debt.principal, 'Loan: no liquidity');
+    require(amount <=  debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.deposit -= amount;
     bool success = IERC20(debt.token).transfer(
