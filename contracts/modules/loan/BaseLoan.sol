@@ -9,7 +9,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ILoan } from "../../interfaces/ILoan.sol";
 import { IEscrow } from "../../interfaces/IEscrow.sol";
 import { IOracle } from "../../interfaces/IOracle.sol";
-import { IInterestRate } from "../../interfaces/IInterestRate.sol";
 
 abstract contract BaseLoan is ILoan, MutualUpgrade {  
   address immutable public borrower;   // borrower being lent to
@@ -130,14 +129,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   */
   function _getInterestPaymentAmount(bytes32 positionId)
     virtual internal
-    returns(uint256)
-  {
-    return IInterestRate(interestRateModel).accrueInterest(
-      positionId,
-      debts[positionId].principal,
-      loanStatus
-    );
-  }
+    returns(uint256) {}
 
   function _close(bytes32 positionId) virtual internal returns(bool) {    
     require(
