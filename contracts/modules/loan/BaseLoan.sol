@@ -258,12 +258,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       totalOwed
     );
     require(success, 'Loan: deposit failed');
-
-    emit RepayInterest(positionId, debt.interestAccrued);
-    emit RepayPrincipal(positionId, debt.principal);
-
-    debts[positionId].principal = 0;
-    debts[positionId].interestAccrued = 0;
+    // clear the debt 
+    _repay(positionId, totalOwed);
 
     require(_close(positionId));
     return true;
