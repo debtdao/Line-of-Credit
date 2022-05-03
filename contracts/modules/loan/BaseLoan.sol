@@ -249,7 +249,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     DebtPosition memory debt = debts[positionId];
 
     uint256 totalOwed = debt.principal + debt.interestAccrued;
-    require(totalOwed == _getMaxRepayableAmount(positionId, totalOwed));
+    require(totalOwed == _getMaxRepayableAmount(positionId, totalOwed), "Loan: can't repay whole position");
 
     // borrower deposits remaining balance not already repaid and held in contract
     bool success = IERC20(debt.token).transferFrom(
@@ -315,7 +315,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
   function withdraw(bytes32 positionId, uint256 amount) override external returns(bool) {
-    require(msg.sender == debts[positionId].lender);
+    require(msg.sender == debts[positionId].lender, "Loan: only lender can withdraw");
     
     _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
@@ -346,7 +346,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     DebtPosition memory debt = debts[positionId];
     require(
       msg.sender == debt.lender ||
-      msg.sender == borrower
+      msg.sender == borrower,
+      "Loan: msg.sender must be the lender or borrower"
     );
     
     // repay lender initial deposit + accrued interest
