@@ -22,10 +22,10 @@ contract Oracle is IOracle {
             /* uint80 startedAt */,
             /* uint80 timeStamp */,
             /* uint80 answeredInRound */
-        ) = registry.latestRoundData(token, USD); // all prices are in USD so we hardcode the address
-
-        uint8 decimals = registry.decimals(token, USD);
+        ) = registry.latestRoundData(token, USD); // ALL PRICES WILL HAVE 8 DECIMAL PADDING
         
-        return (price / int(10 ** decimals)); // scale down
+        return price;
     }
+
+    
 }
