@@ -107,7 +107,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @dev Modules can overwrite e.g. for bullet loans to prevent principal repayments
    * @param positionId - debt position data for loan being repaid
    * @param requestedRepayAmount - amount of debt that the borrower would like to pay
-   * @return - amount borrower is allowedto repay. Returns 0 if repayment is not allowed
+   * @return - amount borrower is allowed to repay. Returns 0 if repayment is not allowed
   */
   function _getMaxRepayableAmount(
     bytes32 positionId,
@@ -365,7 +365,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return true;
   }
 
-  // prviliged interal functions
+  // privileged internal functions
   /**
    * @dev - Reduces `principal` and/or `interestAccrued` on debt position, increases lender's `deposit`.
             Reduces global USD principal and totalInterestAccrued values.

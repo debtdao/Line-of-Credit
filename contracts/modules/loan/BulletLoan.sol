@@ -21,7 +21,7 @@ abstract contract BulletLoan is TermLoan {
     returns(uint256) {
 
     // no early repayment until payment period is over
-    // TODO move into timerange? in repay set lstTimestamp to lastTimestamp + periodLength instead of timestamp?
+    // TODO move into time range? in repay set lstTimestamp to lastTimestamp + periodLength instead of timestamp?
     if(block.timestamp - lastPaymentTimestamp < repaymentPeriodLength) {
       return 0;
     }
@@ -50,7 +50,7 @@ abstract contract BulletLoan is TermLoan {
 
   function _getMissedPayments() override internal view returns(uint256) {
     // check how many epochs have passed
-    // loop over periods and constantly accrue interst, add to principal, calculate interest for next period based of this
+    // loop over periods and constantly accrue interest, add to principal, calculate interest for next period based of this
     // might be best as recursive func, idk design yet
 
   }

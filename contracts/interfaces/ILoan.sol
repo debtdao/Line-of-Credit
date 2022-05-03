@@ -5,7 +5,7 @@ interface ILoan {
   struct DebtPosition {
     address lender;           // person to repay
     address token;            // token being lent out
-    // all deonminated in token, not USD
+    // all denominated in token, not USD
     uint256 deposit;          // total liquidity provided by lender for token
     uint256 principal;        // amount actively lent out
     uint256 interestAccrued;  // interest accrued but not repaid
@@ -14,7 +14,7 @@ interface ILoan {
   // Lender Events
 
   event AddDebtPosition(address indexed lender, address indexed token, uint256 indexed deposit);
-  // can reference only positionId once AddDebtPosition is emmitted because it will be stored in subgraph
+  // can reference only positionId once AddDebtPosition is emitted because it will be stored in subgraph
 
   event Withdraw(bytes32 indexed positionId, uint256 indexed amount);
 
