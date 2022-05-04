@@ -339,7 +339,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
   /**
    * @dev - Deletes debt position preventing any more borrowing.
-   *        Only callable by borrower or lender for debt position
+   *      - Only callable by borrower or lender for debt position
+   *      - Requires that the debt has already been paid off
    * @param positionId -the debt position to close
   */
   function close(bytes32 positionId) validPositionId(positionId) override external returns(bool) {
@@ -350,10 +351,9 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
       "Loan: msg.sender must be the lender or borrower"
     );
     
-    // repay lender initial deposit + accrued interest
+    // return the lender's deposit
     if(debt.deposit > 0) {
       require(IERC20(debt.token).transfer(debt.lender, debt.deposit));
-      _repay(positionId, debt.deposit);
     }
 
     require(_close(positionId));
