@@ -6,13 +6,14 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 
 abstract contract BulletLoan is TermLoan {
+
   constructor(
     uint256 repaymentPeriodLength_,
     uint256 totalRepaymentPeriods_
   )
     TermLoan(repaymentPeriodLength_, totalRepaymentPeriods_)
   {
-
+  
   }
 
   function _getMaxRepayableAmount(bytes32 positionId, uint256 requestedRepayAmount)
@@ -20,7 +21,8 @@ abstract contract BulletLoan is TermLoan {
     internal
     returns(uint256) {
 
-    if(block.timestamp - currentPaymentPeriodStart < repaymentPeriodLength) {
+    // can repay for a period early. then lastPaymentTimestamp is set to the end of the period so can't pay until next period
+    if(block.timestamp < lastPaymentTimestamp) {
       return 0;
     }
 
@@ -30,11 +32,10 @@ abstract contract BulletLoan is TermLoan {
     bool isEnd = endTime - block.timestamp <= repaymentPeriodLength;
 
     // must already _accrueInterest in depositAndRepay/_getMissedPayments
-    totalOwed = isEnd ? 
-      // loan has ended. repay all principal + interest
-      initialPrincipal + debts[positionId].interestAccrued + overduePaymentsAmount :
-      // normal interest payment
-      debts[positionId].interestAccrued + overduePaymentsAmount;
+    totalOwed = (initialPrincipal / totalRepaymentPeriods_) +
+      debts[loanPositionId].interestAccrued +
+      overduePaymentsAmount;
+
 
     // _get shouldn't have side effects i feel like
     if(requestedRepayAmount < totalOwed) {
@@ -71,7 +72,7 @@ abstract contract BulletLoan is TermLoan {
       // update storage directly because _accrueInterest uses/updates the values
       uint256 interestOwed = _getInterestPaymentAmount(loanPositionId);
       debt.principal += interestOwed;
-      totalMissedPayments += interestOwed;
+      totalMissedPayments += interestOwed + paymentPerPeriod;
     }
 
     // update usd values

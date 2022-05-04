@@ -12,8 +12,11 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   uint256 immutable repaymentPeriodLength;
   uint256 immutable totalRepaymentPeriods;
   
-  // helper var. time when loan is done
+  // helper var.
+  // time when loan is done
   uint256 endTime;
+  // principal for compounding interest or amoratization
+  uint256 initialPrincipal;
 
   // the only loan allowed on this contract. set in addDebtPosition()
   bytes32 loanPositionId;
@@ -58,6 +61,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     currentPaymentPeriodStart = block.timestamp;
     // set end of loan
     endTime = block.timestamp + (repaymentPeriodLength * totalRepaymentPeriods);
+    initialPrincipal = principal;
 
     // also add interest rate model here?
     return true;
@@ -104,12 +108,12 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       debt.interestAccrued = 0;
       totalInterestAccrued = 0;
 
-      if(missedPaymentsOwed > amount) {
+      if(overduePaymentsAmount > amount) {
         emit RepayOverdue(positionId, amount);
-        missedPaymentsOwed -= amount;
+        overduePaymentsAmount -= amount;
       } else {
-        emit RepayOverdue(positionId, missedPaymentsOwed);
-        missedPaymentsOwed = 0;
+        emit RepayOverdue(positionId, overduePaymentsAmount);
+        overduePaymentsAmount = 0;
       }
 
       // missed payments get added to principal so missed payments + extra $ reduce principal
@@ -153,29 +157,4 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     return BaseLoan._healthcheck();
   }
 
-  function _getMissedPayments() virtual internal returns(uint256) {
-    if(lastPaymentTimestamp + repaymentPeriodLength > block.timestamp) {
-      // haven't missed a payment this cycle. may still owe from last missed cycles
-      return missedPaymentsOwed;
-    }
-
-    // sol automatically rounds down so current period isn't included
-    uint256 totalPeriodsMissed = (block.timestamp - lastPaymentTimestamp) / repaymentPeriodLength;
-
-    DebtPosition memory debt = debts[loanPositionId];
-
-    uint256 totalMissedPayments = missedPaymentsOwed + debt.interestAccrued;
-    debt.principal += debt.interestAccrued;
-    debt.interestAccrued = 0;
-    totalInterestAccrued = 0;
-
-    for(uint i; i <= totalPeriodsMissed; i++) {
-      // update storage directly because _accrueInterest uses/updates the values
-      uint256 interestOwed = _getInterestPaymentAmount(loanPositionId);
-      debt.principal += interestOwed;
-      totalMissedPayments += interestOwed;
-    }
-
-    return totalMissedPayments;
-  }
 }
