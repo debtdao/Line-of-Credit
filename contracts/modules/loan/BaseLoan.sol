@@ -387,7 +387,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
             Can only be called when loan is not in distress
   */
   function _accrueInterest(bytes32 positionId)
-    isActive
     internal
     returns (uint256 accruedToken, uint256 accruedValue)
   {
