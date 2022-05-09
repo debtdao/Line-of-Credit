@@ -79,10 +79,10 @@ contract Escrow is IEscrow {
                 // need to scale value by token decimal
                 (bool success, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
                 if(!success) {
-                    collateralValue += price * (deposit / 1e18);
+                    collateralValue += (price * deposit) / 1e18;
                 } else {
                     uint8 decimals = abi.decode(result, (uint8));
-                    collateralValue += price * (deposit / (1 * 10 ** decimals));
+                    collateralValue += (price * deposit) / (1 * 10 ** decimals);
                 }
             }
         }
