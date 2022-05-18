@@ -85,30 +85,33 @@ contract RevolverLoan is BaseLoan {
     internal
     returns(bool)
   {
-    // move all this logic to Revolver.sol
     DebtPosition memory debt = debts[positionId];
     
     uint256 price = _getTokenPrice(debt.token);
 
     if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
+      debt.interestRepaid += amount;
       totalInterestAccrued -= price * amount;
       emit RepayInterest(positionId, amount);
     } else {
       uint256 principalPayment = amount - debt.interestAccrued;
+
+      emit RepayPrincipal(positionId, principalPayment);
+      emit RepayInterest(positionId, debt.interestAccrued);
+
       // update global debt denominated in usd
       principal -= price * principalPayment;
       totalInterestAccrued -= price * debt.interestAccrued;
 
-      emit RepayPrincipal(positionId, principalPayment);
-      // update before set to 0
-      emit RepayInterest(positionId, debt.interestAccrued);
-      
       // update individual debt position denominated in token
       debt.principal -= principalPayment;
-      // TODO update debt.deposit here or _accureInterest()?
+
+      debt.interestRepaid += debt.interestAccrued;
       debt.interestAccrued = 0;
+      
     }
+
     debts[positionId] = debt;
 
     return true;

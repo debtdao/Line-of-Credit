@@ -22,7 +22,7 @@ abstract contract BulletLoan is TermLoan {
 
     // no early repayment until payment period is over
     // TODO move into time range? in repay set lstTimestamp to lastTimestamp + periodLength instead of timestamp?
-    if(block.timestamp - lastPaymentTimestamp < repaymentPeriodLength) {
+    if(block.timestamp - currentPaymentPeriodStart < repaymentPeriodLength) {
       return 0;
     }
 

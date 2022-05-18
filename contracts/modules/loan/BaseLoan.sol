@@ -320,9 +320,15 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     _accrueInterest(positionId);
     DebtPosition memory debt = debts[positionId];
     
-    require(amount <=  debt.deposit - debt.principal, 'Loan: no liquidity');
+    require(amount <=  debt.deposit + debt.interestRepaid - debt.principal, 'Loan: no liquidity');
 
-    debt.deposit -= amount;
+    if(amount > debt.interestRepaid) {
+      debt.deposit -= amount - debt.interestRepaid;
+      debt.interestRepaid = 0;
+    } else {
+      debt.interestRepaid -= amount;
+    }
+
     bool success = IERC20(debt.token).transfer(
       debt.lender,
       amount
@@ -353,7 +359,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     
     // return the lender's deposit
     if(debt.deposit > 0) {
-      require(IERC20(debt.token).transfer(debt.lender, debt.deposit));
+      require(IERC20(debt.token).transfer(debt.lender, debt.deposit + debt.interestRepaid));
     }
 
     require(_close(positionId));
@@ -423,9 +429,10 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     debts[positionId] = DebtPosition({
       lender: lender,
       token: token,
+      deposit: amount,
       principal: initialPrincipal,
       interestAccrued: 0,
-      deposit: amount
+      interestRepaid: 0
     });
 
     emit AddDebtPosition(lender, token, amount);
