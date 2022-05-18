@@ -75,10 +75,20 @@ contract Escrow is IEscrow {
             address token = _tokensUsedAsCollateral[i];
             uint deposit = deposited[token];
             if(deposit != 0) {
-                uint price = IOracle(oracle).getLatestAnswer(token);
+                (bool success, bytes memory assetAmount) = token.call(abi.encodeWithSignature("convertToAssets(uint256)", deposit));
+                if(success) {
+                    // this is an eip4626 token, adjust the amount to the underlying
+                    deposit = abi.decode(assetAmount, (uint));
+                    (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
+                    // we need this because the decimals between the share token and underlying could differ
+                    token = abi.decode(tokenAddrBytes, (address));
+                }
+                int prc = IOracle(oracle).getLatestAnswer(token);
+                // treat negative prices as 0
+                uint price = prc < 0 ? 0 : uint(prc);
                 // need to scale value by token decimal
-                (bool success, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-                if(!success) {
+                (bool successDecimals, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
+                if(!successDecimals) {
                     collateralValue += (price * deposit) / 1e18;
                 } else {
                     uint8 decimals = abi.decode(result, (uint8));

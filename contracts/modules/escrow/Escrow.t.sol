@@ -57,23 +57,40 @@ contract EscrowTest is DSTest {
     function test_can_get_correct_collateral_value() public {
         escrow.addCollateral(mintAmount, address(supportedToken1));
         uint collateralValue = escrow.getCollateralValue();
-        assert(collateralValue == (1000 * 1e8) * (mintAmount / 1 ether));
+        assertEq(collateralValue, (1000 * 1e8) * (mintAmount / 1 ether), "collateral value should equal the mint amount * price");
     }
 
     function test_can_add_collateral() public {
         uint borrowerBalance = supportedToken1.balanceOf(borrower);
         escrow.addCollateral(mintAmount, address(supportedToken1));
-        assert(borrowerBalance == supportedToken1.balanceOf(borrower) + mintAmount);
+        assertEq(borrowerBalance, supportedToken1.balanceOf(borrower) + mintAmount, "borrower should have decreased with collateral deposit");
         uint borrowerBalance2 = supportedToken2.balanceOf(borrower);
         escrow.addCollateral(mintAmount, address(supportedToken2));
-        assert(borrowerBalance2 == supportedToken2.balanceOf(borrower) + mintAmount);
+        assertEq(borrowerBalance2, supportedToken2.balanceOf(borrower) + mintAmount, "borrower should have decreased with collateral deposit");
+    }
+
+    function test_can_add_collateral_eip4626_mimic() public {
+        uint borrowerBalance = supportedToken1.balanceOf(borrower);
+        supportedToken1.setAssetAddress(address(supportedToken2));
+        supportedToken1.setAssetMultiplier(5);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(borrowerBalance, supportedToken1.balanceOf(borrower) + mintAmount, "borrower balance should have been reduced by mintAmount");
+    }
+
+    function test_can_remove_collateral_eip4626_mimic() public {
+        uint borrowerBalance = supportedToken1.balanceOf(borrower);
+        supportedToken1.setAssetAddress(address(supportedToken2));
+        supportedToken1.setAssetMultiplier(5);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
+        assertEq(1 ether, supportedToken1.balanceOf(borrower), "should have returned collateral");
     }
 
     function test_can_remove_collateral() public {
         escrow.addCollateral(mintAmount, address(supportedToken1));
         uint borrowerBalance = supportedToken1.balanceOf(borrower);
         escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
-        assert(borrowerBalance + 1 ether == supportedToken1.balanceOf(borrower));
+        assertEq(borrowerBalance + 1 ether, supportedToken1.balanceOf(borrower), "borrower should have released collateral");
     }
 
     function test_cratio_adjusts_when_collateral_changes() public {
@@ -81,9 +98,9 @@ contract EscrowTest is DSTest {
         escrow.addCollateral(1 ether, address(supportedToken1));
         uint escrowRatio = escrow.getCollateralRatio();
         escrow.addCollateral(1 ether, address(supportedToken1));
-        assert(escrow.getCollateralRatio() == escrowRatio * 2);
+        assertEq(escrow.getCollateralRatio(), escrowRatio * 2, "cratio should be 2x the original");
         escrow.addCollateral(1 ether, address(supportedToken2));
-        assert(escrow.getCollateralRatio() == escrowRatio * 4);
+        assertEq(escrow.getCollateralRatio(), escrowRatio * 4, "cratio should be 4x the original");
     }
 
     function test_cratio_adjusts_when_collateral_price_changes() public {
@@ -92,41 +109,70 @@ contract EscrowTest is DSTest {
         uint escrowRatio = escrow.getCollateralRatio();
         oracle.changePrice(address(supportedToken1), 10000 * 1e8);
         uint newEscrowRatio = escrow.getCollateralRatio();
-        assert(newEscrowRatio == escrowRatio * 10);
+        assertEq(newEscrowRatio, escrowRatio * 10, "new cratio should be 10x the original");
     }
 
     function test_can_liquidate() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         escrow.addCollateral(0.9 ether, address(supportedToken2));
         loan.setDebtValue(2000 ether);
-        assert(minCollateralRatio > escrow.getCollateralRatio());
+        assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
         loan.liquidate(0, 1 ether, address(supportedToken1), arbiter);
         loan.liquidate(0, 0.9 ether, address(supportedToken2), arbiter);
-        assert(supportedToken1.balanceOf(arbiter) == 1 ether);
-        assert(supportedToken2.balanceOf(arbiter) == 0.9 ether);
+        assertEq(supportedToken1.balanceOf(arbiter), 1 ether, "arbiter should have received token 1");
+        assertEq(supportedToken2.balanceOf(arbiter), 0.9 ether, "arbiter should have received token 2");
+    }
+
+    function test_can_liquidate_eip4626_mimic() public {
+        supportedToken1.setAssetAddress(address(supportedToken2));
+        supportedToken1.setAssetMultiplier(5);
+        supportedToken2.setAssetAddress(address(supportedToken1));
+        supportedToken2.setAssetMultiplier(10);
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        escrow.addCollateral(0.9 ether, address(supportedToken2));
+        loan.setDebtValue(2000 ether);
+        assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
+        loan.liquidate(0, 1 ether, address(supportedToken1), arbiter);
+        loan.liquidate(0, 0.9 ether, address(supportedToken2), arbiter);
+        assertEq(supportedToken1.balanceOf(arbiter), 1 ether, "arbiter should have received token 1");
+        assertEq(supportedToken2.balanceOf(arbiter), 0.9 ether, "arbiter should have received token 2");
     }
 
     function test_cratio_should_be_max_int_if_no_debt() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         loan.setDebtValue(0);
-        assert(escrow.getCollateralRatio() == MAX_INT);
+        assertEq(escrow.getCollateralRatio(), MAX_INT, "cratio should be set to MAX");
     }
 
     function test_cratio_values() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         loan.setDebtValue(1000 * 1e8); // 1e18 of supportedToken1 == 1000 * 1e8 (1000 USD)
-        assert(escrow.getCollateralRatio() == 1 ether); // cratio is at 100%
+        assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be at 100%"); // cratio is at 100%
         loan.setDebtValue(10 * (1000 * 1e8)); // 10x the collateral value (10000 USD)
-        assert(escrow.getCollateralRatio() == 0.1 ether); // 10%
+        assertEq(escrow.getCollateralRatio(), 0.1 ether, "cratio should be at 10%"); // 10%
         escrow.addCollateral(1 ether, address(supportedToken2)); // worth 2000 * 1e8 (2000 USD)
-        assert(escrow.getCollateralRatio() == 0.3 ether); // 30%
+        assertEq(escrow.getCollateralRatio(), 0.3 ether, "cratio should be at 30%"); // 30%
         escrow.addCollateral(10 ether, address(supportedToken2));
-        assert(escrow.getCollateralRatio() == 2.3 ether); // 230%
+        assertEq(escrow.getCollateralRatio(), 2.3 ether, "cratio should be at 230%"); // 230%
     }
 
     function test_cratio_should_be_0_if_no_collateral() public {
         loan.setDebtValue(1000);
-        assert(escrow.getCollateralRatio() == 0);
+        assertEq(escrow.getCollateralRatio(), 0, "cratio should be 0");
+    }
+
+    function test_cratio_values_with_eip4626_mimic() public {
+        supportedToken1.setAssetAddress(address(supportedToken2));
+        supportedToken1.setAssetMultiplier(2); // share token should be worth double the underlying (which is now supportedToken2)
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        loan.setDebtValue(4000 * 1e8); // 1e18 of supportedToken2 * 2 == 4000 * 1e8 (4000 USD)
+        assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be 100%");
+        loan.setDebtValue(10 * (4000 * 1e8)); // 10x the collateral value (40000 USD)
+        assertEq(escrow.getCollateralRatio(), 0.1 ether, "cratio should be 10%");
+        escrow.addCollateral(1 ether, address(supportedToken2)); // worth 2000 * 1e8 (2000 USD)
+        assertEq(escrow.getCollateralRatio(), 0.15 ether, "cratio should be 15%");
+        escrow.addCollateral(10 ether, address(supportedToken2));
+        assertEq(escrow.getCollateralRatio(), 0.65 ether, "cratio should be 65%");
     }
 
     function testFail_cannot_remove_collateral_when_under_collateralized() public {
@@ -142,5 +188,11 @@ contract EscrowTest is DSTest {
 
     function testFail_cannot_add_collateral_if_unsupported_by_oracle() public {
         escrow.addCollateral(1000, address(unsupportedToken));
+    }
+
+    function testFail_cannot_add_collateral_if_unsupported_by_oracle_eip4626_mimic() public {
+        supportedToken1.setAssetAddress(address(unsupportedToken));
+        supportedToken1.setAssetMultiplier(2);
+        escrow.addCollateral(1000, address(supportedToken1));
     }
 }
