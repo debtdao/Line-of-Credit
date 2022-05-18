@@ -4,6 +4,7 @@ pragma solidity ^0.8.9;
 import { BaseLoan } from "./BaseLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { ITermLoan } from "../../interfaces/ITermLoan.sol";
+import { InterestRateTerm } from "../interest-rate/IInterestRateTerm.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract TermLoan is BaseLoan, ITermLoan {
@@ -11,6 +12,8 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
 
   uint256 immutable repaymentPeriodLength;
   uint256 immutable totalRepaymentPeriods;
+
+  InterestRateTerm immutable interestRate;
   
   // helper var.
   // time when loan is done
@@ -24,12 +27,17 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   uint256 currentPaymentPeriodStart;
   uint256 missedPaymentsOwed;
 
+  // track if interest has already been calculated for this payment period since _accrueInterest is called in multiple places
+  mapping(uint256 => bool) isInterestAccruedForPeriod; // paymemnt period timestamp -> has interest accrued
+
   constructor(
     uint256 repaymentPeriodLength_,
-    uint256 totalRepaymentPeriods_
+    uint256 totalRepaymentPeriods_,
+    uint256 interestRateBps
   ) {
     repaymentPeriodLength = repaymentPeriodLength_;
     totalRepaymentPeriods = totalRepaymentPeriods_;
+    interestRate = new InterestRateTerm(interestRateBps);
   }
 
   function addDebtPosition(
@@ -68,7 +76,12 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   }
 
   function _getInterestPaymentAmount(bytes32 positionId) virtual override returns(uint256) {
-    // return InterestRateTerm.accrueInterest(debts[positionId].principal, repaymentPeriodLength)
+    // dont add interest if already charged for period
+    if(isInterestAccruedForPeriod[lastPaymentTimestamp]) return 0;
+
+    uint256 outstandingdDebt = debts[positionId].principal + debts[positionId].interestAccrued;
+    
+    return interestRate.accrueInterest(outstandingdDebt);
   }
 
   function accrueInterest() external returns(uint256 accruedValue) {
