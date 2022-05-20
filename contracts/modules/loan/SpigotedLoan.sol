@@ -2,17 +2,29 @@
 pragma solidity ^0.8.9;
 
 import { BaseLoan } from "./BaseLoan.sol";
-import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
-import { SpigotConsumer } from "../spigot/SpigotConsumer.sol";
+import { SpigotController } from "../spigot/Spigot.sol";
+import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
+abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
+
+  SpigotController immutable public spigot;
+
+  // 0x exchange to trade spigot revenue for debt tokens for
+  address immutable public swapTarget;
+
+  // amount of revenue to take from spigot if loan is healthy
+  uint8 immutable public defaultRevenueSplit;
+
+  // max revenue to take from spigot if loan is in distress
+  uint8 constant MAX_SPLIT =  100;
+
 
     /**
    * @dev - BaseLoan contract with additional functionality for integrating with Spigot and borrower revenue streams to repay loans
    * @param maxDebtValue_ - total debt accross all lenders that borrower is allowed to create
    * @param oracle_ - price oracle to use for getting all token values
-   * @param spigot_ - contract securing/repaying loan from borrower revenue streams
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
    * @param interestRateModel_ - contract calculating lender interest from debt position values
@@ -27,17 +39,32 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
     uint8 defaultRevenueSplit_
   )
     BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, interestRateModel_)
-    SpigotConsumer(borrower_, swapTarget_, defaultRevenueSplit_)
   {
+    // empty arrays to init spigot
+    address[] memory revContracts;
+    SpigotController.SpigotSettings[] memory settings;
+    bytes4[] memory whitelistedFuncs;
+    
+    spigot = new SpigotController(
+      address(this),
+      borrower,
+      borrower,
+      revContracts,
+      settings,
+      whitelistedFuncs
+    );
+    
+    defaultRevenueSplit = defaultRevenueSplit_;
+
+    swapTarget = swapTarget_;
 
     loanStatus = LoanLib.STATUS.INITIALIZED;
   }
 
   function updateOwnerSplit(address revenueContract) external {
-    uint256 length = revenueContracts.length;
     ( , uint8 split, , bytes4 transferFunc) = spigot.getSetting(revenueContract);
     
-    if(transferFunc == bytes4(0)) continue; // no spigot set for contract address
+    require(transferFunc != bytes4(0), "SpgtLoan: no spigot");
 
     if(loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
       // if loan is healthy set split to default take rate
@@ -70,14 +97,14 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
     external
     returns(bool)
   {
-    require(msg.sender == borrower || msg.sender == arbieter);
+    require(msg.sender == borrower || msg.sender == arbiter);
     _accrueInterest(positionId);
     
     DebtPosition memory debt = debts[positionId];
 
     // need to check with 0x api on where bought tokens go to by default
     // see if we can change that to Loan instead of SpigotConsumer
-    uint256 tokensBought = _claimAndTrade(
+    uint256 availableTokens = _claimAndTrade(
       claimToken,
       debt.token,
       zeroExTradeData
@@ -85,15 +112,89 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
 
     // TODO check if early repayment is allowed on loan
     // then update logic here. Probs need an internal func
-    uint256 amountToRepay = _getMaxRepayableAmount(positionId, tokensBought);
+    uint256 amountToRepay = _getMaxRepayableAmount(positionId, availableTokens);
 
     _repay(positionId, amountToRepay);
 
     emit RevenuePayment(
       claimToken,
+      amountToRepay,
       _getTokenPrice(debt.token) * amountToRepay
     );
 
     return true;
+  }
+
+  function claimAndTrade(
+    bytes32 positionId,
+    address claimToken,
+    bytes calldata zeroExTradeData
+  )
+    validPositionId(positionId)
+    external
+    returns(uint256 tokensBought)
+  {
+    require(msg.sender == borrower || msg.sender == arbiter);
+
+  }
+
+
+  function _claimAndTrade(
+    address claimToken, 
+    address targetToken, 
+    bytes calldata zeroExTradeData
+  )
+    internal
+    returns(uint256 targetTokensOwned)
+  {
+    uint256 tokensClaimed = spigot.claimEscrow(claimToken);
+    uint256 existingTargetTokensOwned = IERC20(targetToken).balanceOf(address(this));
+
+    if(claimToken == address(0)) {
+      // if claiming/trading eth send as msg.value to dex
+      (bool success, ) = swapTarget.call{value: tokensClaimed}(zeroExTradeData);
+      require(success, 'SpigotCnsm: trade failed');
+    } else {
+      IERC20(claimToken).approve(swapTarget, tokensClaimed);
+      (bool success, ) = swapTarget.call(zeroExTradeData);
+      require(success, 'SpigotCnsm: trade failed');
+    }
+
+    uint256 targetTokensOwned = IERC20(targetToken).balanceOf(address(this));
+
+    // ideally we could use oracle to calculate # of tokens to receive
+    // claimToken might not have oracle but targetToken must have token
+    require(targetTokensOwned > existingTargetTokensOwned, 'SpigotCnsm: bad trade');
+
+    emit TradeSpigotRevenue(
+      claimToken,
+      tokensClaimed,
+      targetToken,
+      targetTokensOwned - existingTargetTokensOwned
+    );
+
+    return targetTokensOwned;
+  }
+
+  function releaseSpigot() internal returns(bool) {
+    if(loanStatus == LoanLib.STATUS.REPAID) {
+      require(spigot.updateOwner(borrower), "SpigotCnsmr: cant release spigot");
+    }
+    // TODO ask fintards if should be LIQUIDATABLE
+    if(loanStatus == LoanLib.STATUS.INSOLVENT) {
+      require(spigot.updateOwner(arbiter), "SpigotCnsmr: cant release spigot");
+    }
+    return true;
+  }
+
+  function sweep(address token) internal returns(uint256) {
+    if(loanStatus == LoanLib.STATUS.REPAID) {
+      bool success = IERC20(token).transfer(borrower, IERC20(token).balanceOf(address(this)));
+      require(success);
+    }
+    if(loanStatus == LoanLib.STATUS.INSOLVENT) {
+      bool success = IERC20(token).transfer(arbiter, IERC20(token).balanceOf(address(this)));
+      require(success);
+    }
   }
 }

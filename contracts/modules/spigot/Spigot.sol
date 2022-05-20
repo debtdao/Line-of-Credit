@@ -303,7 +303,7 @@ contract SpigotController is ReentrancyGuard {
 
     function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool) {
       require(msg.sender == owner, 'Spigot: only owner updates split');
-      require(ownerSplit >= 0 && <= MAX_SPLIT, 'Spigot: invalid owner split');
+      require(ownerSplit >= 0 && ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
 
       settings[revenueContract].ownerSplit = ownerSplit;
       return true;
