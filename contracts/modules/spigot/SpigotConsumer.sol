@@ -27,21 +27,51 @@ contract SpigotConsumer {
     swapTarget = swapTarget_;
   }
 
-  function claimAndTrade(
+  function _claimAndTrade(
     address claimToken, 
     address targetToken, 
     bytes[] calldata zeroExTradeData
   )
-    external
-    returns(uint256 tokensBought)
+    internal
+    returns(uint256 targetTokensOwned)
   {
-    // require caller == loan
-    // checkpoint this balance before trade
-    // call zeroex exchange 
-    // check token balance afterwards
-    // add
+    uint256 tokensClaimed = spigot.claimEscrow(claimToken);
+    uint256 existingTargetTokensOwned = IERC20(targetToken).balanceOf(address(this));
+
+    if(claimToken == address(0)) {
+      // if claiming/trading eth send as msg.value to dex
+      (bool success, bytes[] data) = swapTarget.call{value: tokensClaimed}(zeroExTradeData);
+      require(success, 'SpigotCnsm: trade failed');
+    } else {
+      IERC20(claimToken).approve(swapTarget, tokensClaimed);
+      (bool success, ) = swapTarget.call(zeroExTradeData);
+      require(success, 'SpigotCnsm: trade failed');
+    }
+
+    uint256 targetTokensOwned = IERC20(targetToken).balanceOf(address(this));
+
+    // ideally we could use oracle to calculate # of tokens to receive
+    // claimToken might not have oracle but targetToken must have token
+    require(targetTokensOwned > existingTargetTokensOwned, 'SpigotCnsm: bad trade');
+
+    emit TradeSpigotRevenue(
+      claimToken,
+      tokensClaimed,
+      targetToken,
+      targetTokensOwned - existingTargetTokensOwned
+    );
+
+    return targetTokensOwned;
   }
-  function stream(address lender, address token, uint256 amount) external returns(bool) {
-    //
+
+  function sweep(address token) external returns(uint256) {
+    if(loanStatus == LoanLib.STATUS.REPAID) {
+      bool success = IERC20(token).transfer(borrower, IERC20(token).balanceOf(address(this)));
+      require(success);
+    }
+    if(loanStatus == LoanLib.STATUS.INSOLVENT) {
+      bool success = IERC20(token).transfer(borrower, IERC20(token).balanceOf(address(this)));
+      require(success);
+    }
   }
 }

@@ -48,18 +48,18 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
     address claimToken,
     bytes calldata zeroExTradeData
   )
-    onlyBorrower
     validPositionId(positionId)
     external
     returns(bool)
   {
-
+    require(msg.sender == borrower || msg.sender == arbieter);
     _accrueInterest(positionId);
+    
     DebtPosition memory debt = debts[positionId];
 
     // need to check with 0x api on where bought tokens go to by default
     // see if we can change that to Loan instead of SpigotConsumer
-    uint256 tokensBought = ISpigotConsumer(spigot).claimAndTrade(
+    uint256 tokensBought = _claimAndTrade(
       claimToken,
       debt.token,
       zeroExTradeData
@@ -68,12 +68,6 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
     // TODO check if early repayment is allowed on loan
     // then update logic here. Probs need an internal func
     uint256 amountToRepay = _getMaxRepayableAmount(positionId, tokensBought);
-
-    // claim bought tokens from spigot to repay loan
-    require(
-      ISpigotConsumer(spigot).stream(address(this), debt.token, amountToRepay),
-      'Loan: failed repayment'
-    );
 
     _repay(positionId, amountToRepay);
 
