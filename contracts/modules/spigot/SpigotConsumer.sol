@@ -6,8 +6,25 @@
  * @dev Should be deployed once per Loan/Spigot
  */
 contract SpigotConsumer {
-  constructor() {
+  Spigot immutable public spigot;
 
+  address immutable public swapTarget;
+
+  uint8 immutable public defaultRevenueSplit;
+
+  uint8 constant MAX_SPLIT =  100;
+
+
+  constructor(
+    address swapTarget_,
+    address borrower,
+    uint8 defaultSplit
+  ) {
+    spigot = new Spigot(address(this), borrower, borrower, [], [], []);
+    
+    defaultRevenueSplit = defaultSplit;
+
+    swapTarget = swapTarget_;
   }
 
   function claimAndTrade(

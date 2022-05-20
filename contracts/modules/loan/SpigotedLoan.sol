@@ -4,10 +4,9 @@ pragma solidity ^0.8.9;
 import { BaseLoan } from "./BaseLoan.sol";
 import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
-import { ISpigotConsumer } from "../../interfaces/ISpigotConsumer.sol";
+import { SpigotConsumer } from "../spigot/SpigotConsumer.sol";
 
-abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
-  address immutable public spigot;
+abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
 
     /**
    * @dev - BaseLoan contract with additional functionality for integrating with Spigot and borrower revenue streams to repay loans
@@ -24,11 +23,12 @@ abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
     address arbiter_,
     address borrower_,
     address interestRateModel_,
-    address spigot_
+    address swapTarget_,
+    uint8 defaultRevenueSplit_
   )
     BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, interestRateModel_)
+    SpigotConsumer(borrower_, swapTarget_, defaultRevenueSplit_)
   {
-    spigot = spigot_;
 
     loanStatus = LoanLib.STATUS.INITIALIZED;
   }
