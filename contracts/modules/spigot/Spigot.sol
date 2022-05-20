@@ -259,10 +259,13 @@ contract SpigotController is ReentrancyGuard {
      */
     function _addSpigot(address revenueContract, SpigotSettings memory setting) internal returns (bool) {
         require(revenueContract != address(this));
-        require(settings[revenueContract].ownerSplit == 0, "Spigot: Setting already exists");
+        require(
+          settings[revenueContract].transferOwnerFunction == bytes4(0),
+          "Spigot: Setting already exists"
+        );
         
         require(setting.transferOwnerFunction != bytes4(0), "Spigot: Invalid spigot setting");
-        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit > 0, "Spigot: Invalid split rate");
+        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit >= 0, "Spigot: Invalid split rate");
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -298,6 +301,13 @@ contract SpigotController is ReentrancyGuard {
         return true;
     }
 
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool) {
+      require(msg.sender == owner, 'Spigot: only owner updates split');
+      require(ownerSplit >= 0 && <= MAX_SPLIT, 'Spigot: invalid owner split');
+
+      settings[revenueContract].ownerSplit = ownerSplit;
+      return true;
+    }
     /**
      * @dev Update Owner role of SpigotController contract.
      *      New Owner receives revenue stream split and can control SpigotController

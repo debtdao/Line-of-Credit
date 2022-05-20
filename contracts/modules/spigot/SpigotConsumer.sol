@@ -1,3 +1,4 @@
+import { SpigotController } from "./Spigot.sol";
 
 /**
  * @title Spigot Consumer Module for Debt DAO P2P Loans

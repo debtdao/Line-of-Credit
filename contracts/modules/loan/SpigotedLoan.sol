@@ -33,6 +33,24 @@ abstract contract SpigotedLoan is BaseLoan, SpigotConsumer, ISpigotedLoan {
     loanStatus = LoanLib.STATUS.INITIALIZED;
   }
 
+  function updateOwnerSplit(address revenueContract) external {
+    uint256 length = revenueContracts.length;
+    ( , uint8 split, , bytes4 transferFunc) = spigot.getSetting(revenueContract);
+    
+    if(transferFunc == bytes4(0)) continue; // no spigot set for contract address
+
+    if(loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
+      // if loan is healthy set split to default take rate
+      spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
+    } else if (
+      split != MAX_SPLIT && 
+      (loanStatus == LoanLib.STATUS.DELINQUENT || loanStatus == LoanLib.STATUS.LIQUIDATABLE)
+    ) {
+      // if loan is in distress take all revenue to repay loan
+      spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
+    }
+  }
+
  /**
    * @dev - Claims revenue tokens from Spigot attached to borrowers revenue generating tokens
             and sells them via 0x protocol to repay debts
