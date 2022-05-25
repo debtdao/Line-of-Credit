@@ -12,16 +12,18 @@ interface ISpigotedLoan {
     address indexed debtToken,
     uint256 indexed debtTokensBought
   );
-
+  
   function claimAndTrade(
     address claimToken, 
     address targetToken,
     bytes calldata zeroExTradeData
   ) external returns(uint256 tokensBought);
 
-  function claimSpigotAndRepay(
+  function claimAndRepay(
     bytes32 positionId,
     address token,
     bytes calldata zeroExTradeData
   ) external returns(bool);
+
+  function sweep(address token) external returns(bool);
 }
