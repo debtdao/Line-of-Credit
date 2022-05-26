@@ -4,7 +4,7 @@ pragma solidity ^0.8.9;
 import { BaseLoan } from "./BaseLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { ITermLoan } from "../../interfaces/ITermLoan.sol";
-import { InterestRateTerm } from "../interest-rate/IInterestRateTerm.sol";
+import { InterestRateTerm } from "../interest-rate/InterestRateTerm.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract TermLoan is BaseLoan, ITermLoan {
@@ -75,22 +75,17 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     return true;
   }
 
-  function _getInterestPaymentAmount(bytes32 positionId) virtual override returns(uint256) {
+  function _getInterestPaymentAmount(bytes32 positionId)
+    virtual override
+    internal
+    returns(uint256)
+  {
     // dont add interest if already charged for period
-    if(isInterestAccruedForPeriod[lastPaymentTimestamp]) return 0;
+    if(isInterestAccruedForPeriod[currentPaymentPeriodStart]) return 0;
 
     uint256 outstandingdDebt = debts[positionId].principal + debts[positionId].interestAccrued;
     
     return interestRate.accrueInterest(outstandingdDebt);
-  }
-
-  function accrueInterest() external returns(uint256 accruedValue) {
-    (, accruedValue) = _accrueInterest(loanPositionId);
-  }
-
-  function _close(bytes32 positionId) virtual override internal returns(bool) {
-    loanStatus = LoanLib.STATUS.REPAID; // can only close if full loan is repaid
-    return super._close(positionId);
   }
 
   function _repay(
@@ -124,6 +119,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       if(overduePaymentsAmount > amount) {
         emit RepayOverdue(positionId, amount);
         overduePaymentsAmount -= amount;
+
       } else {
         emit RepayOverdue(positionId, overduePaymentsAmount);
         overduePaymentsAmount = 0;
@@ -153,7 +149,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
 
   function _healthcheck() virtual override(BaseLoan) internal returns(LoanLib.STATUS) {
     // if loan was already repaid then _healthcheck isn't called so must be defaulted
-    if(block.timestamp > endTime) {
+    if(_isEnd() && principal > 0) {
       emit Default(loanPositionId);
       return LoanLib.STATUS.LIQUIDATABLE;
     }
@@ -170,6 +166,17 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     }
 
     return BaseLoan._healthcheck();
+  }
+
+  /**
+   * @notice returns true if is last payment period of loan or later
+   * @dev 
+   */
+  function _isEnd() internal view returns(bool) {
+    return (
+      endTime > block.timestamp ||
+      endTime - block.timestamp <= repaymentPeriodLength
+    );
   }
 
 }

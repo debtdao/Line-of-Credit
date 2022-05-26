@@ -9,9 +9,11 @@ abstract contract BulletLoan is TermLoan {
 
   constructor(
     uint256 repaymentPeriodLength_,
-    uint256 totalRepaymentPeriods_
+    uint256 totalRepaymentPeriods_,
+    uint256 interestRateBps
+
   )
-    TermLoan(repaymentPeriodLength_, totalRepaymentPeriods_)
+    TermLoan(repaymentPeriodLength_, totalRepaymentPeriods, interestRateBps)
   {
   
   }
@@ -32,7 +34,7 @@ abstract contract BulletLoan is TermLoan {
     bool isEnd = endTime - block.timestamp <= repaymentPeriodLength;
 
     // must already _accrueInterest in depositAndRepay/_getMissedPayments
-    totalOwed = (initialPrincipal / totalRepaymentPeriods_) +
+    totalOwed = (initialPrincipal / totalRepaymentPeriods) +
       debts[loanPositionId].interestAccrued +
       overduePaymentsAmount;
 
@@ -41,12 +43,6 @@ abstract contract BulletLoan is TermLoan {
     if(requestedRepayAmount < totalOwed) {
       totalOwed = requestedRepayAmount;
       // if they can't make full payment then update status. if loan is ended that means they cant repay and is insolvent
-      if(isEnd) {
-        emit Default(positionId);
-        _updateLoanStatus(LoanLib.STATUS.LIQUIDATABLE);
-      } else {
-        _updateLoanStatus(LoanLib.STATUS.DELINQUENT);
-      }
     }
 
     return totalOwed;
@@ -67,8 +63,8 @@ abstract contract BulletLoan is TermLoan {
 
     for(uint i; i <= totalPeriodsMissed; i++) {
       // update storage directly because _accrueInterest uses/updates the values
-      uint256 interestOwed = _accrueInterest(loanPositionId);
-      totalMissedPayments += interestOwed + paymentPerPeriod;
+      (uint256 interestOwed, ) = _accrueInterest(loanPositionId);
+      totalMissedPayments += interestOwed + (initialPrincipal / totalRepaymentPeriods);
     }
 
     return totalMissedPayments;

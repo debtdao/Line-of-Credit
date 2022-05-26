@@ -109,10 +109,7 @@ contract RevolverLoan is BaseLoan {
       debt.interestAccrued = 0;
       
     }
-<<<<<<< HEAD
 
-=======
->>>>>>> move positionIds array to revolver loan and modify _close functionality for revolver vs term loans
     debts[positionId] = debt;
 
     return true;

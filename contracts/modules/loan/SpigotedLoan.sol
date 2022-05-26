@@ -148,7 +148,7 @@ abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
     uint256 tokensBought = _claimAndTrade(claimToken, targetToken, zeroExTradeData);
     
     // add bought tokens to unused balance
-    unusedTokens[targetToken] += existingTokens;
+    unusedTokens[targetToken] += tokensBought;
   }
 
 

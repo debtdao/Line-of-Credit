@@ -8,9 +8,10 @@ import { LoanLib } from "../../utils/LoanLib.sol";
 abstract contract BulletLoan is TermLoan {
   constructor(
     uint256 repaymentPeriodLength_,
-    uint256 totalRepaymentPeriods_
+    uint256 totalRepaymentPeriods_,
+    uint256 interestRateBps
   )
-    TermLoan(repaymentPeriodLength_, totalRepaymentPeriods_)
+    TermLoan(repaymentPeriodLength_, totalRepaymentPeriods, interestRateBps)
   {
 
   }

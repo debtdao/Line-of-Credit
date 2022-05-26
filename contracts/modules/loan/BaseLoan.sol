@@ -145,19 +145,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     return true;
   }
 
-  function _close(bytes32 positionId) virtual internal returns(bool) {    
-    require(
-      debts[positionId].principal + debts[positionId].interestAccrued == 0,
-      'Loan: close failed. debt owed'
-    );
-
-    delete debts[positionId]; // yay gas refunds!!!
-
-    emit CloseDebtPosition(positionId);    
-
-    return true;
-  }
-
   function healthcheck() external returns(LoanLib.STATUS) {
     // if loan is in a final end state then do not run _healthcheck()
     if(loanStatus == LoanLib.STATUS.REPAID || loanStatus == LoanLib.STATUS.INSOLVENT) {

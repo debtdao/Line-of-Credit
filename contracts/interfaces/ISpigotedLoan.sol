@@ -25,5 +25,5 @@ interface ISpigotedLoan {
     bytes calldata zeroExTradeData
   ) external returns(bool);
 
-  function sweep(address token) external returns(bool);
+  function sweep(address token) external returns(uint256);
 }
