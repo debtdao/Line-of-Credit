@@ -9,6 +9,7 @@ interface ILoan {
     uint256 deposit;          // total liquidity provided by lender for token
     uint256 principal;        // amount actively lent out
     uint256 interestAccrued;  // interest accrued but not repaid
+    uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender
   }
 
   // Lender Events

@@ -18,7 +18,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   // the only loan allowed on this contract. set in addDebtPosition()
   bytes32 loanPositionId;
 
-  uint256 lastPaymentTimestamp;
+  uint256 currentPaymentPeriodStart;
   uint256 missedPaymentsOwed;
 
   constructor(
@@ -55,7 +55,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
     emit Borrow(id, amount); // loan is automatically borrowed
 
     // start countdown to next payment due
-    lastPaymentTimestamp = block.timestamp;
+    currentPaymentPeriodStart = block.timestamp;
     // set end of loan
     endTime = block.timestamp + (repaymentPeriodLength * totalRepaymentPeriods);
 
@@ -84,6 +84,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       // simple interest payment
       
       debt.interestAccrued -= amount;
+      debt.interestRepaid += amount;
 
       // update global debt denominated in usd
       totalInterestAccrued -= price * amount;
@@ -93,6 +94,9 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
 
       amount -= debt.interestAccrued;
       totalInterestAccrued -= price * debt.interestAccrued;
+
+      debt.interestRepaid += debt.interestAccrued;
+
       // emit before set to 0
       emit RepayInterest(positionId, debt.interestAccrued);
       debt.interestAccrued = 0;
@@ -116,6 +120,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       
       // TODO update debt.accruedInterst here
     }
+
     debts[positionId] = debt;
 
     return true;
@@ -128,7 +133,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 
-    uint256 timeSinceRepayment = block.timestamp - lastPaymentTimestamp;
+    uint256 timeSinceRepayment = block.timestamp - currentPaymentPeriodStart;
     // miss 1 payment? jail
     if(timeSinceRepayment > repaymentPeriodLength + GRACE_PERIOD) {
       return LoanLib.STATUS.DELINQUENT;
