@@ -166,7 +166,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   /**
   @dev Returns total debt obligation of borrower.
        Aggregated across all lenders.
-       Denominated in USD.
+       Denominated in USD 1e8.
   */
   function getOutstandingDebt() override external returns(uint256) {
     return principal + totalInterestAccrued;
@@ -288,7 +288,10 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
 
     debt.principal += amount;
-    principal += _getTokenPrice(debt.token) * amount;
+
+    (bool passed, bytes memory result) = debt.token.call(abi.encodeWithSignature("decimals()"));
+   
+    principal += (_getTokenPrice(debt.token) * amount) / debt.decimals;
 
     debts[positionId] = debt;
 
@@ -404,8 +407,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     debts[positionId].interestAccrued += accruedToken;
 
     // get USD value of interest accrued
-    accruedValue = _getTokenPrice(debts[positionId].token) * accruedToken;
-
+    accruedValue = (_getTokenPrice(debts[positionId].token) * accruedToken) / debts[positionId].decimals;
     totalInterestAccrued += accruedValue;
 
     emit InterestAccrued(positionId, accruedToken, accruedValue);
@@ -428,9 +430,13 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     // MUST not double add position. otherwise we can not _close()
     require(debts[positionId].lender == address(0), 'Loan: position exists');
 
+    (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
+    uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
+
     debts[positionId] = DebtPosition({
       lender: lender,
       token: token,
+      decimals: decimals,
       deposit: amount,
       principal: initialPrincipal,
       interestAccrued: 0,

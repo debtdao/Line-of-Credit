@@ -104,7 +104,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       debt.interestRepaid += amount;
 
       // update global debt denominated in usd
-      totalInterestAccrued -= price * amount;
+      totalInterestAccrued -= price * amount / debt.decimals;
       emit RepayInterest(positionId, amount);
     } else {
       // pay off interest then any overdue payments then principal
@@ -121,10 +121,16 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
         overduePaymentsAmount -= amount;
 
       } else {
+        // emit 
+        amount -= overduePaymentsAmount;
         emit RepayOverdue(positionId, overduePaymentsAmount);
         overduePaymentsAmount = 0;
-      }
 
+        debt.principal -= amount;
+        principal -= price * amount / debt.decimals;
+        emit RepayPrincipal(positionId, amount);
+      }
+y
       // missed payments get added to principal so missed payments + extra $ reduce principal
       debt.principal -= amount;
       principal -= price * amount ;
@@ -164,6 +170,13 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       emit Default(loanPositionId);
       return LoanLib.STATUS.LIQUIDATABLE;
     }
+
+    if(overduePaymentsAmount > 0) {
+      // they mde a recent payment but are behind on payments overalls
+      return LoanLib.STATUS.DELINQUENT;
+    }
+
+
 
     return BaseLoan._healthcheck();
   }
