@@ -117,6 +117,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     returns(uint256)
   {
     uint256 totalOwed = debts[positionId].principal + debts[positionId].interestAccrued;
+
     // cap repayable amount by total outstanding debt
     return totalOwed > requestedRepayAmount ? requestedRepayAmount : totalOwed;
   }
@@ -404,6 +405,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     // get USD value of interest accrued
     accruedValue = _getTokenPrice(debts[positionId].token) * accruedToken;
+
     totalInterestAccrued += accruedValue;
 
     emit InterestAccrued(positionId, accruedToken, accruedValue);
@@ -439,6 +441,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
 
     return positionId;
   }
+
 
   // Helper functions
   function _updateLoanStatus(LoanLib.STATUS status) internal returns(LoanLib.STATUS) {
