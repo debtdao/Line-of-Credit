@@ -431,7 +431,7 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(debts[positionId].lender == address(0), 'Loan: position exists');
 
     (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-     uint8 decimals = !passed ? 1e18 : abi.decode(result, (uint8));
+    uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
 
     debts[positionId] = DebtPosition({
       lender: lender,

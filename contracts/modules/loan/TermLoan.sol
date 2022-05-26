@@ -121,10 +121,16 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
         overduePaymentsAmount -= amount;
 
       } else {
+        // emit 
+        amount -= overduePaymentsAmount;
         emit RepayOverdue(positionId, overduePaymentsAmount);
         overduePaymentsAmount = 0;
-      }
 
+        debt.principal -= amount;
+        principal -= price * amount / debt.decimals;
+        emit RepayPrincipal(positionId, amount);
+      }
+y
       // missed payments get added to principal so missed payments + extra $ reduce principal
       debt.principal -= amount;
       principal -= price * amount ;
@@ -165,7 +171,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 
-    if(missedPaymentsOwed > 0) {
+    if(overduePaymentsAmount > 0) {
       // they mde a recent payment but are behind on payments overalls
       return LoanLib.STATUS.DELINQUENT;
     }
