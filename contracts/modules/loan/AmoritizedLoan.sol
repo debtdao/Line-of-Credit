@@ -21,8 +21,8 @@ abstract contract BulletLoan is TermLoan {
     internal
     returns(uint256) {
 
-    // can repay for a period early. then lastPaymentTimestamp is set to the end of the period so can't pay until next period
-    if(block.timestamp < lastPaymentTimestamp) {
+    // can repay for a period early. then currentPaymentPeriodStart is set to the end of the period so can't pay until next period
+    if(block.timestamp < currentPaymentPeriodStart) {
       return 0;
     }
 
@@ -53,31 +53,23 @@ abstract contract BulletLoan is TermLoan {
   }
 
   function _getMissedPayments() virtual internal returns(uint256) {
-    if(lastPaymentTimestamp + repaymentPeriodLength > block.timestamp) {
+    if(currentPaymentPeriodStart + repaymentPeriodLength > block.timestamp) {
       // haven't missed a payment this cycle. may still owe from last missed cycles
       return overduePaymentsAmount;
     }
 
     // sol automatically rounds down so current period isn't included
-    uint256 totalPeriodsMissed = (block.timestamp - lastPaymentTimestamp) / repaymentPeriodLength;
+    uint256 totalPeriodsMissed = (block.timestamp - currentPaymentPeriodStart) / repaymentPeriodLength;
 
     DebtPosition memory debt = debts[loanPositionId];
 
-    uint256 totalMissedPayments = overduePaymentsAmount + debt.interestAccrued;
-    debt.principal += debt.interestAccrued;
-    debt.interestAccrued = 0;
-    totalInterestAccrued = 0;
+    uint256 totalMissedPayments = overduePaymentsAmount;
 
     for(uint i; i <= totalPeriodsMissed; i++) {
       // update storage directly because _accrueInterest uses/updates the values
-      uint256 interestOwed = _getInterestPaymentAmount(loanPositionId);
-      debt.principal += interestOwed;
+      uint256 interestOwed = _accrueInterest(loanPositionId);
       totalMissedPayments += interestOwed + paymentPerPeriod;
     }
-
-    // update usd values
-    principal = debt.principal * _getTokenPrice(debt.token);
-    totalInterestAccrued = debt.interestAccrued * _getTokenPrice(debt.token);
 
     return totalMissedPayments;
   }

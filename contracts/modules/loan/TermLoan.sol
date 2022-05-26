@@ -25,7 +25,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
   bytes32 loanPositionId;
 
   uint256 currentPaymentPeriodStart;
-  uint256 missedPaymentsOwed;
+  uint256 overduePaymentsAmount;
 
   // track if interest has already been calculated for this payment period since _accrueInterest is called in multiple places
   mapping(uint256 => bool) isInterestAccruedForPeriod; // paymemnt period timestamp -> has interest accrued
@@ -135,6 +135,8 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
 
       emit RepayPrincipal(positionId, amount);
     }
+
+    currentPaymentPeriodStart += repaymentPeriodLength + 1; // can only repay once per peridd, 
 
     debts[positionId] = debt;
 
