@@ -72,6 +72,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     require(debts[positionId].lender != address(0), "Loan: invalid position ID");
     _;
   }
+
+
   ///////////
   // HOOKS //
   ///////////
@@ -259,50 +261,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   ////////////////////
   // FUND TRANSFERS //
   ////////////////////
-     /**
-   * @dev - Transfers tokens from Loan to lender.
-   *        Only allowed to withdraw tokens not already lent out (prevents bank run)
-   * @param positionId -the debt position to pay down debt on and close
-   * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
-  */
-  function borrow(bytes32 positionId, uint256 amount)
-    isActive
-    onlyBorrower
-    validPositionId(positionId)
-    override external
-    returns(bool)
-  {
-    _accrueInterest(positionId);
-    DebtPosition memory debt = debts[positionId];
-    
-    require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
 
-    debt.principal += amount;
-
-    (bool passed, bytes memory result) = debt.token.call(abi.encodeWithSignature("decimals()"));
-   
-    principal += (_getTokenPrice(debt.token) * amount) / debt.decimals;
-
-    debts[positionId] = debt;
-
-    require(
-      _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
-      'Loan: cant borrow'
-    );
-
-    bool success = IERC20(debt.token).transfer(
-      borrower,
-      amount
-    );
-    require(success, 'Loan: borrow failed');
-
-
-    emit Borrow(positionId, amount);
-
-    return true;
-  }
-
-   /**
+  /**
    * @dev - Transfers tokens from Loan to lender.
    *        Only allowed to withdraw tokens not already lent out (prevents bank run)
    * @param positionId -the debt position to pay down debt on and close

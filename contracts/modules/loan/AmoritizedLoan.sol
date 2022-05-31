@@ -38,11 +38,8 @@ abstract contract BulletLoan is TermLoan {
       debts[loanPositionId].interestAccrued +
       overduePaymentsAmount;
 
-
-    // _get shouldn't have side effects i feel like
     if(requestedRepayAmount < totalOwed) {
       totalOwed = requestedRepayAmount;
-      // if they can't make full payment then update status. if loan is ended that means they cant repay and is insolvent
     }
 
     return totalOwed;

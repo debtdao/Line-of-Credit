@@ -1,8 +1,9 @@
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { BaseLoan } from "./BaseLoan.sol";
+import { IRevolverLoan } from "../../interfaces/IRevolverLoan.sol";
 
-contract RevolverLoan is BaseLoan {
+contract RevolverLoan is BaseLoan, IRevolverLoan {
   bytes32[] public positionIds; // all active positions
 
   constructor(
@@ -63,6 +64,46 @@ contract RevolverLoan is BaseLoan {
       accruedValue += accruedTokenValue;
     }
 
+  }
+
+      /**
+   * @dev - Transfers tokens from Loan to lender.
+   *        Only allowed to withdraw tokens not already lent out (prevents bank run)
+   * @param positionId -the debt position to pay down debt on and close
+   * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
+  */
+  function borrow(bytes32 positionId, uint256 amount)
+    isActive
+    onlyBorrower
+    validPositionId(positionId)
+    override external
+    returns(bool)
+  {
+    _accrueInterest(positionId);
+    DebtPosition memory debt = debts[positionId];
+    
+    require(amount <= debt.deposit - debt.principal, 'Loan: no liquidity');
+
+    debt.principal += amount;
+
+    principal += (_getTokenPrice(debt.token) * amount) / (1 * 10 ** debt.decimals);
+
+    debts[positionId] = debt;
+
+    require(
+      _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
+      'Loan: cant borrow'
+    );
+
+    bool success = IERC20(debt.token).transfer(
+      borrower,
+      amount
+    );
+    require(success, 'Loan: borrow failed');
+
+    emit Borrow(positionId, amount);
+
+    return true;
   }
 
    /**
