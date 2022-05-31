@@ -25,7 +25,7 @@ contract Escrow is IEscrow {
     mapping(address => bool) private _tokensUsed;
 
     // tokens used as collateral (must be able to value with oracle)
-    mapping(address => uint) public deposited;
+    mapping(address => Deposit) public deposited;
 
     // collateral tokens that have been used for farming
     mapping(address => Farm) public farmedTokens;
@@ -73,17 +73,18 @@ contract Escrow is IEscrow {
         uint collateralValue = 0;
         for(uint i = 0; i < _tokensUsedAsCollateral.length; i++) {
             address token = _tokensUsedAsCollateral[i];
-            uint deposit = deposited[token];
+            uint deposit = deposited[token].amount;
             if(deposit != 0) {
-                uint price = IOracle(oracle).getLatestAnswer(token);
-                // need to scale value by token decimal
-                (bool success, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-                if(!success) {
-                    collateralValue += (price * deposit) / 1e18;
-                } else {
-                    uint8 decimals = abi.decode(result, (uint8));
-                    collateralValue += (price * deposit) / (1 * 10 ** decimals);
+                if(deposited[token].isERC4626) {
+                    // this conversion could shift, hence it is best to get it each time
+                    (bool success, bytes memory assetAmount) = token.call(abi.encodeWithSignature("previewRedeem(uint256)", deposit));
+                    deposit = abi.decode(assetAmount, (uint));
                 }
+                int prc = IOracle(oracle).getLatestAnswer(token);
+                // treat negative prices as 0
+                uint price = prc < 0 ? 0 : uint(prc);
+                // need to scale value by token decimal
+                collateralValue += (price * deposit) / (1 * 10 ** deposited[token].assetDecimals);
             }
         }
 
@@ -100,7 +101,7 @@ contract Escrow is IEscrow {
             "Escrow: deposited token does not have a price feed"
         );
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
-        deposited[token] += amount;
+        deposited[token].amount += amount;
         _addTokenUsed(token);
         emit CollateralAdded(token, amount);
 
@@ -114,6 +115,20 @@ contract Escrow is IEscrow {
         if(!_tokensUsed[token]) {
             _tokensUsed[token] = true;
             _tokensUsedAsCollateral.push(token);
+            (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
+            bool is4626 = tokenAddrBytes.length > 0 && passed;
+            deposited[token].isERC4626 = is4626;
+            if(is4626) {
+                deposited[token].asset = abi.decode(tokenAddrBytes, (address));
+            } else {
+                deposited[token].asset = token;
+            }
+            (bool successDecimals, bytes memory decimalBytes) = deposited[token].asset.call(abi.encodeWithSignature("decimals()"));
+            if(decimalBytes.length > 0 && successDecimals) {
+                deposited[token].assetDecimals = abi.decode(decimalBytes, (uint8));
+            } else {
+                deposited[token].assetDecimals = 18;
+            }
         }
     }
 
@@ -123,8 +138,8 @@ contract Escrow is IEscrow {
     function releaseCollateral(uint amount, address token, address to) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
         require(msg.sender == borrower, "Escrow: only borrower can call");
-        require(deposited[token] >= amount, "Escrow: insufficient balance");
-        deposited[token] -= amount;
+        require(deposited[token].amount >= amount, "Escrow: insufficient balance");
+        deposited[token].amount -= amount;
         require(IERC20(token).transfer(to, amount));
         uint cratio = _getLatestCollateralRatio();
         require(cratio >= minimumCollateralRatio, "Escrow: cannot release collateral if cratio becomes lower than the minimum");
@@ -154,8 +169,8 @@ contract Escrow is IEscrow {
         require(amount > 0, "Escrow: amount is 0");
         require(msg.sender == loan, "Escrow: msg.sender must be the loan contract");
         require(minimumCollateralRatio > _getLatestCollateralRatio(), "Escrow: not eligible for liquidation");
-        require(deposited[token] >= amount, "Escrow: insufficient balance");
-        deposited[token] -= amount;
+        require(deposited[token].amount >= amount, "Escrow: insufficient balance");
+        deposited[token].amount -= amount;
         require(IERC20(token).transfer(to, amount));
         emit Liquidated(token, amount);
 

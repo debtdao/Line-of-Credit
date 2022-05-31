@@ -8,6 +8,13 @@ interface IEscrow {
         address[] rewardTokens;
     }
 
+    struct Deposit {
+        uint amount;
+        bool isERC4626;
+        address asset; // eip4626 asset else the erc20 token itself
+        uint8 assetDecimals;
+    }
+
     event CollateralAdded(address indexed token, uint amount);
     event CollateralRemoved(address indexed token, uint amount);
     event CollateralFarmed(address indexed token, uint amount);

@@ -463,6 +463,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    * @param token - token to get price for
   */
   function _getTokenPrice(address token) internal returns (uint256) {
-    return IOracle(oracle).getLatestAnswer(token);
+    int prc = IOracle(oracle).getLatestAnswer(token);
+    // treat negative prices as 0
+    return prc < 0 ? 0 : uint(prc);
   }
 }
