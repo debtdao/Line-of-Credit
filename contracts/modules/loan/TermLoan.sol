@@ -176,8 +176,6 @@ y
       return LoanLib.STATUS.DELINQUENT;
     }
 
-
-
     return BaseLoan._healthcheck();
   }
 

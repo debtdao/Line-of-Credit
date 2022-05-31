@@ -8,14 +8,12 @@ import { ILoan } from "../../interfaces/ILoan.sol";
 contract BasicEscrowedLoan is RevolverLoan, EscrowedLoan {
 
     constructor(
-        uint256 maxDebtValue_,
         address oracle_,
         address arbiter_,
         address borrower_,
         address interestRateModel_,
         uint minCollateral_
     ) RevolverLoan(
-        maxDebtValue_,
         oracle_,
         arbiter_,
         borrower_,

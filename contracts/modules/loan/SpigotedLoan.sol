@@ -27,14 +27,12 @@ abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
 
     /**
    * @dev - BaseLoan contract with additional functionality for integrating with Spigot and borrower revenue streams to repay loans
-   * @param maxDebtValue_ - total debt accross all lenders that borrower is allowed to create
    * @param oracle_ - price oracle to use for getting all token values
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
   constructor(
-    uint256 maxDebtValue_,
     address oracle_,
     address arbiter_,
     address borrower_,
@@ -42,7 +40,7 @@ abstract contract SpigotedLoan is BaseLoan, ISpigotedLoan {
     address swapTarget_,
     uint8 defaultRevenueSplit_
   )
-    BaseLoan(maxDebtValue_, oracle_, arbiter_, borrower_, interestRateModel_)
+    BaseLoan(oracle_, arbiter_, borrower_, interestRateModel_)
   {
     // empty arrays to init spigot
     address[] memory revContracts;

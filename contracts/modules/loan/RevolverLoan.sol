@@ -6,13 +6,11 @@ contract RevolverLoan is BaseLoan {
   bytes32[] public positionIds; // all active positions
 
   constructor(
-    uint256 maxDebtValue_,
     address oracle_,
     address arbiter_,
     address borrower_,
     address interestRateModel_
   ) BaseLoan(
-    maxDebtValue_,
     oracle_,
     arbiter_,
     borrower_,
@@ -89,8 +87,9 @@ contract RevolverLoan is BaseLoan {
 
     if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
-      debt.interestRepaid += amount;
       totalInterestAccrued -= price * amount;
+
+      debt.interestRepaid += amount;
       emit RepayInterest(positionId, amount);
     } else {
       uint256 principalPayment = amount - debt.interestAccrued;
@@ -104,10 +103,8 @@ contract RevolverLoan is BaseLoan {
 
       // update individual debt position denominated in token
       debt.principal -= principalPayment;
-
       debt.interestRepaid += debt.interestAccrued;
       debt.interestAccrued = 0;
-      
     }
 
     debts[positionId] = debt;

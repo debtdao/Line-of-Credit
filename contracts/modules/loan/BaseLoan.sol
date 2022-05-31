@@ -25,29 +25,22 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
   uint256 public principal; // initial loan  drawdown
   uint256 public totalInterestAccrued;// unpaid interest
 
-  // i dont think we need to keep global var on this. only check per debt position
-  uint256 immutable public maxDebtValue; // total amount of USD value to be pulled from loan
-
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
             Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
-   * @param maxDebtValue_ - total debt accross all lenders that borrower is allowed to create
    * @param oracle_ - price oracle to use for getting all token values
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all debt positions in this contract
    * @param interestRateModel_ - contract calculating lender interest from debt position values
   */
   constructor(
-    uint256 maxDebtValue_,
     address oracle_,
     address arbiter_,
     address borrower_,
     address interestRateModel_
   ) {
-    maxDebtValue = maxDebtValue_;
-
     borrower = borrower_;
     interestRateModel = interestRateModel_;
     arbiter = arbiter_;
@@ -157,9 +150,6 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
    *        returns early if returns non-ACTIVE
   */
   function _healthcheck() virtual internal returns(LoanLib.STATUS status) {
-    if(principal + totalInterestAccrued > maxDebtValue)
-      return LoanLib.STATUS.OVERDRAWN;
-
     return LoanLib.STATUS.ACTIVE;
   }
   
