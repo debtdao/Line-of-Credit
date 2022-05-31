@@ -114,24 +114,18 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       debt.interestAccrued = 0;
       totalInterestAccrued = 0;
 
-      if(overduePaymentsAmount > amount) {
-        emit RepayOverdue(positionId, amount);
-        overduePaymentsAmount -= amount;
-
-      } else {
-        // emit 
-        amount -= overduePaymentsAmount;
+      if(overduePaymentsAmount < amount) {
+        // prvent underflow since payment should always be more that overdue
         emit RepayOverdue(positionId, overduePaymentsAmount);
         overduePaymentsAmount = 0;
-
-        debt.principal -= amount;
-        principal -= price * amount / (1 * 10 ** debt.decimals);
-        emit RepayPrincipal(positionId, amount);
+      } else {
+        emit RepayOverdue(positionId, amount);
+        overduePaymentsAmount -= amount;
       }
 
       // missed payments get added to principal so missed payments + extra $ reduce principal
       debt.principal -= amount;
-      principal -= price * amount ;
+      principal -= price * amount  / (1 * 10 ** debt.decimals);
 
       emit RepayPrincipal(positionId, amount);
     }

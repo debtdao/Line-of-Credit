@@ -128,7 +128,7 @@ contract RevolverLoan is BaseLoan, IRevolverLoan {
 
     if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
-      totalInterestAccrued -= price * amount;
+      totalInterestAccrued -= price * amount / (1 * 10 ** debt.decimals);
 
       debt.interestRepaid += amount;
       emit RepayInterest(positionId, amount);
@@ -139,8 +139,8 @@ contract RevolverLoan is BaseLoan, IRevolverLoan {
       emit RepayInterest(positionId, debt.interestAccrued);
 
       // update global debt denominated in usd
-      principal -= price * principalPayment;
-      totalInterestAccrued -= price * debt.interestAccrued;
+      principal -= price * principalPayment / (1 * 10 ** debt.decimals);
+      totalInterestAccrued -= price * debt.interestAccrued / (1 * 10 ** debt.decimals);
 
       // update individual debt position denominated in token
       debt.principal -= principalPayment;
