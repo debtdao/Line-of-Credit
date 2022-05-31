@@ -357,7 +357,8 @@ abstract contract BaseLoan is ILoan, MutualUpgrade {
     debts[positionId].interestAccrued += accruedToken;
 
     // get USD value of interest accrued
-    accruedValue = (_getTokenPrice(debts[positionId].token) * accruedToken) / debts[positionId].decimals;
+    accruedValue = (_getTokenPrice(debts[positionId].token) * accruedToken)
+      / (1 * 10 ** debts[positionId].decimals);
     totalInterestAccrued += accruedValue;
 
     emit InterestAccrued(positionId, accruedToken, accruedValue);

@@ -8,8 +8,6 @@ import { InterestRateTerm } from "../interest-rate/InterestRateTerm.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract TermLoan is BaseLoan, ITermLoan {
-  uint256 constant GRACE_PERIOD = 1 days;
-
   uint256 immutable repaymentPeriodLength;
   uint256 immutable totalRepaymentPeriods;
 
@@ -104,7 +102,7 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
       debt.interestRepaid += amount;
 
       // update global debt denominated in usd
-      totalInterestAccrued -= price * amount / debt.decimals;
+      totalInterestAccrued -= price * amount / (1 * 10 ** debt.decimals);
       emit RepayInterest(positionId, amount);
     } else {
       // pay off interest then any overdue payments then principal
@@ -127,10 +125,10 @@ abstract contract TermLoan is BaseLoan, ITermLoan {
         overduePaymentsAmount = 0;
 
         debt.principal -= amount;
-        principal -= price * amount / debt.decimals;
+        principal -= price * amount / (1 * 10 ** debt.decimals);
         emit RepayPrincipal(positionId, amount);
       }
-y
+
       // missed payments get added to principal so missed payments + extra $ reduce principal
       debt.principal -= amount;
       principal -= price * amount ;
@@ -162,11 +160,7 @@ y
 
     uint256 timeSinceRepayment = block.timestamp - currentPaymentPeriodStart;
     // miss 1 payment? jail
-    if(timeSinceRepayment > repaymentPeriodLength + GRACE_PERIOD) {
-      return LoanLib.STATUS.DELINQUENT;
-    }
-    // believe it or not, miss 2 payments, straight to debtor jail
-    if(timeSinceRepayment > repaymentPeriodLength * 2 + GRACE_PERIOD) {
+    if(timeSinceRepayment > repaymentPeriodLength) {
       emit Default(loanPositionId);
       return LoanLib.STATUS.LIQUIDATABLE;
     }
