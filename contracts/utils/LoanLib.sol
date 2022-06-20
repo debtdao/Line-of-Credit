@@ -1,5 +1,5 @@
 pragma solidity 0.8.9;
-
+import { IOracle } from "../interfaces/IOracle.sol";
 /**
  * @title Debt DAO P2P Loan Library
  * @author Kiba Gateaux
@@ -31,6 +31,30 @@ library LoanLib {
         // Loan is no longer active, successfully repaid or insolvent
         REPAID, // [#X]
         INSOLVENT // [#X]
+    }
+
+    /**
+      @notice
+      @dev - Assumes oracles all return answers in USD with 1e8 decimals
+           - Does not check if price < 0. HAndled in Oracle or Loan
+      @param oracle - oracle contract specified by loan getting valuation
+      @param token - token to value on oracle
+      @param amount - token amount
+      @param decimals - token decimals
+      @return total value in usd of all tokens 
+
+     */
+    function getValuation(
+      IOracle oracle,
+      address token,
+      uint256 amount,
+      uint8 decimals
+    )
+      external view
+      returns(uint256)
+    {
+      int prc = oracle.getLatestAnswer(token);
+      return prc == 0 ? 0 : (amount * prc) / (1 * 10 ** decimals);
     }
 
 

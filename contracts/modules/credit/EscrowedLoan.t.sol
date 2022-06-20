@@ -31,7 +31,7 @@ contract LoanTest is DSTest {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        loan = new BasicEscrowedLoan(1 ether, address(oracle), arbiter, borrower, address(0), 1 ether);
+        loan = new BasicEscrowedLoan(address(oracle), arbiter, borrower, 1 ether);
         escrow = loan.escrow();
         _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));
@@ -56,7 +56,7 @@ contract LoanTest is DSTest {
         uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        assertGt(loan.principal(), 0, "principal should be zero");
+        assert(loan.principalUsd() > 0);
         oracle.changePrice(address(supportedToken2), 1);
         loan.liquidate(positionId, 1 ether, address(supportedToken2));
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");

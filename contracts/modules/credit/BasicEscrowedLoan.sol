@@ -1,23 +1,21 @@
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
-import { RevolverLoan } from "./RevolverLoan.sol";
+import { CreditLoan } from "./CreditLoan.sol";
 import { BaseLoan } from "./BaseLoan.sol";
 import { ILoan } from "../../interfaces/ILoan.sol";
 
-contract BasicEscrowedLoan is RevolverLoan, EscrowedLoan {
+contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
 
     constructor(
         address oracle_,
         address arbiter_,
         address borrower_,
-        address interestRateModel_,
         uint minCollateral_
-    ) RevolverLoan(
+    ) CreditLoan(
         oracle_,
         arbiter_,
-        borrower_,
-        interestRateModel_
+        borrower_
     ) EscrowedLoan(
         minCollateral_,
         oracle_,
