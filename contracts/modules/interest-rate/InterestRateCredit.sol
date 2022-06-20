@@ -83,7 +83,7 @@ contract InterestRateCredit is IInterestRateCredit {
      * @notice update interest rates for a position
      * @dev - Loan contract responsible for calling accrueInterest() before updateInterest() if necessary
      */
-    function updateInterest(
+    function updateRate(
       bytes32 positionId,
       uint128 drawnRate,
       uint128 facilityRate

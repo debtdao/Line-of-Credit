@@ -15,14 +15,39 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
 
   bytes32[] public positionIds; // all active positions
 
+  uint256 immutable public deadline;
+
+  /**
+   * @dev - Loan borrower and proposed lender agree on terms
+            and add it to potential options for borrower to drawdown on
+            Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
+   * @param oracle_ - price oracle to use for getting all token values
+   * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
+   * @param borrower_ - the debitor for all debt positions in this contract
+   * @param ttl_ - time to live for line of credit contract across all lenders
+  */
   constructor(
     address oracle_,
     address arbiter_,
-    address borrower_
+    address borrower_,
+    uint256 ttl_
   )
     BaseLoan(oracle_, arbiter_, borrower_)
   {
     interestRate = new InterestRateCredit();
+    deadline = block.timestamp + ttl_;
+  }
+
+
+  function _healthcheck() internal virtual override returns(LoanLib.STATUS) {
+    LoanLib.STATUS s = BaseLoan._healthcheck();
+    if(s != LoanLib.STATUS.ACTIVE) {
+      return s;
+    }
+
+    if(block.timestamp >= deadline && principalUsd > 0) {
+      return LoanLib.STATUS.LIQUIDATABLE;
+    }
   }
 
 /**
@@ -36,8 +61,9 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   }
 
   function _updateOutstandingDebt()
-    internal override view
-    returns (uint principal, uint interestAccrued)
+    internal
+    view
+    returns (uint principal, uint interest)
   {
     uint len = positionIds.length;
     if(len == 0) return (0,0);
@@ -57,13 +83,15 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
         debt.principal,
         debt.decimals
       );
-      interestAccrued += LoanLib.getValuation(
+      interest += LoanLib.getValuation(
         oracle,
         debt.token,
         debt.interestAccrued,
         debt.decimals
       );
     }
+    principalUsd = principal;
+    interestUsd = interest;
   }
 
 
@@ -118,38 +146,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   // REPAYMENT //
   ///////////////
 
-  /**
-   * @dev - Transfers token used in debt position from msg.sender to Loan contract.
-   * @notice - see _repay() for more details
-   * @param positionId -the debt position to pay down debt on
-   * @param amount - amount of `token` in `positionId` to pay back
-  */
-
-  function depositAndRepay(
-    bytes32 positionId,
-    uint256 amount
-  )
-    
-    override external
-    returns(bool)
-  {
-    _accrueInterest(positionId);
-
-    uint256 totalRepayable = debts[positionId].principal + debts[positionId].interestAccrued;
-    if(amount > totalRepayable) amount = totalRepayable;
-
-    bool success = IERC20(debts[positionId].token).transferFrom(
-      msg.sender,
-      address(this),
-      amount
-    );
-    require(success, 'Loan: failed repayment');
-
-    _repay(positionId, amount);
-    return true;
-  }
-
-
    /**
    * @dev - Transfers enough tokens to repay entire debt position from `borrower` to Loan contract.
             Only callable by borrower bc it closes position.
@@ -157,7 +153,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   */
   function depositAndClose(bytes32 positionId)
     onlyBorrower
-    
     override external
     returns(bool)
   {
@@ -190,7 +185,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     bytes32 positionId,
     uint256 amount
   )
-    
     override external
     returns(bool)
   {
@@ -225,7 +219,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   function borrow(bytes32 positionId, uint256 amount)
     isActive
     onlyBorrower
-    
     override external
     returns(bool)
   {
@@ -369,7 +362,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     bytes32 positionId,
     uint256 amount
   )
-    override
     internal
     returns(bool)
   {
@@ -441,7 +433,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
    * @notice - checks that debt is fully repaid and remvoes from available lines of credit.
    * @dev deletes Debt storage. Store any data u might need later in call before _close()
   */
-  function _close(bytes32 positionId) virtual override internal returns(bool) {
+  function _close(bytes32 positionId) virtual internal returns(bool) {
     require(
       debts[positionId].principal + debts[positionId].interestAccrued == 0,
       'Loan: close failed. debt owed'

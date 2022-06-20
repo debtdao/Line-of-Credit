@@ -31,7 +31,7 @@ contract LoanTest is DSTest {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        loan = new BasicEscrowedLoan(address(oracle), arbiter, borrower, 1 ether);
+        loan = new BasicEscrowedLoan(address(oracle), arbiter, borrower, 1 ether, 150 days);
         escrow = loan.escrow();
         _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));

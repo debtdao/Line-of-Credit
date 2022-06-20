@@ -54,7 +54,7 @@ library LoanLib {
       returns(uint256)
     {
       int prc = oracle.getLatestAnswer(token);
-      return prc == 0 ? 0 : (amount * prc) / (1 * 10 ** decimals);
+      return prc == 0 ? 0 : (amount * uint(prc)) / (1 * 10 ** decimals);
     }
 
 

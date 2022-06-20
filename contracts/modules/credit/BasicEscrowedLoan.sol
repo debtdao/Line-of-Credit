@@ -11,23 +11,19 @@ contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
         address oracle_,
         address arbiter_,
         address borrower_,
-        uint minCollateral_
+        uint minCollateral_,
+        uint ttl_
     ) CreditLoan(
         oracle_,
         arbiter_,
-        borrower_
+        borrower_,
+        ttl_
     ) EscrowedLoan(
         minCollateral_,
         oracle_,
         borrower_
     ) {
 
-    }
-
-    function _getInterestPaymentAmount(bytes32 positionId) override internal returns(uint256)
-    {
-        // NB: overriden so that _accrueInterest (out of scope) does not revert
-        return 0;
     }
 
     /** @dev see BaseLoan._liquidate */
@@ -43,7 +39,7 @@ contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
     }
 
     /** @dev see BaseLoan._healthcheck */
-    function _healthcheck() internal override(EscrowedLoan, BaseLoan) returns(LoanLib.STATUS) {
+    function _healthcheck() internal override(EscrowedLoan, CreditLoan) returns(LoanLib.STATUS) {
         return EscrowedLoan._healthcheck();
     }
 

@@ -14,10 +14,11 @@ interface IInterestRateCredit {
     bytes32 positionId,
     uint256 drawnAmount,
     uint256 facilityAmount
-  ) external view returns(uint256);
+  ) external returns(uint256);
 
   function updateRate(
     bytes32 positionId,
-    Rate calldata rate
+    uint128 drawnRate,
+    uint128 facilityRate
   ) external returns(bool);
 }
