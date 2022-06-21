@@ -9,13 +9,15 @@ import { InterestRateCredit } from "../interest-rate/InterestRateCredit.sol";
 
 contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   
-  InterestRateCredit immutable public interestRate;
-
-  mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
-
+  uint256 immutable public deadline;
+  
   bytes32[] public positionIds; // all active positions
 
-  uint256 immutable public deadline;
+  mapping(bytes32 => DebtPosition) public debts; // positionId -> DebtPosition
+  
+  InterestRateCredit immutable public interestRate;
+
+
 
   /**
    * @dev - Loan borrower and proposed lender agree on terms
@@ -38,6 +40,10 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     deadline = block.timestamp + ttl_;
   }
 
+  modifier whileBorrowing() {
+    require(positionIds.length > 0 && positionId[0].principal > 0);
+    _;
+  }
 
   function _healthcheck() internal virtual override returns(LoanLib.STATUS) {
     LoanLib.STATUS s = BaseLoan._healthcheck();
@@ -90,6 +96,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
         debt.decimals
       );
     }
+
     principalUsd = principal;
     interestUsd = interest;
   }
@@ -105,7 +112,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
       (, uint256 accruedTokenValue) = _accrueInterest(positionIds[len]);
       accruedValue += accruedTokenValue;
     }
-
   }
 
   /**
@@ -137,12 +143,14 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
 
     bytes32 id = _createDebtPosition(lender, token, amount, 0);
 
-    positionIds.push(id);
+    positionIds.push(id); // add lender to end of repayment queue
+
+    // add interest rate 
 
     return true;
   }
 
-    ///////////////
+  ///////////////
   // REPAYMENT //
   ///////////////
 
@@ -151,26 +159,28 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
             Only callable by borrower bc it closes position.
    * @param positionId -the debt position to pay down debt on and close
   */
-  function depositAndClose(bytes32 positionId)
+  function depositAndClose()
+    whileBorrowing
     onlyBorrower
     override external
     returns(bool)
   {
-    _accrueInterest(positionId);
+    bytes32 id = positionIds[0];
+    _accrueInterest(id);
 
-    uint256 totalOwed = debts[positionId].principal + debts[positionId].interestAccrued;
+    uint256 totalOwed = debts[id].principal + debts[id].interestAccrued;
 
     // borrower deposits remaining balance not already repaid and held in contract
-    bool success = IERC20(debts[positionId].token).transferFrom(
+    bool success = IERC20(debts[id].token).transferFrom(
       msg.sender,
       address(this),
       totalOwed
     );
     require(success, 'Loan: deposit failed');
     // clear the debt 
-    _repay(positionId, totalOwed);
+    _repay(id, totalOwed);
 
-    require(_close(positionId));
+    require(_close(id));
     return true;
   }
 
@@ -181,25 +191,25 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
    * @param amount - amount of `token` in `positionId` to pay back
   */
 
-  function depositAndRepay(
-    bytes32 positionId,
-    uint256 amount
-  )
-    override external
+  function depositAndRepay(uint256 amount)
+    whileBorrowing
+    override
+    external
     returns(bool)
   {
-    _accrueInterest(positionId);
+    bytes32 id = positionIds[0];
+    _accrueInterest(id);
 
-    require(amount <= debts[positionId].principal + debts[positionId].interestAccrued);
+    require(amount <= debts[id].principal + debts[id].interestAccrued);
     
-    bool success = IERC20(debts[positionId].token).transferFrom(
+    bool success = IERC20(debts[id].token).transferFrom(
       msg.sender,
       address(this),
       amount
     );
     require(success, 'Loan: failed repayment');
 
-    _repay(positionId, amount);
+    _repay(id, amount);
     return true;
   }
 
@@ -219,7 +229,8 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   function borrow(bytes32 positionId, uint256 amount)
     isActive
     onlyBorrower
-    override external
+    override
+    external
     returns(bool)
   {
     _accrueInterest(positionId);
@@ -229,7 +240,8 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
 
     debt.principal += amount;
 
-    principalUsd += LoanLib.getValuation(oracle, debt.token, amount, debt.decimals);
+    uint value = LoanLib.getValuation(oracle, debt.token, amount, debt.decimals);
+    principalUsd += value;
 
     debts[positionId] = debt;
 
@@ -244,7 +256,15 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     );
     require(success, 'Loan: borrow failed');
 
-    emit Borrow(positionId, amount);
+    emit Borrow(positionId, amount, value);
+
+    // fintard TODO where do we put lender in repayment queue after drawdown?
+    // below = move lender before lenders with no risk and after lenders that already took risk
+    // uint len = positionIds.length;
+    // if(len <= 1) return true;
+    // for(positionIds) {
+    //   if (debt.principal > 0) continue;
+    //   else positionIds[i] = positionId; positionIds[length - 1] = debts[i] }
 
     return true;
   }
@@ -311,9 +331,9 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   }
 
 
-  //////
-  //  Internal  funcs 
-  //////
+  //////////////////////
+  //  Internal  funcs //
+  //////////////////////
 
 
     function _createDebtPosition(
@@ -367,23 +387,25 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   {
     DebtPosition memory debt = debts[positionId];
     
-    uint256 price = _getTokenPrice(debt.token);
-
     if(amount <= debt.interestAccrued) {
       debt.interestAccrued -= amount;
-      interestUsd -= price * amount / (1 * 10 ** debt.decimals);
+      uint val = LoanLib.getValuation(oracle, debt.token, amount, debt.decimals);
+      interestUsd -= val;
 
       debt.interestRepaid += amount;
-      emit RepayInterest(positionId, amount);
+      emit RepayInterest(positionId, amount, val);
     } else {
       uint256 principalPayment = amount - debt.interestAccrued;
 
-      emit RepayPrincipal(positionId, principalPayment);
-      emit RepayInterest(positionId, debt.interestAccrued);
+      uint iVal = LoanLib.getValuation(oracle, debt.token, debt.interestAccrued, debt.decimals);
+      uint pVal = LoanLib.getValuation(oracle, debt.token, principalPayment, debt.decimals);
+
+      emit RepayInterest(positionId, debt.interestAccrued, iVal);
+      emit RepayPrincipal(positionId, principalPayment, pVal);
 
       // update global debt denominated in usd
-      principalUsd -= price * principalPayment / (1 * 10 ** debt.decimals);
-      interestUsd -= price * debt.interestAccrued / (1 * 10 ** debt.decimals);
+      interestUsd -= iVal;
+      principalUsd -= pVal;
 
       // update individual debt position denominated in token
       debt.principal -= principalPayment;

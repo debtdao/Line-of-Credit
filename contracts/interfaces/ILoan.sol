@@ -28,12 +28,12 @@ interface ILoan {
   // initerest added to borrowers outstanding balance
 
   // Borrower Events
-  event Borrow(bytes32 indexed positionId, uint256 indexed amount);
+  event Borrow(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
   // receive full loan or drawdown on credit
 
-  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount);
+  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
-  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount);
+  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
   event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 

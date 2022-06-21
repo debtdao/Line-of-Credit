@@ -64,15 +64,16 @@ contract InterestRateCredit is IInterestRateCredit {
       Rate memory rate = rates[positionId];
       uint256 timespan = block.timestamp - rate.lastAccrued;
 
-      // interest = ((1 + a) * d * t) / 1yr / 100 
+      // r = APR in BPS, x = # tokens, t = time
+      // interest = (r * x * t) / 1yr / 100 
       // facility = deposited - drawn (aka undrawn balance)
       return (
         (
-          ((ONE_HUNNA_IN_BPS + rate.drawnRate) * drawnBalance * timespan)
+          (rate.drawnRate * drawnBalance * timespan)
           / INTEREST_DENOMINATOR
         ) + 
         (
-          ((ONE_HUNNA_IN_BPS + rate.facilityRate) * (facilityBalance- drawnBalance) * timespan)
+          (rate.facilityRate * (facilityBalance- drawnBalance) * timespan)
           /  INTEREST_DENOMINATOR
         )
       );
@@ -92,7 +93,10 @@ contract InterestRateCredit is IInterestRateCredit {
       external
       returns(bool)
     {
-      rates[positionId].drawnRate = drawnRate;
-      rates[positionId].facilityRate = facilityRate;
+      rates[positionId].drawnRate = Rate({
+        drawnRate: drawnRate,
+        facilityRate: facilityRate,
+        lastAccrued: block.timestamp
+      });
     }
 }
