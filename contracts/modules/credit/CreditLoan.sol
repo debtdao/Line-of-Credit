@@ -41,7 +41,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   }
 
   modifier whileBorrowing() {
-    require(positionIds.length > 0 && positionId[0].principal > 0);
+    require(positionIds.length > 0 && debts[positionIds[0]].principal > 0);
     _;
   }
 
@@ -68,7 +68,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
 
   function _updateOutstandingDebt()
     internal
-    view
     returns (uint principal, uint interest)
   {
     uint len = positionIds.length;
@@ -157,7 +156,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
    /**
    * @dev - Transfers enough tokens to repay entire debt position from `borrower` to Loan contract.
             Only callable by borrower bc it closes position.
-   * @param positionId -the debt position to pay down debt on and close
   */
   function depositAndClose()
     whileBorrowing
@@ -187,7 +185,6 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   /**
    * @dev - Transfers token used in debt position from msg.sender to Loan contract.
    * @notice - see _repay() for more details
-   * @param positionId -the debt position to pay down debt on
    * @param amount - amount of `token` in `positionId` to pay back
   */
 

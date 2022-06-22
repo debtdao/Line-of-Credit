@@ -50,7 +50,7 @@ library LoanLib {
       uint256 amount,
       uint8 decimals
     )
-      external view
+      external
       returns(uint256)
     {
       int prc = oracle.getLatestAnswer(token);

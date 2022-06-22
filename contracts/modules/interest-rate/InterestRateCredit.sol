@@ -6,7 +6,7 @@ import { IInterestRateCredit } from "../../interfaces/IInterestRateCredit.sol";
 contract InterestRateCredit is IInterestRateCredit {
 
     ///////////  CONSTANTS  ///////////
-    uint256 constant ONE_YEAR = 1 years; // one year in sec to use in calculations for rates
+    uint256 constant ONE_YEAR = 364.25 days; // one year in sec to use in calculations for rates
     uint256 constant ONE_HUNNA_IN_BPS = 10000; // adding two zeroes to account for bps in numerator
     uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * ONE_HUNNA_IN_BPS;
 
@@ -93,7 +93,7 @@ contract InterestRateCredit is IInterestRateCredit {
       external
       returns(bool)
     {
-      rates[positionId].drawnRate = Rate({
+      rates[positionId] = Rate({
         drawnRate: drawnRate,
         facilityRate: facilityRate,
         lastAccrued: block.timestamp

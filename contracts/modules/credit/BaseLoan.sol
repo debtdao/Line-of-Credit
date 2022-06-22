@@ -1,9 +1,8 @@
 pragma solidity ^0.8.9;
 
 // Helpers
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
-
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // module interfaces 
 import { ILoan } from "../../interfaces/ILoan.sol";
@@ -141,12 +140,4 @@ abstract contract BaseLoan is ILoan {
     return status;
   }
 
-  /**
-   * @dev - Calls Oracle module to get most recent price for token.
-            All prices denominated in USD.
-   * @param token - token to get price for
-  */
-  function _getTokenPrice(address token) internal returns (uint256) {
-    return IOracle(oracle).getLatestAnswer(token);
-  }
 }
