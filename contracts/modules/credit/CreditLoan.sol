@@ -255,13 +255,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
 
     emit Borrow(positionId, amount, value);
 
-    // fintard TODO where do we put lender in repayment queue after drawdown?
-    // below = move lender before lenders with no risk and after lenders that already took risk
-    // uint len = positionIds.length;
-    // if(len <= 1) return true;
-    // for(positionIds) {
-    //   if (debt.principal > 0) continue;
-    //   else positionIds[i] = positionId; positionIds[length - 1] = debts[i] }
+    require(_sortIntoQ(positionId));
 
     return true;
   }
@@ -408,6 +402,9 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
       debt.principal -= principalPayment;
       debt.interestRepaid += debt.interestAccrued;
       debt.interestAccrued = 0;
+
+      // if debt fully repaid then remove lender from repayment queue
+      if(debt.principal == 0) positionIds = LoanLib.stepQueue(positionIds);
     }
 
     debts[positionId] = debt;
@@ -469,6 +466,32 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     }
 
     emit CloseDebtPosition(positionId);    
+
+    return true;
+  }
+
+      /**
+     * @notice - repayment queue compared to existing lenders
+     * @param positions - all current active positions on the loan
+     * @param p - position that we are trying to find appropriate place for
+     * @param index - current index of position in queue
+     * @return
+     */
+    function _sortIntoQ(bytes32 p) internal view returns(bool) {
+      uint len = positionIds.length;
+      uint256 _i = 0; // index that p should be moved to
+      for(uint i = 0; i < len; i++) {
+        bytes32 id = positionIds[i];
+        if(p != id) {
+          if(debts[id].principal > 0) continue; // `id` should be placed before `p`
+          _i = i; // index of first undrawn LoC found
+        } else {
+          if(_i == 0) return; // `p` in earliest possible index
+          // swap positions
+          positionIds[i] = positionIds[_i];
+          positionIds[_i] = p;
+        }
+    }
 
     return true;
   }

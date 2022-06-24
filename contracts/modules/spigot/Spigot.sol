@@ -282,9 +282,10 @@ contract SpigotController is ReentrancyGuard {
         require(msg.sender == owner);
         
         address token = settings[revenueContract].token;
-        if(escrowed[token] > 0) {
-            require(_sendOutTokenOrETH(token, owner, escrowed[token]));
-            emit ClaimEscrow(token, escrowed[token], owner);
+        uint256 claimable = escrowed[token];
+        if(claimable > 0) {
+            require(_sendOutTokenOrETH(token, owner, claimable));
+            emit ClaimEscrow(token, claimable, owner);
         }
         
         (bool success, bytes memory callData) = revenueContract.call(
