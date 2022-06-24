@@ -225,7 +225,7 @@ contract SpigotController is ReentrancyGuard {
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
         require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
-        // cant claim revenue because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
+        // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
         require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
 
         

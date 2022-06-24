@@ -2,11 +2,16 @@ import { LoanLib } from "../utils/LoanLib.sol";
 
 interface ILoan {
 
+  // General Events
+  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
+
   event DeployLoan(
     address indexed oracle,
     address indexed arbiter,
     address indexed borrower
   );
+
+  // Lender Events
 
   event AddDebtPosition(
     address indexed lender,
@@ -14,7 +19,6 @@ interface ILoan {
     uint256 indexed deposit,
     uint256 initialPrincipal
   );
-
   // can reference only positionId once AddDebtPosition is emitted because it will be stored in subgraph
   // initialPrinicipal tells us if its a Revolver or Term
 
@@ -25,9 +29,11 @@ interface ILoan {
   // lender officially repaid in full. if Credit then facility has also been closed.
 
   event InterestAccrued(bytes32 indexed positionId, uint256 indexed tokenAmount, uint256 indexed value);
-  // initerest added to borrowers outstanding balance
+  // interest added to borrowers outstanding balance
+
 
   // Borrower Events
+
   event Borrow(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
   // receive full loan or drawdown on credit
 
@@ -37,11 +43,7 @@ interface ILoan {
 
   event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 
-  event Default(bytes32 indexed positionId);
-
-  // General Events
-  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
-
+  event Default(bytes32 indexed positionId, uint256 indexed value);
 
   // External Functions  
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);

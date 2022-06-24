@@ -1,9 +1,9 @@
 pragma solidity 0.8.9;
 import { IOracle } from "../interfaces/IOracle.sol";
 /**
- * @title Debt DAO P2P Loan Library
- * @author Kiba Gateaux
- * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
+  * @title Debt DAO P2P Loan Library
+  * @author Kiba Gateaux
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
  */
 library LoanLib {
     address constant DEBT_TOKEN = address(0xdebf);
@@ -11,37 +11,37 @@ library LoanLib {
     enum STATUS {
         // ¿hoo dis
         // Loan has been deployed but terms and conditions are still being signed off by parties
-        UNINITIALIZED, // [#X]
-        INITIALIZED, // [#X]
+        UNINITIALIZED,
+        INITIALIZED,
 
         // ITS ALLLIIIIVVEEE
         // Loan is operational and actively monitoring status
-        ACTIVE, // [#X]
-        UNDERCOLLATERALIZED, // [#X]
+        ACTIVE,
+        UNDERCOLLATERALIZED,
         LIQUIDATABLE, // [#X
-        DELINQUENT, // [#X]
+        DELINQUENT,
 
         // Loan is in distress and paused
-        LIQUIDATING, // [#X]
-        OVERDRAWN, // [#X]
-        DEFAULT, // [#X]
-        ARBITRATION, // [#X]
+        LIQUIDATING,
+        OVERDRAWN,
+        DEFAULT,
+        ARBITRATION,
 
         // Lön izz ded
         // Loan is no longer active, successfully repaid or insolvent
-        REPAID, // [#X]
-        INSOLVENT // [#X]
+        REPAID,
+        INSOLVENT
     }
 
     /**
-      @notice
-      @dev - Assumes oracles all return answers in USD with 1e8 decimals
+     * @notice
+     * @dev - Assumes oracles all return answers in USD with 1e8 decimals
            - Does not check if price < 0. HAndled in Oracle or Loan
-      @param oracle - oracle contract specified by loan getting valuation
-      @param token - token to value on oracle
-      @param amount - token amount
-      @param decimals - token decimals
-      @return total value in usd of all tokens 
+     * @param oracle - oracle contract specified by loan getting valuation
+     * @param token - token to value on oracle
+     * @param amount - token amount
+     * @param decimals - token decimals
+     * @return total value in usd of all tokens 
 
      */
     function getValuation(
@@ -59,11 +59,11 @@ library LoanLib {
 
 
     /**
-      @dev Create deterministic hash id for a debt position on `loan` given position details
-      @param loan - loan that debt position exists on
-      @param lender - address managing debt position
-      @param token - token that is being lent out in debt position
-      @return positionId
+     * @dev Create deterministic hash id for a debt position on `loan` given position details
+     * @param loan - loan that debt position exists on
+     * @param lender - address managing debt position
+     * @param token - token that is being lent out in debt position
+     * @return positionId
 
      */
     function computePositionId(address loan, address lender, address token) external pure returns(bytes32) {
@@ -71,11 +71,11 @@ library LoanLib {
     }
 
     /**
-      @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
+     * @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
           This means cleanup on _close() and checks on addDebtPosition are CRITICAL. If `id` is duplicated then the position can't be closed
-      @param positions - all current active positions on the loan
-      @param id - hash id that must be removed from active positions
-      @return newPositions - all active positions on loan after `id` is removed
+     * @param positions - all current active positions on the loan
+     * @param id - hash id that must be removed from active positions
+     * @return newPositions - all active positions on loan after `id` is removed
 
      */
     function removePosition(bytes32[] calldata positions, bytes32 id) external view returns(bytes32[] memory) {
