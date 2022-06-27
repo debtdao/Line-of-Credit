@@ -43,7 +43,7 @@ interface ILoan {
 
   event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
 
-  event Default(bytes32 indexed positionId, uint256 indexed value);
+  event Default(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
   // External Functions  
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);

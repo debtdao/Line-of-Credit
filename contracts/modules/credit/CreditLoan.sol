@@ -52,8 +52,17 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     }
 
     if(block.timestamp >= deadline && principalUsd > 0) {
+      uint256 len =  positionIds.length;
+      for(uint256 i = 0; i < len; i++) {
+        bytes32 id = positionIds[i];
+        uint256 amount = debts[id].principal + debts[id].interestAccrued;
+        uint256 val = LoanLib.getValuation(oracle, debts[id].token, amount, debts[id].decimals);
+        emit Default(id, amount, val);
+      }
       return LoanLib.STATUS.LIQUIDATABLE;
     }
+
+    return LoanLib.STATUS.ACTIVE;
   }
 
 /**
