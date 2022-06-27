@@ -99,20 +99,18 @@ library LoanLib {
      *         -  moves 2nd in line to first
      * @dev - rename to JS func that does same thing
      * @param positions - all current active positions on the loan
-     * @param i - index of item to move to nex position in arrray
-     * @param n - index of item to swap with `i`
      * @return newPositions - all active positions on loan after `id` is removed
      */
     function stepQ(bytes32[] calldata positions) external view returns(bytes32[] memory) {
-      uint256 len = positions.length;
-      bytes32[] memory newPositions = new bytes32[](len);
+      uint256 count = positions.length - 1;
+      bytes32[] memory newPositions = new bytes32[](count);
 
       // move all existing positions up in line
-      for(uint i = 1; i < len; i++) {
-        newPositions[i] = positions[i];
+      for(uint i = 1; i < count; i++) {
+        newPositions[i - 1] = positions[i];
       }
       // cycle first el back to end of queue
-      newPositions.push(positions[0]);
+      newPositions[count] = positions[0];
 
       return newPositions;
     }

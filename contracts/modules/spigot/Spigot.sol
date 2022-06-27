@@ -247,7 +247,7 @@ contract SpigotController is ReentrancyGuard {
      * @param setting - spigot settings for smart contract   
      */
     function addSpigot(address revenueContract, SpigotSettings memory setting) external returns (bool) {
-        require(msg.sender == operator || msg.sender == owner);
+        require(msg.sender == owner);
         return _addSpigot(revenueContract, setting);
     }
 

@@ -413,7 +413,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
       debt.interestAccrued = 0;
 
       // if debt fully repaid then remove lender from repayment queue
-      if(debt.principal == 0) positionIds = LoanLib.stepQueue(positionIds);
+      if(debt.principal == 0) positionIds = LoanLib.stepQ(positionIds);
     }
 
     debts[positionId] = debt;
@@ -479,23 +479,23 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     return true;
   }
 
-      /**
-     * @notice - repayment queue compared to existing lenders
-     * @param positions - all current active positions on the loan
-     * @param p - position that we are trying to find appropriate place for
-     * @param index - current index of position in queue
+    /**
+     * @notice - Insert `p` into the next availble FIFO position in repayment queue
+               - once earliest slot is found, swap places with `p` and position in slot.
+     * @param p - position id that we are trying to find appropriate place for
      * @return
      */
-    function _sortIntoQ(bytes32 p) internal view returns(bool) {
+    function _sortIntoQ(bytes32 p) internal returns(bool) {
       uint len = positionIds.length;
       uint256 _i = 0; // index that p should be moved to
+
       for(uint i = 0; i < len; i++) {
         bytes32 id = positionIds[i];
         if(p != id) {
           if(debts[id].principal > 0) continue; // `id` should be placed before `p`
           _i = i; // index of first undrawn LoC found
         } else {
-          if(_i == 0) return; // `p` in earliest possible index
+          if(_i == 0) return true; // `p` in earliest possible index
           // swap positions
           positionIds[i] = positionIds[_i];
           positionIds[_i] = p;
