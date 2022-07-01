@@ -1,55 +1,58 @@
 import { LoanLib } from "../utils/LoanLib.sol";
 
 interface ILoan {
-  // Stakeholder data
-  struct DebtPosition {
-    address lender;           // person to repay
-    address token;            // token being lent out
-    uint8 decimals;           // token's decimals for adjusting price / amounts
-    // all denominated in token, not USD
-    uint256 deposit;          // total liquidity provided by lender for token
-    uint256 principal;        // amount actively lent out
-    uint256 interestAccrued;  // interest accrued but not repaid
-    uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender
-  }
-
-  // Lender Events
-
-  event AddDebtPosition(address indexed lender, address indexed token, uint256 indexed deposit);
-  // can reference only positionId once AddDebtPosition is emitted because it will be stored in subgraph
-
-  event Withdraw(bytes32 indexed positionId, uint256 indexed amount);
-
-  event CloseDebtPosition(bytes32 indexed positionId);
-
-  event InterestAccrued(bytes32 indexed positionId, uint256 indexed tokenAmount, uint256 indexed value);
-
-  // Borrower Events
-  event Borrow(bytes32 indexed positionId, uint256 indexed amount);
-
-  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount);
-
-  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount);
-
-  event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
-
-  event Default(bytes32 indexed positionId);
 
   // General Events
   event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
+  event DeployLoan(
+    address indexed oracle,
+    address indexed arbiter,
+    address indexed borrower
+  );
+
+  // Lender Events
+
+  event AddDebtPosition(
+    address indexed lender,
+    address indexed token,
+    uint256 indexed deposit,
+    uint256 initialPrincipal
+  );
+  // can reference only positionId once AddDebtPosition is emitted because it will be stored in subgraph
+  // initialPrinicipal tells us if its a Revolver or Term
+
+  event Withdraw(bytes32 indexed positionId, uint256 indexed amount);
+  // lender removing funds from Loan (interest or principal)
+
+  event CloseDebtPosition(bytes32 indexed positionId);
+  // lender officially repaid in full. if Credit then facility has also been closed.
+
+  event InterestAccrued(bytes32 indexed positionId, uint256 indexed tokenAmount, uint256 indexed value);
+  // interest added to borrowers outstanding balance
+
+
+  // Borrower Events
+
+  event Borrow(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+  // receive full loan or drawdown on credit
+
+  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+
+  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+
+  event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
+
+  event Default(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
   // External Functions  
-  function addDebtPosition(uint256 amount, address token, address lender) external returns(bool);
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
-  function borrow(bytes32 positionId, uint256 amount) external returns(bool);
-  function close(bytes32 positionId) external returns(bool);
   function liquidate(bytes32 positionId, uint256 amount, address targetToken) external returns(uint256);
 
-  function depositAndRepay(bytes32 positionId, uint256 amount) external returns(bool);
-  function depositAndClose(bytes32 positionId) external returns(bool);
+  function depositAndRepay(uint256 amount) external returns(bool);
+  function depositAndClose() external returns(bool);
 
-  function accrueInterest() external returns(uint256 amountAccrued);
+  function accrueInterest() external returns(uint256 valueAccrued);
   function getOutstandingDebt() external returns(uint256 totalDebt);
   function healthcheck() external returns(LoanLib.STATUS);
 }

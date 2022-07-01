@@ -2,8 +2,9 @@ pragma solidity ^0.8.9;
 interface ISpigotedLoan {
   event RevenuePayment(
     address indexed token,
-    uint256 indexed amount,
-    uint256 indexed value
+    uint256 indexed amount
+    // dont need to track value like other events because _repay already emits
+    // this event is just semantics/helper to track payments from revenue specifically
   );
 
   event TradeSpigotRevenue(
@@ -15,12 +16,10 @@ interface ISpigotedLoan {
   
   function claimAndTrade(
     address claimToken, 
-    address targetToken,
     bytes calldata zeroExTradeData
   ) external returns(uint256 tokensBought);
 
   function claimAndRepay(
-    bytes32 positionId,
     address token,
     bytes calldata zeroExTradeData
   ) external returns(bool);

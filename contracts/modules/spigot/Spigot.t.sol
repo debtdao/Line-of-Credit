@@ -282,7 +282,7 @@ contract SpigotTest is DSTest {
 
     function testFail_addSpigot_OwnerSplitParam(uint8 split) public {
         // Split can only be 0-100 for numerator in percent calculation
-        if(split <= 100 && split > 0) fail();
+        if(split <= 100) fail();
 
         _initSpigot(address(token), split, claimPushPaymentFunc, transferOwnerFunc, whitelist);
     }
@@ -299,9 +299,8 @@ contract SpigotTest is DSTest {
         assertEq(_transfer, func);
     }
 
-     function testFail_addSpigot_AsNonOwnerOrOperator() public {
+     function testFail_addSpigot_AsNonOwner() public {
         owner =  address(0xdebf);
-        operator =  address(0xdebf);
         
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 

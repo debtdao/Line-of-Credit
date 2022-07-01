@@ -31,7 +31,7 @@ contract LoanTest is DSTest {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        loan = new BasicEscrowedLoan(1 ether, address(oracle), arbiter, borrower, address(0), 1 ether);
+        loan = new BasicEscrowedLoan(address(oracle), arbiter, borrower, 1 ether, 150 days);
         escrow = loan.escrow();
         _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));
@@ -56,7 +56,7 @@ contract LoanTest is DSTest {
         uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        assertGt(loan.principal(), 0, "principal should be zero");
+        assert(loan.principalUsd() > 0);
         oracle.changePrice(address(supportedToken2), 1);
         loan.liquidate(positionId, 1 ether, address(supportedToken2));
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
@@ -97,8 +97,9 @@ contract LoanTest is DSTest {
         loan.borrow(positionId, 1 ether);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-        uint tokenPriceOneUnit = oracle.getLatestAnswer(address(supportedToken1));
-        assertEq(loan.principal(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+        int prc = oracle.getLatestAnswer(address(supportedToken1));
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
+        assertEq(loan.principalUsd(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
     }
 
     function test_can_manually_close_if_no_outstanding_debt() public {
@@ -106,69 +107,73 @@ contract LoanTest is DSTest {
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        loan.depositAndRepay(positionId, 1 ether);
+        loan.depositAndRepay(1 ether);
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
         loan.close(positionId);
     }
 
     function test_can_repay_loan() public {
-        uint tokenPriceOneUnit = oracle.getLatestAnswer(address(supportedToken1));
+        int prc = oracle.getLatestAnswer(address(supportedToken1));
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
         assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit, "Loan outstanding debt should be set as one full unit price in USD");
-        assertEq(loan.principal(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
-        loan.depositAndRepay(positionId, 1 ether);
+        assertEq(loan.principalUsd(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
+        loan.depositAndRepay(1 ether);
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
-        assertEq(loan.principal(), 0, "Principle should be 0");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
+        assertEq(loan.principalUsd(), 0, "Principle should be 0");
+        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
     function test_can_repay_part_of_loan() public {
-        uint tokenPriceOneUnit = oracle.getLatestAnswer(address(supportedToken1));
+        int prc = oracle.getLatestAnswer(address(supportedToken1));
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        loan.depositAndRepay(positionId, 0.5 ether);
+        loan.depositAndRepay(0.5 ether);
         assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit / 2, "Loan outstanding debt should be set as half of one full unit price in USD");
-        assertEq(loan.principal(), tokenPriceOneUnit / 2, "Principal should be set as half of one full unit price in USD");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
+        assertEq(loan.principalUsd(), tokenPriceOneUnit / 2, "Principal should be set as half of one full unit price in USD");
+        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
     function test_can_repay_one_debt_and_keep_another() public {
-        uint tokenPriceOneUnit = oracle.getLatestAnswer(address(supportedToken2));
+        int prc = oracle.getLatestAnswer(address(supportedToken2));
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        loan.depositAndRepay(positionId, 1 ether);
+        loan.depositAndRepay(1 ether);
+        
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         bytes32 positionId2 = loan.positionIds(1);
         loan.borrow(positionId2, 1 ether);
         assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit, "Loan outstanding debt should be set as one full unit price in USD");
-        assertEq(loan.principal(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
+        assertEq(loan.principalUsd(), tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
-    function test_can_repay_more_than_one_debt() public {
-        uint tokenPriceOneUnit = oracle.getLatestAnswer(address(supportedToken2));
+    function testFail_can_repay_loan_later_in_queue() public {
+        int prc = oracle.getLatestAnswer(address(supportedToken2));
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        loan.depositAndRepay(positionId, 1 ether);
+        loan.depositAndRepay(1 ether);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
+
         bytes32 positionId2 = loan.positionIds(1);
         loan.borrow(positionId2, 1 ether);
-        loan.depositAndRepay(positionId2, 1 ether);
-        assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
-        assertEq(loan.principal(), 0, "Principle should be 0");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
+
+        loan.depositAndRepay(1 ether); // this should fail
     }
 
     function test_can_deposit_and_close_position() public {
@@ -179,11 +184,11 @@ contract LoanTest is DSTest {
         loan.borrow(positionId, 1 ether);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-        loan.depositAndClose(positionId);
+        loan.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(loan)), 1 ether, "Loan balance should be 1e18");
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
-        assertEq(loan.principal(), 0, "Principle should be 0");
-        assertEq(loan.totalInterestAccrued(), 0, "No interest should have been accrued");
+        assertEq(loan.principalUsd(), 0, "Principle should be 0");
+        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
     function test_can_withdraw_from_position() public {
@@ -260,7 +265,7 @@ contract LoanTest is DSTest {
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
-        loan.depositAndClose(positionId);
+        loan.depositAndClose();
         loan.borrow(positionId, 1 ether);
     }
 

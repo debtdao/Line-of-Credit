@@ -1,37 +1,29 @@
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
-import { RevolverLoan } from "./RevolverLoan.sol";
+import { LineOfCredit } from "./LineOfCredit.sol";
 import { BaseLoan } from "./BaseLoan.sol";
 import { ILoan } from "../../interfaces/ILoan.sol";
 
-contract BasicEscrowedLoan is RevolverLoan, EscrowedLoan {
+contract BasicEscrowedLoan is LineOfCredit, EscrowedLoan {
 
     constructor(
-        uint256 maxDebtValue_,
         address oracle_,
         address arbiter_,
         address borrower_,
-        address interestRateModel_,
-        uint minCollateral_
-    ) RevolverLoan(
-        maxDebtValue_,
+        uint minCollateral_,
+        uint ttl_
+    ) LineOfCredit(
         oracle_,
         arbiter_,
         borrower_,
-        interestRateModel_
+        ttl_
     ) EscrowedLoan(
         minCollateral_,
         oracle_,
         borrower_
     ) {
 
-    }
-
-    function _getInterestPaymentAmount(bytes32 positionId) override internal returns(uint256)
-    {
-        // NB: overriden so that _accrueInterest (out of scope) does not revert
-        return 0;
     }
 
     /** @dev see BaseLoan._liquidate */
@@ -47,7 +39,7 @@ contract BasicEscrowedLoan is RevolverLoan, EscrowedLoan {
     }
 
     /** @dev see BaseLoan._healthcheck */
-    function _healthcheck() internal override(EscrowedLoan, BaseLoan) returns(LoanLib.STATUS) {
+    function _healthcheck() internal override(EscrowedLoan, LineOfCredit) returns(LoanLib.STATUS) {
         return EscrowedLoan._healthcheck();
     }
 

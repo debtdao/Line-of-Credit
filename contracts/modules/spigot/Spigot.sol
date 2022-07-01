@@ -225,7 +225,7 @@ contract SpigotController is ReentrancyGuard {
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
         require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
-        // cant claim revenue because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
+        // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
         require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
 
         
@@ -247,7 +247,7 @@ contract SpigotController is ReentrancyGuard {
      * @param setting - spigot settings for smart contract   
      */
     function addSpigot(address revenueContract, SpigotSettings memory setting) external returns (bool) {
-        require(msg.sender == operator || msg.sender == owner);
+        require(msg.sender == owner);
         return _addSpigot(revenueContract, setting);
     }
 
@@ -282,9 +282,10 @@ contract SpigotController is ReentrancyGuard {
         require(msg.sender == owner);
         
         address token = settings[revenueContract].token;
-        if(escrowed[token] > 0) {
-            require(_sendOutTokenOrETH(token, owner, escrowed[token]));
-            emit ClaimEscrow(token, escrowed[token], owner);
+        uint256 claimable = escrowed[token];
+        if(claimable > 0) {
+            require(_sendOutTokenOrETH(token, owner, claimable));
+            emit ClaimEscrow(token, claimable, owner);
         }
         
         (bool success, bytes memory callData) = revenueContract.call(

@@ -12,6 +12,8 @@ The Borrower must still operate their product so the Lender can allow specific f
 
 At the moment there is potential for griefing if the Lender decides to not revert ownership of revenue generating contracts to the Borrower. However the Spigot will be owned by the Loan contract, not an EOA, which will automatically release revenue contracts once the Borrower has fully repaid their loan.
 
+Can use operate() to claim ownership of contracts that require confirmation after transfering owernship.
+
 ## Potential Code Optimizations
 - Compacting `whitelistedFunctions` into an encoded uint256 var instead of a mapping to bool.
 - Use proxy pattern for SpigotController as implementation contract and proxy contracts for each borrower. Or make library 
