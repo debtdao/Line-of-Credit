@@ -1,11 +1,11 @@
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
-import { CreditLoan } from "./CreditLoan.sol";
+import { LineOfCredit } from "./LineOfCredit.sol";
 import { BaseLoan } from "./BaseLoan.sol";
 import { ILoan } from "../../interfaces/ILoan.sol";
 
-contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
+contract BasicEscrowedLoan is LineOfCredit, EscrowedLoan {
 
     constructor(
         address oracle_,
@@ -13,7 +13,7 @@ contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
         address borrower_,
         uint minCollateral_,
         uint ttl_
-    ) CreditLoan(
+    ) LineOfCredit(
         oracle_,
         arbiter_,
         borrower_,
@@ -39,7 +39,7 @@ contract BasicEscrowedLoan is CreditLoan, EscrowedLoan {
     }
 
     /** @dev see BaseLoan._healthcheck */
-    function _healthcheck() internal override(EscrowedLoan, CreditLoan) returns(LoanLib.STATUS) {
+    function _healthcheck() internal override(EscrowedLoan, LineOfCredit) returns(LoanLib.STATUS) {
         return EscrowedLoan._healthcheck();
     }
 

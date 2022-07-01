@@ -1,7 +1,7 @@
 import { LoanLib } from "../utils/LoanLib.sol";
 import { ILoan } from "./ILoan.sol";
 
-interface ICreditLoan is ILoan {
+interface ILineOfCredit is ILoan {
   // Lender data
   struct DebtPosition {
     //  all denominated in token, not USD

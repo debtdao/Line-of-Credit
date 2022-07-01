@@ -1,14 +1,14 @@
 
 pragma solidity ^0.8.9;
 
-import { CreditLoan } from "./CreditLoan.sol";
+import { LineOfCredit } from "./LineOfCredit.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { MutualUpgrade } from "../../utils/MutualUpgrade.sol";
 import { SpigotController } from "../spigot/Spigot.sol";
 import { ISpigotedLoan } from "../../interfaces/ISpigotedLoan.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract SpigotedLoan is ISpigotedLoan, CreditLoan {
+contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
   SpigotController immutable public spigot;
 
@@ -43,7 +43,7 @@ contract SpigotedLoan is ISpigotedLoan, CreditLoan {
     uint256 ttl_,
     uint8 defaultRevenueSplit_
   )
-    CreditLoan(oracle_, arbiter_, borrower_, ttl_)
+    LineOfCredit(oracle_, arbiter_, borrower_, ttl_)
   {
     // empty arrays to init spigot
     address[] memory revContracts;
@@ -209,22 +209,31 @@ contract SpigotedLoan is ISpigotedLoan, CreditLoan {
   function releaseSpigot() external returns(bool) {
     if(loanStatus == LoanLib.STATUS.REPAID) {
       require(spigot.updateOwner(borrower), "SpigotCnsmr: cant release spigot");
+      return true;
     }
 
     if(loanStatus == LoanLib.STATUS.LIQUIDATABLE) {
       require(spigot.updateOwner(arbiter), "SpigotCnsmr: cant release spigot");
+      return true;
     }
-    return true;
+    
+    return false;
   }
 
   function sweep(address token) external returns(uint256) {
     if(loanStatus == LoanLib.STATUS.REPAID) {
-      bool success = IERC20(token).transfer(borrower, unusedTokens[token]);
-      require(success);
+      return _sweep(borrower, token);
     }
     if(loanStatus == LoanLib.STATUS.INSOLVENT) {
-      bool success = IERC20(token).transfer(arbiter, unusedTokens[token]);
-      require(success);
+      return _sweep(arbiter, token);
     }
+
+    return 0;
+  }
+
+  function _sweep(address to, address token) internal returns(uint256 x) {
+    x = unusedTokens[token];
+    require(IERC20(token).transfer(to, x));
+    delete unusedTokens[token];
   }
 }

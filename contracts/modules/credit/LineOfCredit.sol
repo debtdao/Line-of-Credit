@@ -4,10 +4,10 @@ import { BaseLoan } from "./BaseLoan.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { MutualUpgrade } from "../../utils/MutualUpgrade.sol";
 
-import { ICreditLoan } from "../../interfaces/ICreditLoan.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 import { InterestRateCredit } from "../interest-rate/InterestRateCredit.sol";
 
-contract CreditLoan is ICreditLoan, MutualUpgrade, BaseLoan {
+contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
   
   uint256 immutable public deadline;
   
@@ -84,7 +84,6 @@ contract CreditLoan is ICreditLoan, MutualUpgrade, BaseLoan {
     uint len = positionIds.length;
     if(len == 0) return (0,0);
 
-    bytes32 id;
     DebtPosition memory debt;
     while(len > 0) {
       // fix off by 1 error on initial run 
