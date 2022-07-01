@@ -16,12 +16,10 @@ interface ISpigotedLoan {
   
   function claimAndTrade(
     address claimToken, 
-    address targetToken,
     bytes calldata zeroExTradeData
   ) external returns(uint256 tokensBought);
 
   function claimAndRepay(
-    bytes32 positionId,
     address token,
     bytes calldata zeroExTradeData
   ) external returns(bool);

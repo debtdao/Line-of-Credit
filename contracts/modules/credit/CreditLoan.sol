@@ -7,7 +7,7 @@ import { MutualUpgrade } from "../../utils/MutualUpgrade.sol";
 import { ICreditLoan } from "../../interfaces/ICreditLoan.sol";
 import { InterestRateCredit } from "../interest-rate/InterestRateCredit.sol";
 
-contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
+contract CreditLoan is ICreditLoan, MutualUpgrade, BaseLoan {
   
   uint256 immutable public deadline;
   
@@ -38,6 +38,8 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
   {
     interestRate = new InterestRateCredit();
     deadline = block.timestamp + ttl_;
+    
+    loanStatus = LoanLib.STATUS.ACTIVE;
   }
 
   modifier whileBorrowing() {
@@ -117,7 +119,7 @@ contract CreditLoan is ICreditLoan, BaseLoan, MutualUpgrade {
     uint256 len = positionIds.length;
 
     for(uint256 i = 0; i < len; i++) {
-      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[len]);
+      (, uint256 accruedTokenValue) = _accrueInterest(positionIds[i]);
       accruedValue += accruedTokenValue;
     }
   }

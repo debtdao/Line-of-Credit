@@ -96,21 +96,28 @@ library LoanLib {
 
     /**
      * @notice - removes debt position from head of repayement queue and puts it at end of line
-     *         -  moves 2nd in line to first
-     * @dev - rename to JS func that does same thing
+     *         - moves 2nd in line to first
      * @param positions - all current active positions on the loan
      * @return newPositions - all active positions on loan after `id` is removed
      */
     function stepQ(bytes32[] calldata positions) external view returns(bytes32[] memory) {
-      uint256 count = positions.length - 1;
-      bytes32[] memory newPositions = new bytes32[](count);
+      uint256 len = positions.length ;
+      if(len <= 1) return positions; // already ordered
 
+      bytes32[] memory newPositions = new bytes32[](len);
+      
+      if(len == 2) {
+        newPositions[0] = positions[1];
+        newPositions[1] = positions[0];
+        return newPositions;
+      }
+      
       // move all existing positions up in line
-      for(uint i = 1; i < count; i++) {
+      for(uint i = 1; i < len; i++) {
         newPositions[i - 1] = positions[i];
       }
       // cycle first el back to end of queue
-      newPositions[count] = positions[0];
+      newPositions[len] = positions[0];
 
       return newPositions;
     }

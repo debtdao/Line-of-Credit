@@ -52,7 +52,7 @@ interface ILoan {
   function depositAndRepay(uint256 amount) external returns(bool);
   function depositAndClose() external returns(bool);
 
-  function accrueInterest() external returns(uint256 amountAccrued);
+  function accrueInterest() external returns(uint256 valueAccrued);
   function getOutstandingDebt() external returns(uint256 totalDebt);
   function healthcheck() external returns(LoanLib.STATUS);
 }

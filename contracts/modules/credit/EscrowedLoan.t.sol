@@ -149,6 +149,7 @@ contract LoanTest is DSTest {
         bytes32 positionId = loan.positionIds(0);
         loan.borrow(positionId, 1 ether);
         loan.depositAndRepay(1 ether);
+        
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         bytes32 positionId2 = loan.positionIds(1);
@@ -158,7 +159,7 @@ contract LoanTest is DSTest {
         assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
-    function test_can_repay_more_than_one_debt() public {
+    function testFail_can_repay_loan_later_in_queue() public {
         int prc = oracle.getLatestAnswer(address(supportedToken2));
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         loan.addDebtPosition(1 ether, address(supportedToken1), lender);
@@ -168,12 +169,11 @@ contract LoanTest is DSTest {
         loan.depositAndRepay(1 ether);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
         loan.addDebtPosition(1 ether, address(supportedToken2), lender);
+
         bytes32 positionId2 = loan.positionIds(1);
         loan.borrow(positionId2, 1 ether);
-        loan.depositAndRepay(1 ether);
-        assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
-        assertEq(loan.principalUsd(), 0, "Principle should be 0");
-        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
+
+        loan.depositAndRepay(1 ether); // this should fail
     }
 
     function test_can_deposit_and_close_position() public {

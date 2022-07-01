@@ -43,4 +43,35 @@ contract LoanLibTest is DSTest {
         LoanLib.removePosition(ids, bytes32(0));
     }
 
+    function prove_can_properly_sort_queue(uint256 amount) public {
+        if(amount == 0) { return; }
+
+        bytes32[] memory ids = new bytes32[](amount);
+        if(amount == 1) {
+            ids[0] = bytes32(0);
+            bytes32[] memory newIds = LoanLib.stepQ(ids);
+            assertEq(newIds[0], ids[0]);
+            return;
+        }
+
+        if(amount == 2) {
+            ids[0] = bytes32(0);
+            ids[1] = bytes32(uint(1));
+
+            bytes32[] memory newIds = LoanLib.stepQ(ids);
+            assertEq(newIds[0], ids[1]);
+            assertEq(newIds[1], ids[0]);
+            return;
+        }
+
+        for(uint256 i = 0; i < amount; i++) {
+          ids[i] == bytes32(i);
+        }
+        bytes32[] memory newIds = LoanLib.stepQ(ids);
+
+        assertEq(newIds.length, amount);
+        assertEq(ids[amount - 1], bytes32(0)); // first -> last
+        assertEq(ids[0], bytes32(uint(1))); // second -> first
+        assertEq(ids[amount - 2], bytes32(amount -1)); // last -> second last
+    }
 }
