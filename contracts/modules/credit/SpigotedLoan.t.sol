@@ -165,8 +165,8 @@ contract SpigotedLoanTest is DSTest {
         assertEq(i, 0);
         assertEq(r, interest);
 
-        assertEq(loan.unusedTokens(address(debtToken)), buyAmount - i);
-        assertEq(loan.unusedTokens(address(revenueToken)), 0); // TODO come up with scenario where this should be > 0
+        assertEq(loan.unused(address(debtToken)), buyAmount - i);
+        assertEq(loan.unused(address(revenueToken)), 0); // TODO come up with scenario where this should be > 0
       }
 
     }
@@ -204,7 +204,7 @@ contract SpigotedLoanTest is DSTest {
 
     function test_sweep_tokens_when_repaid() public {
       assertTrue(loan.close(loan.positionIds(0)));
-      uint unused = loan.unusedTokens(address(debtToken));
+      uint unused = loan.unused(address(debtToken));
       assertEq(loan.sweep(address(debtToken)), unused);
     }
 

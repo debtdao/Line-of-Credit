@@ -15,11 +15,11 @@ interface IEscrow {
         uint8 assetDecimals;
     }
 
-    event CollateralAdded(address indexed token, uint amount);
-    event CollateralRemoved(address indexed token, uint amount);
-    event CollateralFarmed(address indexed token, uint amount);
-    event CollateralRemovedFromFarm(address indexed token, uint amount);
-    event Liquidated(address indexed token, uint amount);
+    event AddCollateral(address indexed token, uint indexed amount);
+    event RemoveCollateral(address indexed token, uint indexed amount);
+    event FarmCollateral(address indexed token, uint indexed amount);
+    event RemoveCollateralFromFarm(address indexed token, uint indexed amount);
+    event Liquidate(address indexed token, uint indexed amount);
 
     /*
     * @dev add collateral to your position

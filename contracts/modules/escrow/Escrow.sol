@@ -103,7 +103,7 @@ contract Escrow is IEscrow {
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
         deposited[token].amount += amount;
         _addTokenUsed(token);
-        emit CollateralAdded(token, amount);
+        emit AddCollateral(token, amount);
 
         return _getLatestCollateralRatio();
     }
@@ -143,7 +143,7 @@ contract Escrow is IEscrow {
         require(IERC20(token).transfer(to, amount));
         uint cratio = _getLatestCollateralRatio();
         require(cratio >= minimumCollateralRatio, "Escrow: cannot release collateral if cratio becomes lower than the minimum");
-        emit CollateralRemoved(token, amount);
+        emit RemoveCollateral(token, amount);
 
         return cratio;
     }
@@ -172,7 +172,7 @@ contract Escrow is IEscrow {
         require(deposited[token].amount >= amount, "Escrow: insufficient balance");
         deposited[token].amount -= amount;
         require(IERC20(token).transfer(to, amount));
-        emit Liquidated(token, amount);
+        emit Liquidate(token, amount);
 
         return true;
     }

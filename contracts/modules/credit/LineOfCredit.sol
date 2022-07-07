@@ -289,10 +289,17 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
     require(amount <=  debt.deposit + debt.interestRepaid - debt.principal, 'Loan: no liquidity');
 
     if(amount > debt.interestRepaid) {
-      debt.deposit -= amount - debt.interestRepaid;
+      amount -= debt.interestRepaid;
+
+      // emit events before seeting to 0
+      emit WithdrawDeposit(positionId, amount);
+      emit WithdrawProfit(positionId, debt.interestRepaid);
+
+      debt.deposit -= amount;
       debt.interestRepaid = 0;
     } else {
       debt.interestRepaid -= amount;
+      emit WithdrawProfit(positionId, amount);
     }
 
     bool success = IERC20(debt.token).transfer(
@@ -302,8 +309,6 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
     require(success, 'Loan: withdraw failed');
 
     debts[positionId] = debt;
-
-    emit Withdraw(positionId, amount);
 
     return true;
   }

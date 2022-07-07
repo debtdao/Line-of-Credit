@@ -45,23 +45,15 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
   )
     LineOfCredit(oracle_, arbiter_, borrower_, ttl_)
   {
-    // empty arrays to init spigot
-    address[] memory revContracts;
-    SpigotController.SpigotSettings[] memory settings;
-    bytes4[] memory whitelistedFuncs;
-    
-    spigot = new SpigotController(
-      address(this),
-      borrower,
-      borrower,
-      revContracts,
-      settings,
-      whitelistedFuncs
-    );
+    spigot = new SpigotController(address(this), borrower, borrower);
     
     defaultRevenueSplit = defaultRevenueSplit_;
 
     swapTarget = swapTarget_;
+  }
+
+  function unused(address token) external view returns(uint256) {
+    return unusedTokens[token];
   }
 
   function updateOwnerSplit(address revenueContract) external {
