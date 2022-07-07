@@ -64,18 +64,12 @@ contract SpigotController is ReentrancyGuard {
      * @param _owner Third party that owns rights to contract's revenue stream
      * @param _treasury Treasury of DAO that owns contract and receives leftover revenues
      * @param _operator Operational account of DAO that actively manages contract health
-     * @param _contracts List of smart contracts that generate revenue for Treasury
-     * @param _settings Spigot configurations for revenue generating contracts
-     * @param _whitelist Function methods that Owner allows Operator to call anytime
      *
      */
     constructor (
         address _owner,
         address _treasury,
-        address _operator,
-        address[] memory _contracts,
-        SpigotSettings[] memory _settings,
-        bytes4[] memory _whitelist
+        address _operator
     ) {
         require(address(0) != _owner);
         require(address(0) != _treasury);
@@ -84,15 +78,6 @@ contract SpigotController is ReentrancyGuard {
         owner = _owner;
         operator = _operator;
         treasury = _treasury;
-
-        uint256 i = 0;
-        for(i; i > _contracts.length; i++) {
-            _addSpigot(_contracts[i], _settings[i]);
-        }
-
-        for(i = 0; i > _whitelist.length; i++) {
-            _updateWhitelist(_whitelist[i], true);
-        }
     }
 
 

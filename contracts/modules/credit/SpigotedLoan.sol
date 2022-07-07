@@ -23,7 +23,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
   // debt tokens we bought from revenue but didn't use to repay loan
   // needed because Revolver might have same token held in contract as being bought/sold
-  mapping(address => uint256) public unusedTokens;
+  mapping(address => uint256) private unusedTokens;
 
 
   /**
@@ -115,26 +115,11 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
       unusedTokens[targetToken] += tokensBought - available;  
     }
 
-    _repay(id, tokensBought);
+    _repay(id, available);
 
     emit RevenuePayment(claimToken, tokensBought);
 
     return true;
-  }
-
-  /**
-    * @notice allow Loan to add new revenue streams to reapy debt
-    * @dev see SpigotController.addSpigot()
-  */
-  function addSpigot(
-    address revenueContract,
-    SpigotController.SpigotSettings calldata setting
-  )
-    mutualUpgrade(arbiter, borrower)
-    external
-    returns(bool)
-  {
-    return spigot.addSpigot(revenueContract, setting);
   }
 
   function claimAndTrade(
@@ -196,6 +181,29 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     // update unused if we didnt sell all claimed tokens in trade
     // also underflow revert protection here
     unusedTokens[claimToken] += IERC20(claimToken).balanceOf(address(this)) - existingClaimTokens;
+  }
+
+
+  //  SPIGOT OWNER FUNCTIONS
+
+  /**
+    * @notice allow Loan to add new revenue streams to reapy debt
+    * @dev see SpigotController.addSpigot()
+  */
+  function addSpigot(
+    address revenueContract,
+    SpigotController.SpigotSettings calldata setting
+  )
+    mutualUpgrade(arbiter, borrower)
+    external
+    returns(bool)
+  {
+    return spigot.addSpigot(revenueContract, setting);
+  }
+
+  function updateWhitelist(bytes4 func, bool a) external returns(bool) {
+    require(msg.sender == arbiter);
+    return spigot.updateWhitelistedFunction(func, a);
   }
 
   function releaseSpigot() external returns(bool) {
