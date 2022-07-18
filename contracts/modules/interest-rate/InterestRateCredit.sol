@@ -64,6 +64,7 @@ contract InterestRateCredit is IInterestRateCredit {
     {
       Rate memory rate = rates[positionId];
       uint256 timespan = block.timestamp - rate.lastAccrued;
+      rates[positionId].lastAccrued = block.timestamp;
 
       // r = APR in BPS, x = # tokens, t = time
       // interest = (r * x * t) / 1yr / 100 

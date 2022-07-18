@@ -53,7 +53,8 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
       return s;
     }
 
-    if(block.timestamp >= deadline && principalUsd > 0) {
+    // Liquidate if all lines of credit arent closed by end of term
+    if(block.timestamp >= deadline && positionIds.length > 0) {
       uint256 len =  positionIds.length;
       for(uint256 i = 0; i < len; i++) {
         bytes32 id = positionIds[i];
@@ -86,25 +87,16 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
     if(len == 0) return (0,0);
 
     DebtPosition memory debt;
+    // for(uint i = 0; i < len; i++) {
+    //   debt = debts[positionIds[i]];
     while(len > 0) {
-      // fix off by 1 error on initial run 
-      // sets to 0 and  prevents final run allowing unchecked
-      unchecked { --len; }
-      
+      --len;
       debt = debts[positionIds[len]];
 
-      principal += LoanLib.getValuation(
-        oracle,
-        debt.token,
-        debt.principal,
-        debt.decimals
-      );
-      interest += LoanLib.getValuation(
-        oracle,
-        debt.token,
-        debt.interestAccrued,
-        debt.decimals
-      );
+      int price = oracle.getLatestAnswer(debt.token);
+
+      principal += LoanLib.calculateValue(price, debt.token, debt.principal, debt.decimals);
+      interest += LoanLib.calculateValue(price, debt.token, debt.interestAccrued, debt.decimals);
     }
 
     principalUsd = principal;

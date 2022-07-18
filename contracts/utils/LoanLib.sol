@@ -53,8 +53,41 @@ library LoanLib {
       external
       returns(uint256)
     {
-      int prc = oracle.getLatestAnswer(token);
-      return prc == 0 ? 0 : (amount * uint(prc)) / (1 * 10 ** decimals);
+      return _calculateValue(oracle.getLatestAnswer(token), token, amount, decimals);
+    }
+
+    function calculateValue(
+      int price,
+      address token,
+      uint256 amount,
+      uint8 decimals
+    )
+      internal
+      returns(uint256)
+    {
+      return _calculateValue(price, token, amount, decimals);
+    }
+
+
+      /**
+     * @notice - calculates value of tokens and denominates in USD 8
+     * @dev - Assumes all oracles return USD responses in 1e8 decimals
+     * @param price - oracle price of `token`
+     * @param token - token to value on oracle
+     * @param amount - token amount
+     * @param decimals - token decimals
+     * @return total value in usd of all tokens 
+     */
+    function _calculateValue(
+      int price,
+      address token,
+      uint256 amount,
+      uint8 decimals
+    )
+      internal
+      returns(uint256)
+    {
+      return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
     }
 
 

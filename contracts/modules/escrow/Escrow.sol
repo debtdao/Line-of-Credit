@@ -11,12 +11,12 @@ contract Escrow is IEscrow {
     uint public minimumCollateralRatio;
 
     // return if have collateral but no debt
-    uint256 MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint256 constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
     // Stakeholders and contracts used in Escrow
-    address public loan;
-    address public oracle;
-    address public borrower;
+    address immutable public loan;
+    address immutable public oracle;
+    address immutable public borrower;
 
     // tracking tokens that were deposited
     address[] private _tokensUsedAsCollateral;
@@ -68,21 +68,24 @@ contract Escrow is IEscrow {
     }
 
     /*
-    * @dev calculate the USD value of the collateral stored
-    * @returns - the collateral's USD value
+
+    * @dev calculate the USD value of all the collateral stored
+    * @returns - the collateral's USD value in 8 decimals
     */
     function _getCollateralValue() internal returns(uint) {
         uint collateralValue = 0;
-        for(uint i = 0; i < _tokensUsedAsCollateral.length; i++) {
+        uint length = _tokensUsedAsCollateral.length;
+        for(uint i = 0; i < length; i++) {
             address token = _tokensUsedAsCollateral[i];
             uint deposit = deposited[token].amount;
             if(deposit != 0) {
                 if(deposited[token].isERC4626) {
                     // this conversion could shift, hence it is best to get it each time
                     (bool success, bytes memory assetAmount) = token.call(abi.encodeWithSignature("previewRedeem(uint256)", deposit));
+                    if(!success) continue;
                     deposit = abi.decode(assetAmount, (uint));
                 }
-                int prc = IOracle(oracle).getLatestAnswer(token);
+                int prc = IOracle(oracle).getLatestAnswer(deposited[token].asset);
                 // treat negative prices as 0
                 uint price = prc < 0 ? 0 : uint(prc);
                 // need to scale value by token decimal
@@ -127,20 +130,27 @@ contract Escrow is IEscrow {
         if(!_tokensUsed[token]) {
             _tokensUsed[token] = true;
             _tokensUsedAsCollateral.push(token);
+            
+            Deposit memory deposit = deposited[token]; // gas savings
+            
             (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
             bool is4626 = tokenAddrBytes.length > 0 && passed;
-            deposited[token].isERC4626 = is4626;
+            deposit.isERC4626 = is4626;
+
             if(is4626) {
-                deposited[token].asset = abi.decode(tokenAddrBytes, (address));
+                deposit.asset = abi.decode(tokenAddrBytes, (address));
             } else {
-                deposited[token].asset = token;
+                deposit.asset = token;
             }
-            (bool successDecimals, bytes memory decimalBytes) = deposited[token].asset.call(abi.encodeWithSignature("decimals()"));
+            
+            (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(abi.encodeWithSignature("decimals()"));
             if(decimalBytes.length > 0 && successDecimals) {
-                deposited[token].assetDecimals = abi.decode(decimalBytes, (uint8));
+                deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
             } else {
-                deposited[token].assetDecimals = 18;
+                deposit.assetDecimals = 18;
             }
+
+            deposited[token] = deposit; // store results 
         }
     }
 
