@@ -189,8 +189,6 @@ contract LoanTest is DSTest {
         loan.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(loan)), 1 ether, "Loan balance should be 1e18");
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding debt should be 0");
-        assertEq(loan.principalUsd(), 0, "Principle should be 0");
-        assertEq(loan.interestUsd(), 0, "No interest should have been accrued");
     }
 
     function test_can_withdraw_from_position() public {
