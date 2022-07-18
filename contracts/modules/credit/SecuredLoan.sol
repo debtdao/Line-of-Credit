@@ -52,13 +52,24 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
   
     external
     returns(uint256)
-    {
-        return EscrowedLoan._liquidate(positionId, amount, targetToken);
-    }
+  {
+    require(msg.sender == arbiter);
 
-    /** @dev see BaseLoan._healthcheck */
+    _updateLoanStatus(_healthcheck());
+
+    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+
+    // send tokens to arbiter for OTC sales
+    return _liquidate(positionId, amount, targetToken, msg.sender);
+  }
+  
+    /** @notice checks internal accounting logic for status and if ok, runs modules checks */
     function _healthcheck() internal override(EscrowedLoan, LineOfCredit) returns(LoanLib.STATUS) {
-        return EscrowedLoan._healthcheck();
+      LoanLib.STATUS s = LineOfCredit._healthcheck();
+      if(s != LoanLib.STATUS.ACTIVE) {
+        return s;
+      }
+      return EscrowedLoan._healthcheck();
     }
 
 }

@@ -38,8 +38,6 @@ abstract contract BaseLoan is ILoan {
     arbiter = arbiter_;
     oracle = IOracle(oracle_);
 
-    loanStatus = LoanLib.STATUS.INITIALIZED;
-
     emit DeployLoan(
       oracle_,
       arbiter_,

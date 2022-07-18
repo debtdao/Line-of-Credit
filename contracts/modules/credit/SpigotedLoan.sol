@@ -269,7 +269,14 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
   function _sweep(address to, address token) internal returns(uint256 x) {
     x = unusedTokens[token];
-    require(IERC20(token).transfer(to, x));
+    if(token== address(0)) {
+      payable(to).transfer(x);
+    } else {
+      require(IERC20(token).transfer(to, x));
+    }
     delete unusedTokens[token];
   }
+
+  // allow trading in ETH
+  receive() external payable { }
 }

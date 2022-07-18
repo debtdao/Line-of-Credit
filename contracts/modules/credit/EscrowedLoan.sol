@@ -44,13 +44,13 @@ abstract contract EscrowedLoan is IEscrowedLoan {
   function _liquidate(
     bytes32 positionId,
     uint256 amount,
-    address targetToken
+    address targetToken,
+    address to
   )
     virtual internal
     returns(uint256)
   { 
-    // assumes Loan.liquidate is privileged function and sender is in charge of liquidating
-    require(escrow.liquidate(amount, targetToken, msg.sender));
+    require(escrow.liquidate(amount, targetToken, to));
 
     emit Liquidate(positionId, amount, targetToken);
 
