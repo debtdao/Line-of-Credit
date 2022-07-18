@@ -68,9 +68,10 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
   }
 
 /**
-  @dev Returns total debt obligation of borrower.
-       Aggregated across all lenders.
-       Denominated in USD 1e8.
+  * @notice - Returns total debt obligation of borrower.
+              Aggregated across all lenders.
+              Denominated in USD 1e8.
+  * @dev    - callable by anyone
   */
   function getOutstandingDebt() override external returns(uint256) {
     (uint p, uint i) = _updateOutstandingDebt();
@@ -112,7 +113,8 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
 
 
   /**
-    @notice see _accrueInterest()
+    * @notice - see _accrueInterest()
+    * @dev    - callable by anyone
   */
   function accrueInterest() override external returns(uint256 accruedValue) {
     uint256 len = positionIds.length;
@@ -127,6 +129,7 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
    * @dev - Loan borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
             Lender and borrower must both call function for MutualUpgrade to add debt position to Loan
+   * @dev    - callable by `lender` and `borrower
    * @param amount - amount of `token` to initially deposit
    * @param token - the token to be lent out
    * @param lender - address that will manage debt position 
@@ -154,9 +157,9 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
 
     bytes32 id = _createDebtPosition(lender, token, amount, 0);
 
-    positionIds.push(id); // add lender to end of repayment queue
 
     require(interestRate.updateRate(id, drawnRate, facilityRate));
+    emit UpdateRates(id, drawnRate, facilityRate);
 
     return true;
   }
@@ -167,7 +170,8 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
 
    /**
    * @dev - Transfers enough tokens to repay entire debt position from `borrower` to Loan contract.
-            Only callable by borrower bc it closes position.
+   * @dev - callable by borrower
+            
   */
   function depositAndClose()
     whileBorrowing
@@ -196,6 +200,7 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
 
   /**
    * @dev - Transfers token used in debt position from msg.sender to Loan contract.
+   * @dev - callable by anyone
    * @notice - see _repay() for more details
    * @param amount - amount of `token` in `positionId` to pay back
   */
@@ -232,8 +237,9 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
   /**
    * @dev - Transfers tokens from Loan to lender.
    *        Only allowed to withdraw tokens not already lent out (prevents bank run)
-   * @param positionId -the debt position to pay down debt on and close
-   * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
+    * @dev - callable by lender on `positionId`
+   * @param positionId - the debt position to draw down debt on
+   * @param amount - amount of tokens borrower wants to take out
   */
   function borrow(bytes32 positionId, uint256 amount)
     isActive
@@ -277,6 +283,7 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
   /**
    * @dev - Transfers tokens from Loan to lender.
    *        Only allowed to withdraw tokens not already lent out (prevents bank run)
+   * @dev - callable by lender on `positionId`
    * @param positionId -the debt position to pay down debt on and close
    * @param amount - amount of tokens lnder would like to withdraw (withdrawn amount may be lower)
   */
@@ -318,6 +325,7 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
    * @dev - Deletes debt position preventing any more borrowing.
    *      - Only callable by borrower or lender for debt position
    *      - Requires that the debt has already been paid off
+   * @dev - callable by `borrower`
    * @param positionId -the debt position to close
   */
   function close(bytes32 positionId) override external returns(bool) {
@@ -371,6 +379,9 @@ contract LineOfCredit is ILineOfCredit, MutualUpgrade, BaseLoan {
       interestAccrued: 0,
       interestRepaid: 0
     });
+
+    positionIds.push(positionId); // add lender to end of repayment queue
+
 
     emit AddDebtPosition(lender, token, amount, 0);
 

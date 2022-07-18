@@ -31,13 +31,26 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
 
     }
 
-    /** @dev see BaseLoan._liquidate */
-    function _liquidate(
-        bytes32 positionId,
-        uint256 amount,
-        address targetToken
-    )
-    internal override(BaseLoan, EscrowedLoan)
+
+  // Liquidation
+  /**
+   * @notice - Forcefully take collateral from borrower and repay debt for lender
+   * @dev - only called by neutral arbiter party/contract
+   * @dev - `loanStatus` must be LIQUIDATABLE
+   * @dev - callable by `arbiter`
+   * @param positionId -the debt position to pay down debt on
+   * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
+   * @param targetToken - token in escrow that will be sold of to repay position
+   */
+
+  function liquidate(
+    bytes32 positionId,
+    uint256 amount,
+    address targetToken
+  )
+    onlyArbiter
+  
+    external
     returns(uint256)
     {
         return EscrowedLoan._liquidate(positionId, amount, targetToken);

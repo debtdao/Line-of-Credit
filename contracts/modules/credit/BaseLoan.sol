@@ -71,23 +71,7 @@ abstract contract BaseLoan is ILoan {
   // HOOKS //
   ///////////
 
-  /**
-   * @dev  Used to addc custom liquidation functionality until we create separate Liquidation module
-   * @param positionId - deterministic id of loan
-   * @param amount - expected amount of `targetToken` to be liquidated
-   * @param targetToken - token to liquidate to repay debt
-   * @return amount of tokens actually liquidated
-  */
-  function _liquidate(
-    bytes32 positionId,
-    uint256 amount,
-    address targetToken
-  )
-    virtual internal
-    returns(uint256)
-  {
-    return 0;
-  }
+
 
   function healthcheck() external returns(LoanLib.STATUS) {
     return _updateLoanStatus(_healthcheck());
@@ -107,30 +91,6 @@ abstract contract BaseLoan is ILoan {
   }
 
 
-  // Liquidation
-  /**
-   * @notice - Forcefully take collateral from borrower and repay debt for lender
-   * @dev - only called by neutral arbiter party/contract
-   * @dev - `loanStatus` must be LIQUIDATABLE
-   * @param positionId -the debt position to pay down debt on
-   * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
-   * @param targetToken - token that is expected to be sold of to repay positionId
-   */
-
-  function liquidate(
-    bytes32 positionId,
-    uint256 amount,
-    address targetToken
-  )
-    onlyArbiter
-  
-    external
-    returns(uint256)
-  {
-    _updateLoanStatus(_healthcheck());
-    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
-    return _liquidate(positionId, amount, targetToken);
-  }
 
   // Helper functions
   function _updateLoanStatus(LoanLib.STATUS status) internal returns(LoanLib.STATUS) {

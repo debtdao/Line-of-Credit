@@ -15,6 +15,8 @@ interface ILineOfCredit is ILoan {
     address token;            // token being lent out
   }
 
+  event UpdateRates(bytes32 indexed positionId, uint128 indexed drawnRate, uint128 indexed facilityRate);
+
   function addDebtPosition(
     uint128 drawnRate,
     uint128 facilityRate,

@@ -43,13 +43,10 @@ interface ILoan {
 
   event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
-  event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
-
   event Default(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
 
   // External Functions  
   function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
-  function liquidate(bytes32 positionId, uint256 amount, address targetToken) external returns(uint256);
 
   function depositAndRepay(uint256 amount) external returns(bool);
   function depositAndClose() external returns(bool);

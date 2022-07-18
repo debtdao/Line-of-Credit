@@ -87,9 +87,11 @@ contract SpigotController is ReentrancyGuard {
     // ##########################
 
     /**
+
      * @dev Claim push/pull payments through Spigots.
             Calls predefined function in contract settings to claim revenue.
             Automatically sends portion to treasury and escrows Owner's share.
+     * @dev - callable by anyone
      * @param revenueContract Contract with registered settings to claim revenue from
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
      * @return claimed -  The amount of tokens claimed from revenueContract and split in payments to `owner` and `treasury`
@@ -141,7 +143,9 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
+
      * @dev Allows Spigot Owner to claim escrowed tokens from a revenue contract
+     * @dev - callable by `owner`
      * @param token Revenue token that is being escrowed by spigot
      * @return claimed -  The amount of tokens claimed from revenue garnish by `owner`
 
@@ -179,8 +183,10 @@ contract SpigotController is ReentrancyGuard {
     // ##########################
 
     /**
+
      * @dev Allows Operator to call whitelisted functions on revenue contracts to maintain their product
      *      while still allowing Spigot Owner to own revenue stream from contract
+     * @dev - callable by `operator`
      * @param revenueContract - smart contract to call
      * @param data - tx data, including function signature, to call contract with
      */
@@ -190,7 +196,9 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
+
      * @dev operate() on multiple contracts in one tx
+     * @dev - callable by `operator`
      * @param contracts - smart contracts to call
      * @param data- tx data, including function signature, to call contracts with
      */
@@ -227,7 +235,9 @@ contract SpigotController is ReentrancyGuard {
     // ##########################
 
     /**
-     * @dev Allow owner or operate to add new revenue stream to spigot
+
+     * @dev Allow owner to add new revenue stream to spigot
+     * @dev - callable by `owner`
      * @param revenueContract - smart contract to claim tokens from
      * @param setting - spigot settings for smart contract   
      */
@@ -259,8 +269,10 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
+
      * @dev Change owner of revenue contract from Spigot (this contract) to Operator.
      *      Sends existing escrow to current Owner.
+     * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
      */
     function removeSpigot(address revenueContract) external returns (bool) {
@@ -295,8 +307,10 @@ contract SpigotController is ReentrancyGuard {
       return true;
     }
     /**
+
      * @dev Update Owner role of SpigotController contract.
      *      New Owner receives revenue stream split and can control SpigotController
+     * @dev - callable by `owner`
      * @param newOwner - Address to give control to
      */
     function updateOwner(address newOwner) external returns (bool) {
@@ -308,8 +322,10 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
+
      * @dev Update Operator role of SpigotController contract.
      *      New Operator can interact with revenue contracts.
+     * @dev - callable by `operator`
      * @param newOperator - Address to give control to
      */
     function updateOperator(address newOperator) external returns (bool) {
@@ -321,8 +337,10 @@ contract SpigotController is ReentrancyGuard {
     }
     
     /**
+
      * @dev Update Treasury role of SpigotController contract.
      *      New Treasury receives revenue stream split
+     * @dev - callable by `treasury`
      * @param newTreasury - Address to divert funds to
      */
     function updateTreasury(address newTreasury) external returns (bool) {
@@ -334,9 +352,11 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
+
      * @dev Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
      *      Can whitelist "transfer ownership" functions on revenue contracts
      *      allowing Spigot to give direct control back to Operator.
+     * @dev - callable by `owner`
      * @param func - smart contract function signature to whitelist
      * @param allowed - true/false whether to allow this function to be called by Operator
      */

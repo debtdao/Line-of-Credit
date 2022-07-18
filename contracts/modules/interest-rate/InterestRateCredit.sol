@@ -35,6 +35,7 @@ contract InterestRateCredit is IInterestRateCredit {
 
     /**
       * @dev accrueInterest function for revolver loan
+      * @dev    - callable by `loan`
       * @param drawnBalance balance of drawn funds
       * @param facilityBalance balance of facility funds
       * @return repayBalance amount to be repaid for this interest period
@@ -46,7 +47,7 @@ contract InterestRateCredit is IInterestRateCredit {
       uint256 facilityBalance
     )
       onlyLoanContract
-      external view
+      external
       override
       returns (uint256)
     {
@@ -58,7 +59,7 @@ contract InterestRateCredit is IInterestRateCredit {
       uint256 drawnBalance,
       uint256 facilityBalance
     )
-      internal view
+      internal
       returns (uint256)
     {
       Rate memory rate = rates[positionId];
@@ -83,6 +84,7 @@ contract InterestRateCredit is IInterestRateCredit {
     /**
      * @notice update interest rates for a position
      * @dev - Loan contract responsible for calling accrueInterest() before updateInterest() if necessary
+     * @dev    - callable by `loan`
      */
     function updateRate(
       bytes32 positionId,

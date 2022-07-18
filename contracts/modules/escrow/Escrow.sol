@@ -43,9 +43,11 @@ contract Escrow is IEscrow {
     }
 
     /*
-    * @dev updates the cratio according to the collateral value vs loan value
+
+    * @notice updates the cratio according to the collateral value vs loan value
     * @dev calls accrue interest on the loan contract to update the latest interest payable
-    * @returns the updated collateral ratio
+    
+    * @returns the updated collateral ratio in 18 decimals
     */
     function _getLatestCollateralRatio() internal returns(uint) {
         ILoan(loan).accrueInterest();
@@ -91,13 +93,21 @@ contract Escrow is IEscrow {
         return collateralValue;
     }
 
+    
     /*
-    * @dev see IEscrow.sol
+
+    * @notice add collateral to your position
+    * @dev updates cratio
+    * @dev requires that the token deposited can be valued by the escrow's oracle & the depositor has approved this contract
+    * @dev - callable by anyone
+    * @param amount - the amount of collateral to add
+    * @param token - the token address of the deposited token
+    * @returns - the updated cratio
     */
     function addCollateral(uint amount, address token) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
         require(
-            IOracle(oracle).getLatestAnswer(token) != 0,
+            IOracle(oracle).getLatestAnswer(token) > 0,
             "Escrow: deposited token does not have a price feed"
         );
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
@@ -109,7 +119,9 @@ contract Escrow is IEscrow {
     }
 
     /*
-    * @dev track the tokens used as collateral
+    * @notice track the tokens used as collateral. Ensures uniqueness,
+              flags if its a EIP 4626 token, and gets its decimals
+    * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
     */
     function _addTokenUsed(address token) internal {
         if(!_tokensUsed[token]) {
@@ -133,7 +145,13 @@ contract Escrow is IEscrow {
     }
 
     /*
-    * @dev see IEscrow.sol
+    * @notice remove collateral from your position. Must remain above min collateral ratio
+    * @dev callable by `borrower`
+    * @dev updates cratio
+    * @param amount - the amount of collateral to release
+    * @param token - the token address to withdraw
+    * @param to - who should receive the funds
+    * @returns - the updated cratio
     */
     function releaseCollateral(uint amount, address token, address to) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
@@ -149,21 +167,31 @@ contract Escrow is IEscrow {
     }
 
     /*
-    * @dev see IEscrow.sol
+    * @dev calculates the cratio
+    * @dev callable by anyone
+    * @returns - the calculated cratio
     */
     function getCollateralRatio() external returns(uint) {
         return _getLatestCollateralRatio();
     }
 
     /*
-    * @dev see IEscrow.sol
+    * @notice calculates the collateral value in USD to 8 decimals
+    * @dev callable by anyone
+    * @returns - the calculated collateral value to 8 decimals
     */
     function getCollateralValue() external returns(uint) {
         return _getCollateralValue();
     }
 
     /*
-    * @dev see IEscrow.sol
+    * @notice liquidates borrowers collateral by token and amount
+    * @dev requires that the cratio is at or below the liquidation threshold
+    * @dev callable by `loan`
+    * @param amount - the amount of tokens to liquidate
+    * @param token - the address of the token to draw funds from
+    * @param to - the address to receive the funds
+    * @returns - true if successful
     */
     function liquidate(uint amount, address token, address to) external returns(bool) {
         require(amount > 0, "Escrow: amount is 0");
@@ -177,16 +205,4 @@ contract Escrow is IEscrow {
         return true;
     }
 
-    // TODO @smokey
-    function stakeCollateral(address token, uint amount, Farm memory farm) external {
-        revert("Not implemented");
-    }
-
-    function unstakeCollateral(address token, uint amount, Farm memory farm) external {
-        revert("Not implemented");
-    }
-
-    function claimStakingRewards(address[] memory farmedTokens) external {
-        revert("Not implemented");
-    }
 }
