@@ -88,9 +88,9 @@ contract SpigotController is ReentrancyGuard {
 
     /**
 
-     * @dev Claim push/pull payments through Spigots.
-            Calls predefined function in contract settings to claim revenue.
-            Automatically sends portion to treasury and escrows Owner's share.
+     * @notice - Claim push/pull payments through Spigots.
+                 Calls predefined function in contract settings to claim revenue.
+                 Automatically sends portion to treasury and escrows Owner's share.
      * @dev - callable by anyone
      * @param revenueContract Contract with registered settings to claim revenue from
      * @param data  Transaction data, including function signature, to properly claim revenue on revenueContract
@@ -118,6 +118,7 @@ contract SpigotController is ReentrancyGuard {
         return claimed;
     }
 
+
      function _claimRevenue(address revenueContract, bytes calldata data, address token)
         internal
         returns (uint256 claimed)
@@ -143,8 +144,7 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-
-     * @dev Allows Spigot Owner to claim escrowed tokens from a revenue contract
+     * @notice - Allows Spigot Owner to claim escrowed tokens from a revenue contract
      * @dev - callable by `owner`
      * @param token Revenue token that is being escrowed by spigot
      * @return claimed -  The amount of tokens claimed from revenue garnish by `owner`
@@ -167,7 +167,7 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Retrieve amount of tokens tokens escrowed waiting for claim
+     * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
      * @param token Revenue token that is being garnished from spigots
     */
     function getEscrowBalance(address token) external view returns (uint256) {
@@ -183,9 +183,8 @@ contract SpigotController is ReentrancyGuard {
     // ##########################
 
     /**
-
-     * @dev Allows Operator to call whitelisted functions on revenue contracts to maintain their product
-     *      while still allowing Spigot Owner to own revenue stream from contract
+     * @notice - Allows Operator to call whitelisted functions on revenue contracts to maintain their product
+     *           while still allowing Spigot Owner to own revenue stream from contract
      * @dev - callable by `operator`
      * @param revenueContract - smart contract to call
      * @param data - tx data, including function signature, to call contract with
@@ -197,7 +196,7 @@ contract SpigotController is ReentrancyGuard {
 
     /**
 
-     * @dev operate() on multiple contracts in one tx
+     * @notice - operate() on multiple contracts in one tx
      * @dev - callable by `operator`
      * @param contracts - smart contracts to call
      * @param data- tx data, including function signature, to call contracts with
@@ -211,7 +210,7 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Checks that operation is whitelisted by Spigot Owner and calls revenue contract with supplied data
+     * @notice - Checks that operation is whitelisted by Spigot Owner and calls revenue contract with supplied data
      * @param revenueContract - smart contracts to call
      * @param data - tx data, including function signature, to call contracts with
      */
@@ -235,8 +234,7 @@ contract SpigotController is ReentrancyGuard {
     // ##########################
 
     /**
-
-     * @dev Allow owner to add new revenue stream to spigot
+     * @notice Allow owner to add new revenue stream to spigot
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to claim tokens from
      * @param setting - spigot settings for smart contract   
@@ -247,7 +245,7 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Checks  revenue contract doesn't already have spigot
+     * @notice Checks  revenue contract doesn't already have spigot
      *      then registers spigot configuration for revenue contract
      * @param revenueContract - smart contract to claim tokens from
      * @param setting - spigot configuration for smart contract   
@@ -270,7 +268,7 @@ contract SpigotController is ReentrancyGuard {
 
     /**
 
-     * @dev Change owner of revenue contract from Spigot (this contract) to Operator.
+     * @notice - Change owner of revenue contract from Spigot (this contract) to Operator.
      *      Sends existing escrow to current Owner.
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
@@ -308,7 +306,7 @@ contract SpigotController is ReentrancyGuard {
     }
     /**
 
-     * @dev Update Owner role of SpigotController contract.
+     * @notice - Update Owner role of SpigotController contract.
      *      New Owner receives revenue stream split and can control SpigotController
      * @dev - callable by `owner`
      * @param newOwner - Address to give control to
@@ -323,7 +321,7 @@ contract SpigotController is ReentrancyGuard {
 
     /**
 
-     * @dev Update Operator role of SpigotController contract.
+     * @notice - Update Operator role of SpigotController contract.
      *      New Operator can interact with revenue contracts.
      * @dev - callable by `operator`
      * @param newOperator - Address to give control to
@@ -338,7 +336,7 @@ contract SpigotController is ReentrancyGuard {
     
     /**
 
-     * @dev Update Treasury role of SpigotController contract.
+     * @notice - Update Treasury role of SpigotController contract.
      *      New Treasury receives revenue stream split
      * @dev - callable by `treasury`
      * @param newTreasury - Address to divert funds to
@@ -353,9 +351,9 @@ contract SpigotController is ReentrancyGuard {
 
     /**
 
-     * @dev Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
-     *      Can whitelist "transfer ownership" functions on revenue contracts
-     *      allowing Spigot to give direct control back to Operator.
+     * @notice - Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
+     *           Can whitelist "transfer ownership" functions on revenue contracts
+     *           allowing Spigot to give direct control back to Operator.
      * @dev - callable by `owner`
      * @param func - smart contract function signature to whitelist
      * @param allowed - true/false whether to allow this function to be called by Operator
@@ -366,7 +364,8 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
+
+     * @notice - Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
      * @param func - smart contract function signature to whitelist
      * @param allowed - true/false whether to allow this function to be called by Operator
      */
@@ -377,7 +376,8 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Send ETH or ERC20 token from this contract to an external contract
+
+     * @notice - Send ETH or ERC20 token from this contract to an external contract
      * @param token - address of token to send out. address(0) for raw ETH
      * @param receiver - address to send tokens to
      * @param amount - amount of tokens to send
@@ -393,7 +393,8 @@ contract SpigotController is ReentrancyGuard {
     }
 
     /**
-     * @dev Helper function to get current balance of this contract for ERC20 or ETH
+
+     * @notice - Helper function to get current balance of this contract for ERC20 or ETH
      * @param token - address of token to check. address(0) for raw ETH
      */
     function _getBalance(address token) internal view returns (uint256) {

@@ -42,12 +42,10 @@ contract Escrow is IEscrow {
         borrower = _borrower;
     }
 
-    /*
-
+  /**
     * @notice updates the cratio according to the collateral value vs loan value
     * @dev calls accrue interest on the loan contract to update the latest interest payable
-    
-    * @returns the updated collateral ratio in 18 decimals
+    * @return the updated collateral ratio in 18 decimals
     */
     function _getLatestCollateralRatio() internal returns(uint) {
         ILoan(loan).accrueInterest();
@@ -59,7 +57,14 @@ contract Escrow is IEscrow {
         return _percent(collateralValue, debtValue, 18);
     }
 
-    // https://stackoverflow.com/questions/42738640/division-in-ethereum-solidity/42739843#42739843
+    /**
+     * @notice - computes the ratio of one value to another
+               - e.g. _percent(100, 100, 18) = 1 ether = 100%
+     * @param numerator - value to compare
+     * @param denominator - value to compare against
+     * @param precision - number of decimal places of accuracy to return in answer 
+     * @return - 
+    */
     function _percent(uint numerator, uint denominator, uint precision) internal pure returns(uint quotient) {
         uint _numerator  = numerator * 10 ** (precision + 1);
         // with rounding of last digit
@@ -67,10 +72,10 @@ contract Escrow is IEscrow {
         return ( _quotient);
     }
 
-    /*
+    /**
 
     * @dev calculate the USD value of all the collateral stored
-    * @returns - the collateral's USD value in 8 decimals
+    * @return - the collateral's USD value in 8 decimals
     */
     function _getCollateralValue() internal returns(uint) {
         uint collateralValue = 0;
@@ -81,7 +86,9 @@ contract Escrow is IEscrow {
             if(deposit != 0) {
                 if(deposited[token].isERC4626) {
                     // this conversion could shift, hence it is best to get it each time
-                    (bool success, bytes memory assetAmount) = token.call(abi.encodeWithSignature("previewRedeem(uint256)", deposit));
+                    (bool success, bytes memory assetAmount) = token.call(
+                      abi.encodeWithSignature("previewRedeem(uint256)", deposit)
+                    );
                     if(!success) continue;
                     deposit = abi.decode(assetAmount, (uint));
                 }
@@ -95,17 +102,15 @@ contract Escrow is IEscrow {
 
         return collateralValue;
     }
-
     
-    /*
-
+  /**
     * @notice add collateral to your position
     * @dev updates cratio
     * @dev requires that the token deposited can be valued by the escrow's oracle & the depositor has approved this contract
     * @dev - callable by anyone
     * @param amount - the amount of collateral to add
     * @param token - the token address of the deposited token
-    * @returns - the updated cratio
+    * @return - the updated cratio
     */
     function addCollateral(uint amount, address token) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
@@ -121,7 +126,7 @@ contract Escrow is IEscrow {
         return _getLatestCollateralRatio();
     }
 
-    /*
+    /**
     * @notice track the tokens used as collateral. Ensures uniqueness,
               flags if its a EIP 4626 token, and gets its decimals
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
@@ -154,14 +159,14 @@ contract Escrow is IEscrow {
         }
     }
 
-    /*
+    /**
     * @notice remove collateral from your position. Must remain above min collateral ratio
     * @dev callable by `borrower`
     * @dev updates cratio
     * @param amount - the amount of collateral to release
     * @param token - the token address to withdraw
     * @param to - who should receive the funds
-    * @returns - the updated cratio
+    * @return - the updated cratio
     */
     function releaseCollateral(uint amount, address token, address to) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
@@ -176,40 +181,42 @@ contract Escrow is IEscrow {
         return cratio;
     }
 
-    /*
-    * @dev calculates the cratio
+    /**
+    * @notice calculates the cratio
     * @dev callable by anyone
-    * @returns - the calculated cratio
+    * @return - the calculated cratio
     */
     function getCollateralRatio() external returns(uint) {
         return _getLatestCollateralRatio();
     }
 
-    /*
+    /**
     * @notice calculates the collateral value in USD to 8 decimals
     * @dev callable by anyone
-    * @returns - the calculated collateral value to 8 decimals
+    * @return - the calculated collateral value to 8 decimals
     */
     function getCollateralValue() external returns(uint) {
         return _getCollateralValue();
     }
 
-    /*
+    /**
     * @notice liquidates borrowers collateral by token and amount
     * @dev requires that the cratio is at or below the liquidation threshold
     * @dev callable by `loan`
     * @param amount - the amount of tokens to liquidate
     * @param token - the address of the token to draw funds from
     * @param to - the address to receive the funds
-    * @returns - true if successful
+    * @return - true if successful
     */
     function liquidate(uint amount, address token, address to) external returns(bool) {
         require(amount > 0, "Escrow: amount is 0");
         require(msg.sender == loan, "Escrow: msg.sender must be the loan contract");
         require(minimumCollateralRatio > _getLatestCollateralRatio(), "Escrow: not eligible for liquidation");
         require(deposited[token].amount >= amount, "Escrow: insufficient balance");
+
         deposited[token].amount -= amount;
         require(IERC20(token).transfer(to, amount));
+        
         emit Liquidate(token, amount);
 
         return true;

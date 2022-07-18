@@ -42,7 +42,6 @@ library LoanLib {
      * @param amount - token amount
      * @param decimals - token decimals
      * @return total value in usd of all tokens 
-
      */
     function getValuation(
       IOracle oracle,
@@ -97,7 +96,6 @@ library LoanLib {
      * @param lender - address managing debt position
      * @param token - token that is being lent out in debt position
      * @return positionId
-
      */
     function computePositionId(address loan, address lender, address token) external pure returns(bytes32) {
       return keccak256(abi.encode(loan, lender, token));
@@ -109,7 +107,6 @@ library LoanLib {
      * @param positions - all current active positions on the loan
      * @param id - hash id that must be removed from active positions
      * @return newPositions - all active positions on loan after `id` is removed
-
      */
     function removePosition(bytes32[] calldata positions, bytes32 id) external view returns(bytes32[] memory) {
       uint256 newLength = positions.length - 1;
@@ -126,12 +123,11 @@ library LoanLib {
       return newPositions;
     }
 
-
     /**
      * @notice - removes debt position from head of repayement queue and puts it at end of line
      *         - moves 2nd in line to first
      * @param positions - all current active positions on the loan
-     * @return newPositions - all active positions on loan after `id` is removed
+     * @return newPositions - positions after moving first to last in array
      */
     function stepQ(bytes32[] calldata positions) external view returns(bytes32[] memory) {
       uint256 len = positions.length ;
