@@ -19,16 +19,13 @@ contract Escrow is IEscrow {
     address immutable public borrower;
 
     // tracking tokens that were deposited
-    address[] private _tokensUsedAsCollateral;
+    address[] private _collateralTokens;
 
-    // mapping to check uniqueness of tokensUsedAsCollateral
-    mapping(address => bool) private _tokensUsed;
+    // mapping if lenders allow token as collateral. ensures uniqueness in tokensUsedAsCollateral
+    mapping(address => bool) private enabled;
 
     // tokens used as collateral (must be able to value with oracle)
     mapping(address => Deposit) public deposited;
-
-    // collateral tokens that have been used for farming
-    mapping(address => Farm) public farmedTokens;
 
     constructor(
         uint _minimumCollateralRatio,
@@ -79,9 +76,9 @@ contract Escrow is IEscrow {
     */
     function _getCollateralValue() internal returns(uint) {
         uint collateralValue = 0;
-        uint length = _tokensUsedAsCollateral.length;
+        uint length = _collateralTokens.length;
         for(uint i = 0; i < length; i++) {
-            address token = _tokensUsedAsCollateral[i];
+            address token = _collateralTokens[i];
             uint deposit = deposited[token].amount;
             if(deposit != 0) {
                 if(deposited[token].isERC4626) {
@@ -114,16 +111,24 @@ contract Escrow is IEscrow {
     */
     function addCollateral(uint amount, address token) external returns(uint) {
         require(amount > 0, "Escrow: amount is 0");
-        require(
-            IOracle(oracle).getLatestAnswer(token) > 0,
-            "Escrow: deposited token does not have a price feed"
-        );
+        require(enabled[token] "Escrow: bad token");
+
         require(IERC20(token).transferFrom(msg.sender, address(this), amount));
+
         deposited[token].amount += amount;
-        _addTokenUsed(token);
+
         emit AddCollateral(token, amount);
 
         return _getLatestCollateralRatio();
+    }
+
+
+    function enableCollatareal(address token) external returns(bool) {
+        require(msg.sender == loan.arbiter());
+
+        _enableToken(token);
+
+        return true;
     }
 
     /**
@@ -131,22 +136,24 @@ contract Escrow is IEscrow {
               flags if its a EIP 4626 token, and gets its decimals
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
     */
-    function _addTokenUsed(address token) internal {
-        if(!_tokensUsed[token]) {
-            _tokensUsed[token] = true;
-            _tokensUsedAsCollateral.push(token);
-            
+    function _enableToken(address token) internal {
+        if(!enabled[token]) {            
             Deposit memory deposit = deposited[token]; // gas savings
             
             (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
             bool is4626 = tokenAddrBytes.length > 0 && passed;
             deposit.isERC4626 = is4626;
-
             if(is4626) {
+              // if 4626 save the underlying token to use for oracle pricing
                 deposit.asset = abi.decode(tokenAddrBytes, (address));
             } else {
                 deposit.asset = token;
             }
+
+            require(
+              IOracle(oracle).getLatestAnswer(deposit.asset) > 0,
+              "Escrow: cant enable with no price"
+            );
             
             (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(abi.encodeWithSignature("decimals()"));
             if(decimalBytes.length > 0 && successDecimals) {

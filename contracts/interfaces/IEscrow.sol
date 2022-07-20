@@ -1,13 +1,6 @@
 pragma solidity 0.8.9;
 
 interface IEscrow {
-    // TODO @smokey
-    struct Farm {
-        bytes4 depositFunc;
-        bytes4 withdrawFunc;
-        address[] rewardTokens;
-    }
-
     struct Deposit {
         uint amount;
         bool isERC4626;
@@ -17,8 +10,6 @@ interface IEscrow {
 
     event AddCollateral(address indexed token, uint indexed amount);
     event RemoveCollateral(address indexed token, uint indexed amount);
-    event FarmCollateral(address indexed token, uint indexed amount);
-    event RemoveCollateralFromFarm(address indexed token, uint indexed amount);
     event Liquidate(address indexed token, uint indexed amount);
 
     function addCollateral(uint amount, address token) external returns(uint);
