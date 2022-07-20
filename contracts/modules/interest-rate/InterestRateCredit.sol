@@ -7,8 +7,8 @@ contract InterestRateCredit is IInterestRateCredit {
 
     ///////////  CONSTANTS  ///////////
     uint256 constant ONE_YEAR = 364.25 days; // one year in sec to use in calculations for rates
-    uint256 constant ONE_HUNNA_IN_BPS = 10000; // adding two zeroes to account for bps in numerator
-    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * ONE_HUNNA_IN_BPS;
+    uint256 constant BASE_DENOMINATOR = 10000; // div 100 for %, div 100 for bps in numerator
+    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
 
     ///////////  VARIABLES  ///////////
     address immutable loanContract;
