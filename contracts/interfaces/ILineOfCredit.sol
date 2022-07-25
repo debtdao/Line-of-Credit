@@ -10,12 +10,27 @@ interface ILineOfCredit is ILoan {
     uint256 interestAccrued;  // interest accrued but not repaid
     uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender
     uint8 decimals;           // decimals of credit token for calcs
-
-    address lender;           // person to repay
     address token;            // token being lent out
+    address lender;           // person to repay
   }
 
   event SetRates(bytes32 indexed id, uint128 indexed drawnRate, uint128 indexed facilityRate);
+
+
+  // Access Errors
+  error NotActive();
+  error NotBorrowing();
+  error CallerAccessDenied();
+  
+  // Tokens
+  error TokenTransferFailed();
+  error NoTokenPrice();
+
+  // Loan
+  error NoLiquidity();
+  error PositionExists();
+  error CloseFailedWithPrincipal();
+
 
   function addCredit(
     uint128 drate,
