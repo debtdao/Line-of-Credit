@@ -3,12 +3,12 @@ pragma solidity ^0.8.9;
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LoanLib} from "../../utils/LoanLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {SpigotController} from "../spigot/Spigot.sol";
+import {Spigot} from "../spigot/Spigot.sol";
 import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
-    SpigotController public immutable spigot;
+    Spigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
     address public immutable swapTarget;
@@ -40,7 +40,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        spigot = new SpigotController(address(this), borrower, borrower);
+        spigot = new Spigot(address(this), borrower, borrower);
 
         defaultRevenueSplit = defaultRevenueSplit_;
 
@@ -207,19 +207,19 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
     /**
      * @notice - allow Loan to add new revenue streams to reapy credit
-     * @dev    - see SpigotController.addSpigot()
+     * @dev    - see Spigot.addSpigot()
      * @dev    - callable `arbiter` + `borrower`
      */
     function addSpigot(
         address revenueContract,
-        SpigotController.SpigotSettings calldata setting
+        Spigot.Setting calldata setting
     ) external mutualConsent(arbiter, borrower) returns (bool) {
         return spigot.addSpigot(revenueContract, setting);
     }
 
     /**
      * @notice - allow borrower to call functions on their protocol to maintain it and keep earning revenue
-     * @dev    - see SpigotController.updateWhitelistedFunction()
+     * @dev    - see Spigot.updateWhitelistedFunction()
      * @dev    - callable `arbiter`
      */
     function updateWhitelist(bytes4 func, bool allowed)

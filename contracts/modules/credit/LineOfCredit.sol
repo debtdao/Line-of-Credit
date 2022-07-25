@@ -69,7 +69,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     modifier whileBorrowing() {
-        if(ids.length == 0 && credits[ids[0]].principal == 0) { revert NotBorrowing(); }
+        if(ids.length == 0 || credits[ids[0]].principal == 0) { revert Borrowing(); }
         _;
     }
 
@@ -226,7 +226,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       returns (bool)
     {
         _accrueInterest(id);
-        if(lender != credits[id].lender) { revert CallerAccessDenied() ; };
+        if(lender != credits[id].lender) { revert CallerAccessDenied() ; }
         require(interestRate.setRate(id, drate, frate));
         emit SetRates(id, drate, frate);
         return true;
@@ -258,7 +258,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _accrueInterest(id);
         if(principal <= amount) { revert TokenTransferFailed() ; }
         Credit memory credit = credits[id];
-        if(lender != credit.lender) { revert CallerAccessDenied() ; };
+        if(lender != credit.lender) { revert CallerAccessDenied() ; }
 
         IERC20(credit.token).safeTransferFrom(
           credit.lender,
@@ -411,14 +411,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         if(msg.sender != credits[id].lender) {
           revert CallerAccessDenied();
-        };
+        }
 
         _accrueInterest(id);
         Credit memory credit = credits[id];
 
         if(amount > credit.deposit + credit.interestRepaid - credit.principal) {
           revert NoLiquidity();
-        };
+        }
 
         if (amount > credit.interestRepaid) {
             amount -= credit.interestRepaid;
@@ -467,8 +467,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @param id -the credit position to close
      */
     function close(bytes32 id) external override returns (bool) {
-        Credit memory credit = credits[id];
-        if(msg.sender != credit.lender && msg.sender != borrower) {
+      if(msg.sender != credits[id].lender && msg.sender != borrower) {
           revert CallerAccessDenied();
         }
 
@@ -564,8 +563,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             emit RepayPrincipal(id, principalPayment, pVal);
 
             // update global credit denominated in usd
-            interestUsd -= iVal;
-            principalUsd -= pVal;
+            // interestUsd -= iVal;
+            // principalUsd -= pVal;
 
             // update individual credit position denominated in token
             credit.principal -= principalPayment;
@@ -625,9 +624,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function _close(bytes32 id) internal virtual returns (bool) {
         Credit memory credit = credits[id];
 
-        if(credits[id].principal > 0) { revert CloseFailedWithPrincipal(); }
+        if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
 
-                // return the lender's deposit
+        // return the lender's deposit
         if (credit.deposit > 0) {
             IERC20(credit.token).safeTransfer(
                 credit.lender,
@@ -635,17 +634,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             );
         }
 
-        // return the lender's deposit
-        if (credit.deposit > 0) {
-            require(
-                IERC20(credit.token).transfer(
-                    credit.lender,
-                    credit.deposit + credit.interestRepaid
-                )
-            );
-        }
 
-        delete credits[id]; // yay gas refunds!!!
+        delete credits[id]; // gas refunds
 
         // remove from active list
         ids = LoanLib.removePosition(ids, id);

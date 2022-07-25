@@ -23,8 +23,6 @@ interface IEscrow {
     error UnderCollateralized();
 
     error NotLiquidatable();
-    
-    error NotLiquidatable();
 
     function getCollateralRatio() external returns(uint);
 
