@@ -19,7 +19,7 @@ interface ILineOfCredit is ILoan {
 
   // Access Errors
   error NotActive();
-  error NotBorrowing();
+  error Borrowing();
   error CallerAccessDenied();
   
   // Tokens

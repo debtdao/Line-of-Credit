@@ -1,7 +1,7 @@
 pragma solidity 0.8.9;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
@@ -124,7 +124,7 @@ contract Escrow is IEscrow {
         external
         returns (uint256)
     {
-        require(amount == 0);
+        require(amount > 0);
         if(!enabled[token])  { revert InvalidCollateral(); }
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
@@ -253,10 +253,10 @@ contract Escrow is IEscrow {
         address token,
         address to
     ) external returns (bool) {
-        if(amount == 0) { revert InvalidCollateral(); }
+        require(amount > 0);
         if(msg.sender != loan) { revert CallerAccessDenied(); }
-        if(deposited[token].amount >= amount) { revert InvalidCollateral(); }
-        if(minimumCollateralRatio > _getLatestCollateralRatio()) { revert NotLiquidatable(); }
+        if(deposited[token].amount < amount) { revert InvalidCollateral(); }
+        if(minimumCollateralRatio < _getLatestCollateralRatio()) { revert NotLiquidatable(); }
 
         deposited[token].amount -= amount;
         
