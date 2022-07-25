@@ -1,12 +1,15 @@
 pragma solidity 0.8.9;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/IERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
 import {LoanLib} from "../../utils/LoanLib.sol";
 
 contract Escrow is IEscrow {
+    using SafeERC20 for IERC20;
+
     // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
     uint256 public minimumCollateralRatio;
 
@@ -121,10 +124,10 @@ contract Escrow is IEscrow {
         external
         returns (uint256)
     {
-        require(amount > 0, "Escrow: amount is 0");
-        require(enabled[token], "Escrow: bad token");
+        require(amount == 0);
+        if(!enabled[token])  { revert InvalidCollateral(); }
 
-        require(IERC20(token).transferFrom(msg.sender, address(this), amount));
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         deposited[token].amount += amount;
 
@@ -169,7 +172,7 @@ contract Escrow is IEscrow {
             deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
 
             int price = IOracle(oracle).getLatestAnswer(deposit.asset);
-            require(price > 0, "Escrow: cant enable with no price");
+            if(price <= 0) { revert InvalidCollateral(); }
 
             (bool successDecimals, bytes memory decimalBytes) = deposit
                 .asset
@@ -205,19 +208,14 @@ contract Escrow is IEscrow {
         address token,
         address to
     ) external returns (uint256) {
-        require(amount > 0, "Escrow: amount is 0");
-        require(msg.sender == borrower, "Escrow: only borrower can call");
-        require(
-            deposited[token].amount >= amount,
-            "Escrow: insufficient balance"
-        );
+        require(amount > 0);
+        if(msg.sender != borrower) { revert CallerAccessDenied(); }
+        if(deposited[token].amount < amount) { revert InvalidCollateral(); }
         deposited[token].amount -= amount;
-        require(IERC20(token).transfer(to, amount));
+        IERC20(token).safeTransfer(to, amount);
         uint256 cratio = _getLatestCollateralRatio();
-        require(
-            cratio >= minimumCollateralRatio,
-            "Escrow: cannot release collateral if cratio becomes lower than the minimum"
-        );
+        if(cratio < minimumCollateralRatio) { revert UnderCollateralized(); }
+        
         emit RemoveCollateral(token, amount);
 
         return cratio;
@@ -255,22 +253,14 @@ contract Escrow is IEscrow {
         address token,
         address to
     ) external returns (bool) {
-        require(amount > 0, "Escrow: amount is 0");
-        require(
-            msg.sender == loan,
-            "Escrow: msg.sender must be the loan contract"
-        );
-        require(
-            minimumCollateralRatio > _getLatestCollateralRatio(),
-            "Escrow: not eligible for liquidation"
-        );
-        require(
-            deposited[token].amount >= amount,
-            "Escrow: insufficient balance"
-        );
+        if(amount == 0) { revert InvalidCollateral(); }
+        if(msg.sender != loan) { revert CallerAccessDenied(); }
+        if(deposited[token].amount >= amount) { revert InvalidCollateral(); }
+        if(minimumCollateralRatio > _getLatestCollateralRatio()) { revert NotLiquidatable(); }
 
         deposited[token].amount -= amount;
-        require(IERC20(token).transfer(to, amount));
+        
+        IERC20(token).safeTransfer(to, amount);
 
         emit Liquidate(token, amount);
 

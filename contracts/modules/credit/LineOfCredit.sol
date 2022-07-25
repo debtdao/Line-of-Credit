@@ -1,6 +1,7 @@
 pragma solidity ^0.8.9;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {LoanLib} from "../../utils/LoanLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
@@ -10,6 +11,8 @@ import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
 contract LineOfCredit is ILineOfCredit, MutualConsent {
+    using SafeERC20 for IERC20;
+
     address public immutable borrower;
 
     address public immutable arbiter;
@@ -61,17 +64,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ///////////////
 
     modifier whileActive() {
-        require(loanStatus == LoanLib.STATUS.ACTIVE, "Loan: no op");
+        if(loanStatus != LoanLib.STATUS.ACTIVE) { revert NotActive(); }
         _;
     }
 
     modifier whileBorrowing() {
-        require(ids.length > 0 && credits[ids[0]].principal > 0);
+        if(ids.length == 0 && credits[ids[0]].principal == 0) { revert NotBorrowing(); }
         _;
     }
 
     modifier onlyBorrower() {
-        require(msg.sender == borrower, "Loan: only borrower");
+        if(msg.sender != borrower) { revert CallerAccessDenied(); }
         _;
     }
 
@@ -187,12 +190,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        bool success = IERC20(token).transferFrom(
+        IERC20(token).safeTransferFrom(
             lender,
             address(this),
             amount
         );
-        require(success, "Loan: no tokens to lend");
 
         bytes32 id = _createCredit(lender, token, amount, 0);
 
@@ -224,7 +226,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       returns (bool)
     {
         _accrueInterest(id);
-        require(lender == credits[id].lender, 'LoC: only lender can increase');
+        if(lender != credits[id].lender) { revert CallerAccessDenied() ; };
         require(interestRate.setRate(id, drate, frate));
         emit SetRates(id, drate, frate);
         return true;
@@ -254,16 +256,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       returns (bool)
     {
         _accrueInterest(id);
-        require(principal <= amount, 'LoC: amount must be over princpal');
+        if(principal <= amount) { revert TokenTransferFailed() ; }
         Credit memory credit = credits[id];
-        require(lender == credit.lender, 'LoC: only lender can increase');
+        if(lender != credit.lender) { revert CallerAccessDenied() ; };
 
-        require(IERC20(credit.token).transferFrom(
+        IERC20(credit.token).safeTransferFrom(
           credit.lender,
           address(this),
           amount
-        ), "Loan: no tokens to lend");
-
+        );
         credit.deposit += amount;
         
         int256 price = oracle.getLatestAnswer(credit.token);
@@ -275,10 +276,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         );
 
         if(principal > 0) {  
-            require(
-              IERC20(credit.token).transfer(borrower, principal),
-              "Loan: no liquidity"
-            );
+            IERC20(credit.token).safeTransfer(borrower, principal);
 
             uint256 value = LoanLib.calculateValue(price, principal, credit.decimals);
             credit.principal += principal;
@@ -312,12 +310,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 totalOwed = credits[id].principal + credits[id].interestAccrued;
 
         // borrower deposits remaining balance not already repaid and held in contract
-        bool success = IERC20(credits[id].token).transferFrom(
+        IERC20(credits[id].token).safeTransferFrom(
             msg.sender,
             address(this),
             totalOwed
         );
-        require(success, "Loan: deposit failed");
         // clear the credit
         _repay(id, totalOwed);
 
@@ -343,12 +340,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         require(amount <= credits[id].principal + credits[id].interestAccrued);
 
-        bool success = IERC20(credits[id].token).transferFrom(
+        IERC20(credits[id].token).safeTransferFrom(
             msg.sender,
             address(this),
             amount
         );
-        require(success, "Loan: failed repayment");
 
         _repay(id, amount);
         return true;
@@ -375,7 +371,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _accrueInterest(id);
         Credit memory credit = credits[id];
 
-        require(amount <= credit.deposit - credit.principal, "Loan: no liquidity");
+        if(amount > credit.deposit - credit.principal) { revert NoLiquidity() ; }
 
         credit.principal += amount;
 
@@ -388,13 +384,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = credit;
 
-        require(
-            _updateLoanStatus(_healthcheck()) == LoanLib.STATUS.ACTIVE,
-            "Loan: cant borrow"
-        );
+        if(_updateLoanStatus(_healthcheck()) != LoanLib.STATUS.ACTIVE) { 
+            revert NotActive();
+        }
 
-        bool success = IERC20(credit.token).transfer(borrower, amount);
-        require(success, "Loan: borrow failed");
+        IERC20(credit.token).safeTransfer(borrower, amount);
 
         emit Borrow(id, amount, value);
 
@@ -415,18 +409,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         override
         returns (bool)
     {
-        require(
-            msg.sender == credits[id].lender,
-            "Loan: only lender can withdraw"
-        );
+        if(msg.sender != credits[id].lender) {
+          revert CallerAccessDenied();
+        };
 
         _accrueInterest(id);
         Credit memory credit = credits[id];
 
-        require(
-            amount <= credit.deposit + credit.interestRepaid - credit.principal,
-            "Loan: no liquidity"
-        );
+        if(amount > credit.deposit + credit.interestRepaid - credit.principal) {
+          revert NoLiquidity();
+        };
 
         if (amount > credit.interestRepaid) {
             amount -= credit.interestRepaid;
@@ -442,8 +434,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             emit WithdrawProfit(id, amount);
         }
 
-        bool success = IERC20(credit.token).transfer(credit.lender, amount);
-        require(success, "Loan: withdraw failed");
+        IERC20(credit.token).safeTransfer(credit.lender, amount);
 
         credits[id] = credit;
 
@@ -455,20 +446,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         override
         returns (uint256)
     {
-        require(
-            msg.sender == credits[id].lender,
-            "Loan: only lender can withdraw"
-        );
+        if(msg.sender != credits[id].lender) { revert CallerAccessDenied(); }
 
         _accrueInterest(id);
 
         uint256 amount = credits[id].interestAccrued;
 
-        bool success = IERC20(credits[id].token).transfer(
-            credits[id].lender,
-            amount
-        );
-        require(success, "Loan: withdraw failed");
+        IERC20(credits[id].token).safeTransfer(credits[id].lender, amount);
 
         emit WithdrawProfit(id, amount);
 
@@ -483,10 +467,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @param id -the credit position to close
      */
     function close(bytes32 id) external override returns (bool) {
-        require(
-            msg.sender == credits[id].lender || msg.sender == borrower,
-            "Loan: msg.sender must be the lender or borrower"
-        );
+        Credit memory credit = credits[id];
+        if(msg.sender != credit.lender && msg.sender != borrower) {
+          revert CallerAccessDenied();
+        }
 
         require(_close(id));
 
@@ -516,10 +500,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         id = LoanLib.computePositionId(address(this), lender, token);
 
         // MUST not double add position. otherwise we can not _close()
-        require(
-            credits[id].lender == address(0),
-            "Loan: position exists"
-        );
+        if(credits[id].lender != address(0)) { revert PositionExists(); }
 
         (bool passed, bytes memory result) = token.call(
             abi.encodeWithSignature("decimals()")
@@ -527,7 +508,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
         
         uint256 value = LoanLib.getValuation(oracle, token, amount, decimals);
-        require(value > 0 , "Loan: token cannot be valued");
+        if(value <= 0 ) { revert NoTokenPrice(); }
 
         credits[id] = Credit({
             lender: lender,
@@ -643,10 +624,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function _close(bytes32 id) internal virtual returns (bool) {
         Credit memory credit = credits[id];
-        require(
-            credit.principal + credit.interestAccrued == 0,
-            "Loan: close failed. credit owed"
-        );
+
+        if(credits[id].principal > 0) { revert CloseFailedWithPrincipal(); }
+
+                // return the lender's deposit
+        if (credit.deposit > 0) {
+            IERC20(credit.token).safeTransfer(
+                credit.lender,
+                credit.deposit + credit.interestRepaid
+            );
+        }
 
         // return the lender's deposit
         if (credit.deposit > 0) {
