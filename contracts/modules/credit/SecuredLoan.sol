@@ -46,7 +46,6 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
     uint256 amount,
     address targetToken
   )
-    onlyArbiter
     external
     returns(uint256)
   {

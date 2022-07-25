@@ -6,13 +6,21 @@ contract MockLoan {
 
     uint debtValueUSD;
     address escrow;
+    address public arbiter;
 
     constructor(uint _debt) public {
         debtValueUSD = _debt;
+        // console.log("arbiter", msg.sender);
+        arbiter = msg.sender;
     }
 
     function setEscrow(address _escrow) public {
         escrow = _escrow;
+    }
+
+
+    function setArbiter(address _arbiter) public {
+        arbiter = _arbiter;
     }
 
     function setDebtValue(uint _debt) external {

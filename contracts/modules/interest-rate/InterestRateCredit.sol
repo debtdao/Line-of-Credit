@@ -8,7 +8,7 @@ contract InterestRateCredit is IInterestRateCredit {
     uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
 
     address immutable loanContract;
-    mapping(bytes32 => Rate) public rates; // positionId -> lending rates
+    mapping(bytes32 => Rate) public rates; // id -> lending rates
 
     /**
      * @notice Interest contract for line of credit contracts
@@ -38,21 +38,21 @@ contract InterestRateCredit is IInterestRateCredit {
      *
      */
     function accrueInterest(
-        bytes32 positionId,
+        bytes32 id,
         uint256 drawnBalance,
         uint256 facilityBalance
     ) external override onlyLoanContract returns (uint256) {
-        return _accrueInterest(positionId, drawnBalance, facilityBalance);
+        return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
     function _accrueInterest(
-        bytes32 positionId,
+        bytes32 id,
         uint256 drawnBalance,
         uint256 facilityBalance
     ) internal returns (uint256) {
-        Rate memory rate = rates[positionId];
+        Rate memory rate = rates[id];
         uint256 timespan = block.timestamp - rate.lastAccrued;
-        rates[positionId].lastAccrued = block.timestamp;
+        rates[id].lastAccrued = block.timestamp;
 
         // r = APR in BPS, x = # tokens, t = time
         // interest = (r * x * t) / 1yr / 100
@@ -69,11 +69,11 @@ contract InterestRateCredit is IInterestRateCredit {
      * @dev    - callable by `loan`
      */
     function setRate(
-        bytes32 positionId,
+        bytes32 id,
         uint128 drawnRate,
         uint128 facilityRate
     ) external onlyLoanContract returns (bool) {
-        rates[positionId] = Rate({
+        rates[id] = Rate({
             drawnRate: drawnRate,
             facilityRate: facilityRate,
             lastAccrued: block.timestamp

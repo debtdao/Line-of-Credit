@@ -4,6 +4,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
+import {LoanLib} from "../../utils/LoanLib.sol";
 
 contract Escrow is IEscrow {
     // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
@@ -60,7 +61,7 @@ contract Escrow is IEscrow {
      * @param numerator - value to compare
      * @param denominator - value to compare against
      * @param precision - number of decimal places of accuracy to return in answer 
-     * @return - 
+     * @return quotient -  the result of num / denom
     */
     function _percent(
         uint256 numerator,
@@ -80,12 +81,16 @@ contract Escrow is IEscrow {
     */
     function _getCollateralValue() internal returns (uint256) {
         uint256 collateralValue = 0;
+        // gas savings
         uint256 length = _collateralTokens.length;
+        IOracle o = IOracle(oracle); 
+        Deposit memory d;
         for (uint256 i = 0; i < length; i++) {
             address token = _collateralTokens[i];
-            uint256 deposit = deposited[token].amount;
+            d = deposited[token];
+            uint256 deposit = d.amount;
             if (deposit != 0) {
-                if (deposited[token].isERC4626) {
+                if (d.isERC4626) {
                     // this conversion could shift, hence it is best to get it each time
                     (bool success, bytes memory assetAmount) = token.call(
                         abi.encodeWithSignature(
@@ -96,15 +101,7 @@ contract Escrow is IEscrow {
                     if (!success) continue;
                     deposit = abi.decode(assetAmount, (uint256));
                 }
-                int256 prc = IOracle(oracle).getLatestAnswer(
-                    deposited[token].asset
-                );
-                // treat negative prices as 0
-                uint256 price = prc < 0 ? 0 : uint256(prc);
-                // need to scale value by token decimal
-                collateralValue +=
-                    (price * deposit) /
-                    (1 * 10**deposited[token].assetDecimals);
+                collateralValue += LoanLib.getValuation(o, d.asset, deposit, d.assetDecimals);
             }
         }
 
@@ -143,39 +140,36 @@ contract Escrow is IEscrow {
      *       - only need to allow once. Can not disable collateral once enabled.
      * @param token - the token to all borrow to deposit as collateral
      */
-    function enableCollatareal(address token) external returns (bool) {
-        require(msg.sender == loan.arbiter());
+    function enableCollateral(address token) external returns (bool) {
+        require(msg.sender == ILoan(loan).arbiter());
 
         _enableToken(token);
 
         return true;
     }
 
-    /**
+  /**
     * @notice track the tokens used as collateral. Ensures uniqueness,
               flags if its a EIP 4626 token, and gets its decimals
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
+    * return bool - if collateral is now enabled or not.
     */
-    function _enableToken(address token) internal {
-        if (!enabled[token]) {
+    function _enableToken(address token) internal returns(bool) {
+        bool isEnabled = enabled[token];
+        if (!isEnabled) {
             Deposit memory deposit = deposited[token]; // gas savings
 
             (bool passed, bytes memory tokenAddrBytes) = token.call(
                 abi.encodeWithSignature("asset()")
             );
+
             bool is4626 = tokenAddrBytes.length > 0 && passed;
             deposit.isERC4626 = is4626;
-            if (is4626) {
-                // if 4626 save the underlying token to use for oracle pricing
-                deposit.asset = abi.decode(tokenAddrBytes, (address));
-            } else {
-                deposit.asset = token;
-            }
+            // if 4626 save the underlying token to use for oracle pricing
+            deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
 
-            require(
-                IOracle(oracle).getLatestAnswer(deposit.asset) > 0,
-                "Escrow: cant enable with no price"
-            );
+            int price = IOracle(oracle).getLatestAnswer(deposit.asset);
+            require(price > 0, "Escrow: cant enable with no price");
 
             (bool successDecimals, bytes memory decimalBytes) = deposit
                 .asset
@@ -186,8 +180,15 @@ contract Escrow is IEscrow {
                 deposit.assetDecimals = 18;
             }
 
-            deposited[token] = deposit; // store results
+            // update collateral settings
+            enabled[token] = true;
+            deposited[token] = deposit;
+            _collateralTokens.push(token);
+            emit EnableCollateral(deposit.asset, price);
+            return true;
         }
+
+        return isEnabled;
     }
 
     /**

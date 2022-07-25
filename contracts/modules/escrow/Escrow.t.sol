@@ -26,14 +26,21 @@ contract EscrowTest is DSTest {
 
     function setUp() public {
         borrower = address(this);
+        // deploy tokens and add oracle prices for valid collateral
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
-        token4626 = new RevenueToken4626();
+        token4626 = new RevenueToken4626(address(supportedToken1));
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
         loan = new MockLoan(1);
+        // deploy and save escrow
         _createEscrow(minCollateralRatio, address(oracle), address(loan), borrower);
+        // add escrow to mock loan
         loan.setEscrow(address(escrow));
+        // allow tokens to be deposited as collateral
+        escrow.enableCollateral(address(supportedToken1));
+        escrow.enableCollateral(address(supportedToken2));
+        escrow.enableCollateral(address(token4626));
         _mintAndApprove();
     }
 

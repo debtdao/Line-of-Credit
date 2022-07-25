@@ -3,27 +3,42 @@ import { ILoan } from "./ILoan.sol";
 
 interface ILineOfCredit is ILoan {
   // Lender data
-  struct DebtPosition {
+  struct Credit {
     //  all denominated in token, not USD
     uint256 deposit;          // total liquidity provided by lender for token
     uint256 principal;        // amount actively lent out
     uint256 interestAccrued;  // interest accrued but not repaid
     uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender
-    uint8 decimals;           // decimals of debt token for calcs
+    uint8 decimals;           // decimals of credit token for calcs
 
     address lender;           // person to repay
     address token;            // token being lent out
   }
 
-  event SetRates(bytes32 indexed positionId, uint128 indexed drawnRate, uint128 indexed facilityRate);
+  event SetRates(bytes32 indexed id, uint128 indexed drawnRate, uint128 indexed facilityRate);
 
-  function addDebtPosition(
-    uint128 drawnRate,
-    uint128 facilityRate,
+  function addCredit(
+    uint128 drate,
+    uint128 frate,
     uint256 amount,
     address token,
     address lender
   ) external returns(bytes32);
-  function borrow(bytes32 positionId, uint256 amount) external returns(bool);
-  function close(bytes32 positionId) external returns(bool);
+
+  function setRates(
+    bytes32 id,
+    address lender,
+    uint128 drate,
+    uint128 frate
+  ) external returns(bool);
+
+  function increaseCredit(
+    bytes32 id,
+    address lender,
+    uint256 amount,
+    uint256 principal
+  ) external returns(bool);
+
+  function borrow(bytes32 id, uint256 amount) external returns(bool);
+  function close(bytes32 id) external returns(bool);
 }

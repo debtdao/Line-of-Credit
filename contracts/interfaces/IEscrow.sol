@@ -9,16 +9,22 @@ interface IEscrow {
     }
 
     event AddCollateral(address indexed token, uint indexed amount);
-    event RemoveCollateral(address indexed token, uint indexed amount);
-    event Liquidate(address indexed token, uint indexed amount);
 
-    function addCollateral(uint amount, address token) external returns(uint);
+    event RemoveCollateral(address indexed token, uint indexed amount);
+
+    event EnableCollateral(address indexed token, int indexed price);
+    
+    event Liquidate(address indexed token, uint indexed amount);
 
     function getCollateralRatio() external returns(uint);
 
     function getCollateralValue() external returns(uint);
-    
-    function releaseCollateral(uint amount, address token, address to) external returns(uint);
 
+    function enableCollateral(address token) external returns(bool);
+
+    function addCollateral(uint amount, address token) external returns(uint);
+
+    function releaseCollateral(uint amount, address token, address to) external returns(uint);
+    
     function liquidate(uint amount, address token, address to) external returns(bool);
 }

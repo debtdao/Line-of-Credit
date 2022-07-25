@@ -37,7 +37,7 @@ abstract contract EscrowedLoan is IEscrowedLoan {
    * @param amount - amount of tokens to take from escrow and liquidate
    * @param targetToken - the token to take from escrow
    * @param to - the liquidator to send tokens to. could be OTC address or smart contract
-   * @return amount - the total amount of `targetToken` sold to repay debt
+   * @return amount - the total amount of `targetToken` sold to repay credit
    *  
    
   */
