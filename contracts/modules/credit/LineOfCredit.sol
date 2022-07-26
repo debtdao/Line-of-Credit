@@ -98,13 +98,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
                 bytes32 id = ids[i];
                 uint256 amount = credits[id].principal +
                     credits[id].interestAccrued;
-                uint256 val = LoanLib.getValuation(
-                    oracle,
-                    credits[id].token,
-                    amount,
-                    credits[id].decimals
-                );
-                emit Default(id, amount, val);
+                emit Default(id, amount);
             }
             return LoanLib.STATUS.LIQUIDATABLE;
         }
@@ -119,11 +113,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
   * @dev    - callable by anyone
   */
     function getOutstandingDebt() external override returns (uint256) {
-        (uint256 p, uint256 i) = _updateOutstandingCredit();
+        (uint256 p, uint256 i) = _updateOutstandingDebt();
         return p + i;
     }
 
-    function _updateOutstandingCredit()
+    function _updateOutstandingDebt()
         internal
         returns (uint256 principal, uint256 interest)
     {
@@ -132,7 +126,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         Credit memory credit;
         for (uint256 i = 0; i < len; i++) {
-            credit = credits[ids[i]];
+            bytes32 id = ids[i];
+            _accrueInterest(id);
+            credit = credits[id];
 
             int256 price = oracle.getLatestAnswer(credit.token);
 
@@ -156,13 +152,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @notice - see _accrueInterest()
      * @dev    - callable by anyone
      */
-    function accrueInterest() external override returns (uint256 accruedValue) {
+    function accrueInterest() external override returns(bool) {
         uint256 len = ids.length;
 
         for (uint256 i = 0; i < len; i++) {
-            (, uint256 accruedTokenValue) = _accrueInterest(ids[i]);
-            accruedValue += accruedTokenValue;
+            _accrueInterest(ids[i]);
         }
+        
+        return true;
     }
 
     /**
@@ -267,21 +264,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         );
         credit.deposit += amount;
         
-        int256 price = oracle.getLatestAnswer(credit.token);
 
-        emit IncreaseCredit(
-          id,
-          amount,
-          LoanLib.calculateValue( price, amount, credit.decimals)
-        );
+        emit IncreaseCredit(id, amount, principal);
 
         if(principal > 0) {  
             IERC20(credit.token).safeTransfer(borrower, principal);
 
-            uint256 value = LoanLib.calculateValue(price, principal, credit.decimals);
-            credit.principal += principal;
-            principalUsd += value;
-            emit Borrow(id, principal, value);
+          credit.principal += principal;
+            emit Borrow(id, principal);
         }
 
         credits[id] = credit;
@@ -375,13 +365,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credit.principal += amount;
 
-        uint256 value = LoanLib.getValuation(
-            oracle,
-            credit.token,
-            amount,
-            credit.decimals
-        );
-
         credits[id] = credit;
 
         if(_updateLoanStatus(_healthcheck()) != LoanLib.STATUS.ACTIVE) { 
@@ -390,7 +373,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         IERC20(credit.token).safeTransfer(borrower, amount);
 
-        emit Borrow(id, amount, value);
+        emit Borrow(id, amount);
 
         require(_sortIntoQ(id));
 
@@ -506,8 +489,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         );
         uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
         
-        uint256 value = LoanLib.getValuation(oracle, token, amount, decimals);
-        if(value <= 0 ) { revert NoTokenPrice(); }
+        int price = IOracle(oracle).getLatestAnswer(token);
+        if(price <= 0 ) { revert NoTokenPrice(); }
 
         credits[id] = Credit({
             lender: lender,
@@ -521,11 +504,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         ids.push(id); // add lender to end of repayment queue
 
-        emit AddCredit(lender, token, amount, 0);
+        emit AddCredit(lender, token, amount, 0, id);
 
         if(principal > 0) {
-            principalUsd += value;
-            emit Borrow(id, principal, value);
+            emit Borrow(id, principal);
         }
 
         return id;
@@ -548,23 +530,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         
         if (amount <= credit.interestAccrued) {
             credit.interestAccrued -= amount;
-            uint256 val = LoanLib.calculateValue(price, amount, credit.decimals);
-            interestUsd -= val;
-
             credit.interestRepaid += amount;
-            emit RepayInterest(id, amount, val);
+            emit RepayInterest(id, amount);
         } else {
             uint256 principalPayment = amount - credit.interestAccrued;
 
-            uint256 iVal = LoanLib.calculateValue(price, credit.interestAccrued, credit.decimals);
-            uint256 pVal = LoanLib.calculateValue(price, principalPayment, credit.decimals);
-
-            emit RepayInterest(id, credit.interestAccrued, iVal);
-            emit RepayPrincipal(id, principalPayment, pVal);
-
-            // update global credit denominated in usd
-            // interestUsd -= iVal;
-            // principalUsd -= pVal;
+            emit RepayInterest(id, credit.interestAccrued);
+            emit RepayPrincipal(id, principalPayment);
 
             // update individual credit position denominated in token
             credit.principal -= principalPayment;
@@ -588,7 +560,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
   */
     function _accrueInterest(bytes32 id)
         internal
-        returns (uint256 accruedToken, uint256 accruedValue)
+        returns (uint256 accruedToken)
     {
         Credit memory credit = credits[id];
         // get token demoninated interest accrued
@@ -601,20 +573,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // update credits balance
         credit.interestAccrued += accruedToken;
 
-        // get USD value of interest accrued
-        accruedValue = LoanLib.getValuation(
-            oracle,
-            credit.token,
-            accruedToken,
-            credit.decimals
-        );
-        interestUsd += accruedValue;
-
-        emit InterestAccrued(id, accruedToken, accruedValue);
+        emit InterestAccrued(id, accruedToken);
 
         credits[id] = credit; // save updates to intterestAccrued
 
-        return (accruedToken, accruedValue);
+        return accruedToken;
     }
 
     /**
