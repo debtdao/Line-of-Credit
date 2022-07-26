@@ -8,9 +8,10 @@ import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { ZeroEx } from "../../mock/ZeroEx.sol";
 
-import { SpigotController } from "../spigot/Spigot.sol";
+import { Spigot } from "../spigot/Spigot.sol";
 import { SpigotedLoan } from './SpigotedLoan.sol';
 import { LoanLib } from '../../utils/LoanLib.sol';
+import { ISpigot } from '../../interfaces/ISpigot.sol';
 
 /**
  * @notice
@@ -20,7 +21,7 @@ import { LoanLib } from '../../utils/LoanLib.sol';
 contract SpigotedLoanTest is DSTest {
     ZeroEx dex;
     SpigotedLoan loan;
-    SpigotController spigot;
+    Spigot spigot;
 
     RevenueToken creditToken;
     RevenueToken revenueToken;
@@ -62,7 +63,7 @@ contract SpigotedLoanTest is DSTest {
         loan.addCredit(drawnRate, facilityRate, lentAmount, address(creditToken), lender);
         loan.addCredit(drawnRate, facilityRate, lentAmount, address(creditToken), lender);
 
-        SpigotController.SpigotSettings memory setting = SpigotController.SpigotSettings({
+        ISpigot.Setting memory setting = ISpigot.Setting({
           token: address(revenueToken),
           ownerSplit: ownerSplit,
           claimFunction: bytes4(0),
@@ -139,7 +140,7 @@ contract SpigotedLoanTest is DSTest {
       assertEq(revenueToken.balanceOf((address(dex))), MAX_REVENUE + sellAmount);
       
       // loan balances
-      assertEq(creditToken.balanceOf((address(loan))), lentAmount + buyAmount);
+      assertEq(creditToken.balanceOf((address(loan))), lentAmount + buyAmount); // TODO cwalk help
       assertEq(revenueToken.balanceOf((address(loan))), MAX_REVENUE + claimable - sellAmount);
     }
 
@@ -178,19 +179,18 @@ contract SpigotedLoanTest is DSTest {
         assertEq(p, lentAmount); // no change in principal
 
       } else {
-        assertEq(p, lentAmount - interest);
+        assertEq(p, lentAmount - (buyAmount - interest));
         // all interest repaid
         assertEq(i, 0);
         assertEq(r, interest);
 
-        emit log_named_uint("----  BUY AMOUNT ----", buyAmount);
-        emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
       }
+      emit log_named_uint("----  BUY AMOUNT ----", buyAmount);
+      emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
 
       uint unusedCreditToken =  buyAmount < lentAmount ? 0 : buyAmount - lentAmount;
       assertEq(loan.unused(address(creditToken)), unusedCreditToken);
-      assertEq(loan.unused(address(revenueToken)), MAX_REVENUE - sellAmount);
-
+      assertEq(loan.unused(address(revenueToken)), MAX_REVENUE + claimable - sellAmount);
     }
 
     // check unsused balances. Do so by changing minAmountOut in trade 0

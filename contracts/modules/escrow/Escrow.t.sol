@@ -40,7 +40,6 @@ contract EscrowTest is DSTest {
         // allow tokens to be deposited as collateral
         escrow.enableCollateral(address(supportedToken1));
         escrow.enableCollateral(address(supportedToken2));
-        escrow.enableCollateral(address(token4626));
         _mintAndApprove();
     }
 
@@ -74,6 +73,7 @@ contract EscrowTest is DSTest {
 
     function test_can_get_correct_collateral_value_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(mintAmount, address(token4626));
         uint collateralValue = escrow.getCollateralValue();
         assertEq(collateralValue, (1000 * 1e8) * (mintAmount / 1 ether), "collateral value should equal the mint amount * price");
@@ -91,6 +91,7 @@ contract EscrowTest is DSTest {
     function test_can_add_collateral_eip4626() public {
         uint borrowerBalance = token4626.balanceOf(borrower);
         token4626.setAssetAddress(address(supportedToken2));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(mintAmount, address(token4626));
         assertEq(borrowerBalance, token4626.balanceOf(borrower) + mintAmount, "borrower balance should have been reduced by mintAmount");
     }
@@ -98,6 +99,7 @@ contract EscrowTest is DSTest {
     function test_can_remove_collateral_eip4626() public {
         uint borrowerBalance = token4626.balanceOf(borrower);
         token4626.setAssetAddress(address(supportedToken2));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(mintAmount, address(token4626));
         escrow.releaseCollateral(1 ether, address(token4626), borrower);
         assertEq(1 ether, token4626.balanceOf(borrower), "should have returned collateral");
@@ -131,6 +133,7 @@ contract EscrowTest is DSTest {
 
     function test_cratio_adjusts_when_collateral_price_changes_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(1000);
         uint escrowRatio = escrow.getCollateralRatio();
@@ -153,6 +156,7 @@ contract EscrowTest is DSTest {
     function test_can_liquidate_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
         token4626.setAssetMultiplier(5);
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
         assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
@@ -186,6 +190,7 @@ contract EscrowTest is DSTest {
     function test_cratio_values_with_eip4626() public {
         token4626.setAssetAddress(address(supportedToken2));
         token4626.setAssetMultiplier(2); // share token should be worth double the underlying (which is now supportedToken2)
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(4000 * 1e8); // 1e18 of supportedToken2 * 2 == 4000 * 1e8 (4000 USD)
         assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be 100%");
@@ -205,6 +210,7 @@ contract EscrowTest is DSTest {
 
     function testFail_cannot_remove_collateral_when_under_collateralized_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
         escrow.releaseCollateral(1 ether, address(token4626), borrower);
@@ -217,6 +223,7 @@ contract EscrowTest is DSTest {
 
     function testFail_cannot_liquidate_when_loan_healthy_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.liquidate(0, 1 ether, address(token4626), arbiter);
     }
@@ -227,6 +234,7 @@ contract EscrowTest is DSTest {
 
     function testFail_cannot_add_collateral_if_unsupported_by_oracle_eip4626() public {
         token4626.setAssetAddress(address(unsupportedToken));
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1000, address(token4626));
     }
 }
