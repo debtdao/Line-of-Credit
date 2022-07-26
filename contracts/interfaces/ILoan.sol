@@ -54,6 +54,8 @@ interface ILoan {
   event Default(bytes32 indexed id, uint256 indexed amount);
 
   // External Functions  
+  function init() external returns(LoanLib.STATUS);
+
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
   function withdrawInterest(bytes32 id) external returns (uint256);
 
@@ -62,6 +64,7 @@ interface ILoan {
 
   function accrueInterest() external returns(bool);
   function getOutstandingDebt() external returns(uint256 totalCredit);
+  function updateOutstandingDebt() external returns(uint256, uint256);
   function healthcheck() external returns(LoanLib.STATUS);
 
   function borrower() external returns(address);

@@ -1,5 +1,4 @@
 pragma solidity 0.8.9;
-
 interface IEscrow {
     struct Deposit {
         uint amount;
@@ -24,7 +23,20 @@ interface IEscrow {
 
     error NotLiquidatable();
 
+    // State Var Getters
+
+    function loan() external returns(address);
+
+    function borrower() external returns(address);
+
+    function minimumCollateralRatio() external returns(uint256);
+
+
+    // Functions 
+
     function isLiquidatable() external returns(bool);
+
+    function updateLoan(address loan_) external returns(bool);
 
     function getCollateralRatio() external returns(uint);
 

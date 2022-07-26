@@ -11,6 +11,8 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
         address arbiter_,
         address borrower_,
         address swapTarget_,
+        address spigot_,
+        address escrow_,
         uint minCollateral_,
         uint ttl_,
         uint8 defaultSplit_
@@ -18,16 +20,33 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
         oracle_,
         arbiter_,
         borrower_,
+        spigot_,
         swapTarget_,
         ttl_,
         defaultSplit_
     ) EscrowedLoan(
         minCollateral_,
+        escrow_,
         oracle_,
         borrower_
     ) {
 
     }
+
+
+  function init() external override(LineOfCredit) virtual returns(LoanLib.STATUS) {
+    return _updateLoanStatus(_init());
+  }
+
+  function _init() internal override(SpigotedLoan, EscrowedLoan) virtual returns(LoanLib.STATUS) {
+     LoanLib.STATUS s =  LoanLib.STATUS.ACTIVE;
+    
+    if(SpigotedLoan._init() != s || EscrowedLoan._init() != s) {
+      return LoanLib.STATUS.UNINITIALIZED;
+    }
+    
+    return s;
+  }
 
 
   // Liquidation
@@ -58,6 +77,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
     // send tokens to arbiter for OTC sales
     return _liquidate(positionId, amount, targetToken, msg.sender);
   }
+
   
     /** @notice checks internal accounting logic for status and if ok, runs modules checks */
     function _healthcheck() internal override(EscrowedLoan, LineOfCredit) returns(LoanLib.STATUS) {

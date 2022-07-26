@@ -3,12 +3,12 @@ pragma solidity ^0.8.9;
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LoanLib} from "../../utils/LoanLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {Spigot} from "../spigot/Spigot.sol";
+import {ISpigot} from "../../interfaces/ISpigot.sol";
 import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
-    Spigot public immutable spigot;
+    ISpigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
     address public immutable swapTarget;
@@ -36,15 +36,23 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         address oracle_,
         address arbiter_,
         address borrower_,
+        address spigot_,
         address swapTarget_,
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        spigot = new Spigot(address(this), borrower, borrower);
+        require(defaultRevenueSplit_ <= MAX_SPLIT);
+
+        spigot = ISpigot(spigot_);
 
         defaultRevenueSplit = defaultRevenueSplit_;
 
         swapTarget = swapTarget_;
+    }
+
+    function _init() internal virtual override(LineOfCredit) returns(LoanLib.STATUS) {
+      require(spigot.owner() == address(this));
+      return LineOfCredit._init();
     }
 
     function unused(address token) external view returns (uint256) {
@@ -212,7 +220,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
      */
     function addSpigot(
         address revenueContract,
-        Spigot.Setting calldata setting
+        ISpigot.Setting calldata setting
     ) external mutualConsent(arbiter, borrower) returns (bool) {
         return spigot.addSpigot(revenueContract, setting);
     }

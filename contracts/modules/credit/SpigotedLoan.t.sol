@@ -54,8 +54,13 @@ contract SpigotedLoanTest is DSTest {
         revenueToken = new RevenueToken();
 
         oracle = new SimpleOracle(address(revenueToken), address(creditToken));
-        loan = new SpigotedLoan(address(oracle), arbiter, borrower, address(dex), ttl, ownerSplit);
-        spigot = loan.spigot();
+        spigot = new Spigot(address(this), borrower, borrower);
+        
+        loan = new SpigotedLoan(address(oracle), arbiter, borrower, address(spigot), address(dex), ttl, ownerSplit);
+        
+        spigot.updateOwner(address(loan));
+
+        loan.init();
 
         _mintAndApprove();
         

@@ -38,4 +38,43 @@ interface ISpigot {
     
     error BadSetting();
 
+
+    function owner() external view returns (address);
+    function treasury() external view returns (address);
+    function operator() external view returns (address);
+
+    function claimRevenue(address revenueContract, bytes calldata data)
+      external returns (uint256 claimed);
+ 
+    function claimEscrow(address token) external returns (uint256 claimed) ;
+
+    function getEscrowBalance(address token) external view returns (uint256);
+
+    function operate(address revenueContract, bytes calldata data) external returns (bool);
+ 
+    function doOperations(address[] calldata contracts, bytes[] calldata data) external returns (bool);
+ 
+ 
+    function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
+ 
+ 
+    function removeSpigot(address revenueContract) external returns (bool);
+        
+ 
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool);
+
+    function updateOwner(address newOwner) external returns (bool);
+ 
+    function updateOperator(address newOperator) external returns (bool);
+ 
+    function updateTreasury(address newTreasury) external returns (bool);
+ 
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool);
+
+ 
+    function getSetting(address revenueContract)
+        external view
+        returns(address, uint8, bytes4, bytes4);
+ 
+
 }

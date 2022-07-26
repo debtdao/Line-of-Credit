@@ -18,9 +18,9 @@ contract Escrow is IEscrow {
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
     // Stakeholders and contracts used in Escrow
-    address public immutable loan;
     address public immutable oracle;
     address public immutable borrower;
+    address public loan;
 
     // tracking tokens that were deposited
     address[] private _collateralTokens;
@@ -43,8 +43,14 @@ contract Escrow is IEscrow {
         borrower = _borrower;
     }
 
-    function isLiquidatable() external view returns(bool) {
+    function isLiquidatable() external returns(bool) {
       return _getLatestCollateralRatio() < minimumCollateralRatio;
+    }
+
+    function updateLoan(address loan_) external returns(bool) {
+      require(msg.sender == loan);
+      loan = loan_;
+      return true;
     }
 
     /**

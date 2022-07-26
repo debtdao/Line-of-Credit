@@ -52,9 +52,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         deadline = block.timestamp + ttl_;
         interestRate = new InterestRateCredit();
 
-        loanStatus = LoanLib.STATUS.ACTIVE;
-
         emit DeployLoan(oracle_, arbiter_, borrower_);
+    }
+
+    function init() external virtual returns(LoanLib.STATUS) {
+      return _init();
+    }
+
+    function _init() internal virtual returns(LoanLib.STATUS) {
+       // If no modules then loan is immediately active
+      return _updateLoanStatus(LoanLib.STATUS.ACTIVE);
     }
 
     ///////////////
@@ -113,6 +120,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function getOutstandingDebt() external override returns (uint256) {
         (uint256 p, uint256 i) = _updateOutstandingDebt();
         return p + i;
+    }
+
+    function updateOutstandingDebt() external override returns (uint256, uint256) {
+        return _updateOutstandingDebt();
     }
 
     function _updateOutstandingDebt()
@@ -359,15 +370,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _accrueInterest(id);
         Credit memory credit = credits[id];
 
-        if(amount > credit.deposit - credit.principal) { revert NoLiquidity() ; }
+        if(amount > credit.deposit - credit.principal) { revert NoLiquidity(id) ; }
 
         credit.principal += amount;
-
-        credits[id] = credit;
 
         if(_updateLoanStatus(_healthcheck()) != LoanLib.STATUS.ACTIVE) { 
             revert NotActive();
         }
+
+        credits[id] = credit;
 
         IERC20(credit.token).safeTransfer(borrower, amount);
 
@@ -398,7 +409,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         Credit memory credit = credits[id];
 
         if(amount > credit.deposit + credit.interestRepaid - credit.principal) {
-          revert NoLiquidity();
+          revert NoLiquidity(id);
         }
 
         if (amount > credit.interestRepaid) {

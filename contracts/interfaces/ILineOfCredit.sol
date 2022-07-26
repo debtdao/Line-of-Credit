@@ -27,10 +27,12 @@ interface ILineOfCredit is ILoan {
   error NoTokenPrice();
 
   // Loan
-  error NoLiquidity();
+  error BadModule(address module);
+  error NoLiquidity(bytes32 position);
   error PositionExists();
   error CloseFailedWithPrincipal();
 
+  function init() external returns(LoanLib.STATUS);
 
   function addCredit(
     uint128 drate,
@@ -53,7 +55,7 @@ interface ILineOfCredit is ILoan {
     uint256 amount,
     uint256 principal
   ) external returns(bool);
-
+  
   function borrow(bytes32 id, uint256 amount) external returns(bool);
   function close(bytes32 id) external returns(bool);
 }

@@ -1,24 +1,25 @@
 pragma solidity 0.8.9;
 
-import { Escrow } from "../escrow/Escrow.sol";
+import { IEscrow } from "../../interfaces/IEscrow.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { IEscrowedLoan } from "../../interfaces/IEscrowedLoan.sol";
 
 abstract contract EscrowedLoan is IEscrowedLoan {
   // contract holding all collateral for borrower
-  Escrow immutable public escrow;
+  IEscrow immutable public escrow;
 
   constructor(
     uint _minimumCollateralRatio,
+    address _escrow,
     address _oracle,
     address _borrower
   ) {
-    escrow = new Escrow(
-      _minimumCollateralRatio,
-      _oracle,
-      address(this),
-      _borrower
-    );
+    escrow = IEscrow(_escrow);
+  }
+
+  function _init() internal virtual returns(LoanLib.STATUS) {
+    require(escrow.loan() == address(this));
+    return LoanLib.STATUS.ACTIVE;
   }
 
   /** @dev see BaseLoan._healthcheck */
