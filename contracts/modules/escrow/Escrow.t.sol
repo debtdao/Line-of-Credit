@@ -175,6 +175,7 @@ contract EscrowTest is DSTest {
         token4626.setAssetAddress(address(supportedToken1));
         escrow.enableCollateral(address(token4626));
         token4626.setAssetMultiplier(5);
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
         assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
@@ -209,6 +210,7 @@ contract EscrowTest is DSTest {
         token4626.setAssetAddress(address(supportedToken2));
         escrow.enableCollateral(address(token4626));
         token4626.setAssetMultiplier(2); // share token should be worth double the underlying (which is now supportedToken2)
+        escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(4000 * 1e8); // 1e18 of supportedToken2 * 2 == 4000 * 1e8 (4000 USD)
         assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be 100%");

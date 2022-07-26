@@ -1,16 +1,17 @@
 pragma solidity 0.8.9;
 
-import { SpigotController } from "./Spigot.sol";
+import { Spigot } from "./Spigot.sol";
 import { DSTest } from  "../../../lib/ds-test/src/test.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
+import { ISpigot } from '../../interfaces/ISpigot.sol';
 
 contract SpigotTest is DSTest {
     // spigot contracts/configurations to test against
     RevenueToken private token;
     address private revenueContract;
-    SpigotController private spigotController;
-    SpigotController.SpigotSettings private settings;
+    Spigot private spigot;
+    ISpigot.Setting private settings;
 
     // Named vars for common inputs
     address constant eth = address(0);
@@ -25,7 +26,7 @@ contract SpigotTest is DSTest {
     // Mostly unused in tests so convenience for empty array
     bytes4[] private whitelist;
     address[] private c;
-    SpigotController.SpigotSettings[] private s;
+    ISpigot.Setting[] private s;
 
     // Spigot Controller access control vars
     address private owner;
@@ -56,15 +57,15 @@ contract SpigotTest is DSTest {
         // deploy new revenue contract with settings
         revenueContract = address(new SimpleRevenueContract(address(this), address(_token)));
 
-        settings = SpigotController.SpigotSettings(_token, split, claimFunc, newOwnerFunc);
+        settings = ISpigot.Setting(_token, split, claimFunc, newOwnerFunc);
        
-        spigotController = new SpigotController(owner, treasury, operator);
+        spigot = new Spigot(owner, treasury, operator);
         
         // add spigot for revenue contract 
-        require(spigotController.addSpigot(revenueContract, settings), "Failed to add spigot");
+        require(spigot.addSpigot(revenueContract, settings), "Failed to add spigot");
 
         // give spigot ownership to claim revenue
-        revenueContract.call(abi.encodeWithSelector(newOwnerFunc, address(spigotController)));
+        revenueContract.call(abi.encodeWithSelector(newOwnerFunc, address(spigot)));
     }
 
 
@@ -74,28 +75,28 @@ contract SpigotTest is DSTest {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
     function testFail_claimRevenue_PushPaymentNoTokenRevenue() public {
         _initSpigot(address(token), 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
     function testFail_claimRevenue_PushPaymentNoETHRevenue() public {
         _initSpigot(eth, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
     function testFail_claimRevenue_PullPaymentNoETHRevenue() public {
         _initSpigot(eth, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
     /**
@@ -105,14 +106,14 @@ contract SpigotTest is DSTest {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(bytes4(0xdebfda05));
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
     function testFail_claimRevenue_MaliciousClaimFunction() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(transferOwnerFunc);
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
     }
 
 
@@ -135,15 +136,15 @@ contract SpigotTest is DSTest {
         uint256 escrowed = maxRevenue * settings.ownerSplit / 100;
 
         assertEq(
-            spigotController.getEscrowBalance(_token),
+            spigot.getEscrowBalance(_token),
             escrowed,
             'Invalid escrow amount for spigot revenue'
         );
 
         assertEq(
             _token == eth ?
-                address(spigotController).balance :
-                RevenueToken(token).balanceOf(address(spigotController)),
+                address(spigot).balance :
+                RevenueToken(token).balanceOf(address(spigot)),
             escrowed + overflow, // revenue over max stays in contract unnaccounted
             'Spigot balance vs escrow + overflow mismatch'
         );
@@ -161,11 +162,11 @@ contract SpigotTest is DSTest {
         if(totalRevenue == 0) return;
 
         // send revenue token directly to spigot (push)
-        token.mint(address(spigotController), totalRevenue);
-        assertEq(token.balanceOf(address(spigotController)), totalRevenue);
+        token.mint(address(spigot), totalRevenue);
+        assertEq(token.balanceOf(address(spigot)), totalRevenue);
         
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
 
         emit log_named_uint("total revenue: ", totalRevenue);
         assertSpigotSplits(address(token), totalRevenue);
@@ -177,7 +178,7 @@ contract SpigotTest is DSTest {
         
         token.mint(revenueContract, totalRevenue); // send revenue
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
         
         assertSpigotSplits(address(token), totalRevenue);
         assertEq(token.balanceOf(revenueContract), 0, 'All revenue not siphoned into Spigot');
@@ -191,13 +192,13 @@ contract SpigotTest is DSTest {
         if(totalRevenue == 0) return;
         _initSpigot(eth, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
-        payable(address(spigotController)).transfer(totalRevenue);
-        assertEq(totalRevenue, address(spigotController).balance); // ensure spigot received revenue
+        payable(address(spigot)).transfer(totalRevenue);
+        assertEq(totalRevenue, address(spigot).balance); // ensure spigot received revenue
         
         bytes memory claimData;
-        uint256 revenueClaimed = spigotController.claimRevenue(revenueContract, claimData); 
+        uint256 revenueClaimed = spigot.claimRevenue(revenueContract, claimData); 
         assertEq(totalRevenue, revenueClaimed, 'Improper revenue amount claimed');
-        emit log_named_uint("escrowdAmount", spigotController.getEscrowBalance(eth));
+        emit log_named_uint("escrowdAmount", spigot.getEscrowBalance(eth));
 
         
         assertSpigotSplits(eth, totalRevenue);
@@ -210,7 +211,7 @@ contract SpigotTest is DSTest {
         payable(revenueContract).transfer(totalRevenue);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        assertEq(totalRevenue, spigotController.claimRevenue(revenueContract, claimData), 'invalid revenue amount claimed');
+        assertEq(totalRevenue, spigot.claimRevenue(revenueContract, claimData), 'invalid revenue amount claimed');
 
         assertSpigotSplits(eth, totalRevenue);
     }
@@ -221,12 +222,12 @@ contract SpigotTest is DSTest {
     function test_claimEscrow_AsOwner(uint256 totalRevenue) public {
         if(totalRevenue == 0) return;
         // send revenue and claim it
-        token.mint(address(spigotController), totalRevenue);
+        token.mint(address(spigot), totalRevenue);
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
         assertSpigotSplits(address(token), totalRevenue);
 
-        uint256 claimed = spigotController.claimEscrow(address(token));
+        uint256 claimed = spigot.claimEscrow(address(token));
         (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
 
         assertEq(maxRevenue * settings.ownerSplit / 100, claimed, "Invalid escrow claimed");
@@ -238,24 +239,24 @@ contract SpigotTest is DSTest {
         _initSpigot(address(token), 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         // send revenue and claim it
-        token.mint(address(spigotController), 10**10);
+        token.mint(address(spigot), 10**10);
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
 
         // claim fails
-        spigotController.claimEscrow(address(token));
+        spigot.claimEscrow(address(token));
     }
 
 
     function testFail_claimEscrow_UnregisteredToken() public {
         // create new token and send push payment
         RevenueToken fakeToken = new RevenueToken();
-        fakeToken.mint(address(spigotController), 10**10);
+        fakeToken.mint(address(spigot), 10**10);
 
         bytes memory claimData;
-        spigotController.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, claimData);
         // claim fails because escrowed == 0
-        spigotController.claimEscrow(address(fakeToken));
+        spigot.claimEscrow(address(fakeToken));
     }
 
   
@@ -264,7 +265,7 @@ contract SpigotTest is DSTest {
 
     function test_addSpigot_ProperSettings() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-        (address _token, uint8 _split, bytes4 _claim, bytes4 _transfer) = spigotController.getSetting(revenueContract);
+        (address _token, uint8 _split, bytes4 _claim, bytes4 _transfer) = spigot.getSetting(revenueContract);
 
         assertEq(settings.token, _token);
         assertEq(settings.ownerSplit, _split);
@@ -277,7 +278,7 @@ contract SpigotTest is DSTest {
         if(split > 100 || split == 0) return;
         // emit log_named_uint("owner split", split);
         _initSpigot(address(token), split, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-        // assertEq(spigotController.getSetting(revenueContract).ownerSplit, split);
+        // assertEq(spigot.getSetting(revenueContract).ownerSplit, split);
     }
 
     function testFail_addSpigot_OwnerSplitParam(uint8 split) public {
@@ -295,7 +296,7 @@ contract SpigotTest is DSTest {
         if(func == claimPushPaymentFunc) return;
         _initSpigot(address(token), 100, claimPullPaymentFunc, func, whitelist);
 
-        (,,, bytes4 _transfer) = spigotController.getSetting(address(revenueContract));
+        (,,, bytes4 _transfer) = spigot.getSetting(address(revenueContract));
         assertEq(_transfer, func);
     }
 
@@ -304,30 +305,30 @@ contract SpigotTest is DSTest {
         
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.addSpigot(address(0xdebf), settings);
+        spigot.addSpigot(address(0xdebf), settings);
     }
 
     function testFail_addSpigot_ExistingSpigot() public {
-        spigotController.addSpigot(revenueContract, settings);
+        spigot.addSpigot(revenueContract, settings);
     }
 
     function testFail_addSpigot_SpigotAsRevenueContract() public {
-        spigotController.addSpigot(address(spigotController), settings);
+        spigot.addSpigot(address(spigot), settings);
     }
 
     // Operate()
 
     function test_operate_OperatorCanOperate() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-        // assertEq(true, spigotController.updateWhitelistedFunction(opsFunc, true));
-        // assertEq(true, spigotController.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
+        // assertEq(true, spigot.updateWhitelistedFunction(opsFunc, true));
+        // assertEq(true, spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
     }
 
     function testFail_operate_ClaimRevenueFunction() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
         
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigotController.operate(revenueContract, claimData);
+        spigot.operate(revenueContract, claimData);
     }
     
 
@@ -336,97 +337,97 @@ contract SpigotTest is DSTest {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigotController.operate(revenueContract, claimData);
+        spigot.operate(revenueContract, claimData);
     }
 
 
      function testFail_operate_FailOnNonWhitelistFunc() public {
-        spigotController.operate(revenueContract, abi.encodeWithSelector(opsFunc));
+        spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc));
     }
 
     function test_updateWhitelistedFunction() public {
         // allow to operate()
-        assertTrue(spigotController.updateWhitelistedFunction(opsFunc, true));
+        assertTrue(spigot.updateWhitelistedFunction(opsFunc, true));
         // // op()
-        assertTrue(spigotController.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
+        assertTrue(spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
     }
 
     // Release
 
     function test_removeSpigot() public {
-        (address token_,,,) = spigotController.getSetting(revenueContract);
+        (address token_,,,) = spigot.getSetting(revenueContract);
         assertEq(address(token), token_);
 
-        spigotController.removeSpigot(revenueContract);
+        spigot.removeSpigot(revenueContract);
 
-        (address token__,,,) = spigotController.getSetting(revenueContract);
+        (address token__,,,) = spigot.getSetting(revenueContract);
         assertEq(address(0), token__);
     }
 
 
     function testFail_removeSpigot_AsOperator() public {
         operator = address(this); // explicitly test operator can't change
-        spigotController.updateOwner(address(0xdebf)); // random owner
+        spigot.updateOwner(address(0xdebf)); // random owner
         
-        assertEq(spigotController.owner(), address(0xdebf));
-        assertEq(spigotController.operator(), address(this));
+        assertEq(spigot.owner(), address(0xdebf));
+        assertEq(spigot.operator(), address(this));
         
-        spigotController.removeSpigot(revenueContract);
+        spigot.removeSpigot(revenueContract);
     }
 
     function testFail_removeSpigot_AsNonOwner() public {
-        spigotController.updateOwner(address(0xdebf));
+        spigot.updateOwner(address(0xdebf));
         
-        assertEq(spigotController.owner(), address(0xdebf));
+        assertEq(spigot.owner(), address(0xdebf));
         
-        spigotController.removeSpigot(revenueContract);
+        spigot.removeSpigot(revenueContract);
     }
 
 
     // Access Control Changes
     function test_updateOwner_AsOwner() public {
-        spigotController.updateOwner(address(0xdebf));
-        assertEq(spigotController.owner(), address(0xdebf));
+        spigot.updateOwner(address(0xdebf));
+        assertEq(spigot.owner(), address(0xdebf));
     }
 
     function test_updateOperator_AsOperator() public {
-        spigotController.updateOperator(address(0xdebf));
-        assertEq(spigotController.operator(), address(0xdebf));
+        spigot.updateOperator(address(0xdebf));
+        assertEq(spigot.operator(), address(0xdebf));
     }
 
     function test_updateTreasury_AsTreasury() public {
         treasury =  address(this);
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.updateTreasury(address(0xdebf));
-        assertEq(spigotController.treasury(), address(0xdebf));
+        spigot.updateTreasury(address(0xdebf));
+        assertEq(spigot.treasury(), address(0xdebf));
     }
 
     function test_updateTreasury_AsOperator() public {
-        spigotController.updateTreasury(address(0xdebf));
-        assertEq(spigotController.treasury(), address(0xdebf));
+        spigot.updateTreasury(address(0xdebf));
+        assertEq(spigot.treasury(), address(0xdebf));
     }
 
     function testFail_updateOwner_AsNonOwner() public {
         owner =  address(0xdebf);
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.updateOwner(address(this));
+        spigot.updateOwner(address(this));
     }
 
     function testFail_updateOwner_NullAddress() public {
-        spigotController.updateOwner(address(0));
+        spigot.updateOwner(address(0));
     }
 
     function testFail_updateOperator_AsNonOperator() public {
         operator =  address(0xdebf);
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.updateOperator(address(this));
+        spigot.updateOperator(address(this));
     }
 
     function testFail_updateOperator_NullAddress() public {
-        spigotController.updateOperator(address(0));
+        spigot.updateOperator(address(0));
     }
 
     function testFail_updateTreasury_AsNonTreasuryOrOperator() public {
@@ -435,7 +436,7 @@ contract SpigotTest is DSTest {
 
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.updateTreasury(address(this));
+        spigot.updateTreasury(address(this));
     }
 
     function testFail_updateTreasury_NullAddress() public {
@@ -443,6 +444,6 @@ contract SpigotTest is DSTest {
 
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        spigotController.updateTreasury(address(0));
+        spigot.updateTreasury(address(0));
     }
 }

@@ -189,7 +189,7 @@ contract LoanTest is DSTest {
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
         loan.depositAndClose();
-        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Tokens should be sent back to lender");
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding credit should be 0");
     }
 
