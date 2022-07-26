@@ -1,3 +1,5 @@
+pragma solidity 0.8.9;
+
 import { LoanLib } from "../utils/LoanLib.sol";
 import { ILoan } from "./ILoan.sol";
 

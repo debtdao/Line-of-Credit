@@ -142,7 +142,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         require(msg.sender == borrower || msg.sender == arbiter);
 
         address targetToken = credits[ids[0]].token;
-        uint256 tokensBought = _claimAndTrade(
+        tokensBought = _claimAndTrade(
             claimToken,
             targetToken,
             zeroExTradeData
