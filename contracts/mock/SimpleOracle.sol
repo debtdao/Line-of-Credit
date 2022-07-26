@@ -22,12 +22,12 @@ contract SimpleOracle is IOracle {
 
     function getLatestAnswer(address token) external returns(int256) {
         // mimic eip4626
-        (bool success, bytes memory result) = token.call(abi.encodeWithSignature("asset()"));
-        if(success && result.length > 0) {
-            // get the underlying token value (if ERC4626)
-            // NB: Share token to underlying ratio might not be 1:1
-            token = abi.decode(result, (address));
-        }
+        // (bool success, bytes memory result) = token.call(abi.encodeWithSignature("asset()"));
+        // if(success && result.length > 0) {
+        //     // get the underlying token value (if ERC4626)
+        //     // NB: Share token to underlying ratio might not be 1:1
+        //     token = abi.decode(result, (address));
+        // }
         require(prices[token] != 0, "SimpleOracle: unsupported token");
         return prices[token];
     }

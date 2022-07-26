@@ -1,4 +1,7 @@
+pragma solidity 0.8.9;
+
 import { LoanLib } from "../utils/LoanLib.sol";
+import { IOracle } from "../interfaces/IOracle.sol";
 
 interface ILoan {
 
@@ -13,46 +16,56 @@ interface ILoan {
 
   // Lender Events
 
-  event AddDebtPosition(
+  event AddCredit(
     address indexed lender,
     address indexed token,
     uint256 indexed deposit,
     uint256 initialPrincipal
   );
-  // can reference only positionId once AddDebtPosition is emitted because it will be stored in subgraph
+
+   event IncreaseCredit (
+    bytes32 indexed id,
+    uint256 indexed deposit,
+    uint256 indexed initialPrincipal
+  );
+  // can reference only id once AddCredit is emitted because it will be stored in subgraph
   // initialPrinicipal tells us if its a Revolver or Term
 
-  event Withdraw(bytes32 indexed positionId, uint256 indexed amount);
-  // lender removing funds from Loan (interest or principal)
+  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
+  // lender removing funds from Loan  principal
+  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
+  // lender taking interest earned out of contract
 
-  event CloseDebtPosition(bytes32 indexed positionId);
+  event CloseCreditPosition(bytes32 indexed id);
   // lender officially repaid in full. if Credit then facility has also been closed.
 
-  event InterestAccrued(bytes32 indexed positionId, uint256 indexed tokenAmount, uint256 indexed value);
+  event InterestAccrued(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
   // interest added to borrowers outstanding balance
 
 
   // Borrower Events
 
-  event Borrow(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+  event Borrow(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
   // receive full loan or drawdown on credit
 
-  event RepayInterest(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+  event RepayInterest(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
 
-  event RepayPrincipal(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
 
-  event Liquidate(bytes32 indexed positionId, uint256 indexed amount, address indexed token);
-
-  event Default(bytes32 indexed positionId, uint256 indexed amount, uint256 indexed value);
+  event Default(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
 
   // External Functions  
-  function withdraw(bytes32 positionId, uint256 amount) external returns(bool);
-  function liquidate(bytes32 positionId, uint256 amount, address targetToken) external returns(uint256);
+  function withdraw(bytes32 id, uint256 amount) external returns(bool);
+  function withdrawInterest(bytes32 id) external returns (uint256);
 
   function depositAndRepay(uint256 amount) external returns(bool);
   function depositAndClose() external returns(bool);
 
   function accrueInterest() external returns(uint256 valueAccrued);
-  function getOutstandingDebt() external returns(uint256 totalDebt);
+  function getOutstandingDebt() external returns(uint256 totalCredit);
   function healthcheck() external returns(LoanLib.STATUS);
+
+  function borrower() external returns(address);
+  function arbiter() external returns(address);
+  function oracle() external returns(IOracle);
 }

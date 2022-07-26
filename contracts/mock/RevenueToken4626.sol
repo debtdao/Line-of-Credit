@@ -7,8 +7,8 @@ contract RevenueToken4626 is RevenueToken {
     address private _asset;
     uint private _multiplier;
 
-    constructor() {
-        _asset = address(this);
+    constructor(address assetAddr) {
+        _asset = assetAddr;
         _multiplier = 1;
     }
 
