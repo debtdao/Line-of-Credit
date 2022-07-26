@@ -481,21 +481,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @param id -the credit position to close
      */
     function close(bytes32 id) external override returns (bool) {
-        Credit memory credit = credits[id];
         require(
-            msg.sender == credit.lender || msg.sender == borrower,
+            msg.sender == credits[id].lender || msg.sender == borrower,
             "Loan: msg.sender must be the lender or borrower"
         );
-
-        // return the lender's deposit
-        if (credit.deposit > 0) {
-            require(
-                IERC20(credit.token).transfer(
-                    credit.lender,
-                    credit.deposit + credit.interestRepaid
-                )
-            );
-        }
 
         require(_close(id));
 
@@ -651,11 +640,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev deletes Credit storage. Store any data u might need later in call before _close()
      */
     function _close(bytes32 id) internal virtual returns (bool) {
+        Credit memory credit = credits[id];
         require(
-            credits[id].principal + credits[id].interestAccrued ==
-                0,
+            credit.principal + credit.interestAccrued == 0,
             "Loan: close failed. credit owed"
         );
+
+        // return the lender's deposit
+        if (credit.deposit > 0) {
+            require(
+                IERC20(credit.token).transfer(
+                    credit.lender,
+                    credit.deposit + credit.interestRepaid
+                )
+            );
+        }
 
         delete credits[id]; // yay gas refunds!!!
 

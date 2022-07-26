@@ -189,7 +189,7 @@ contract LoanTest is DSTest {
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
         loan.depositAndClose();
-        assertEq(supportedToken1.balanceOf(address(loan)), 1 ether, "Loan balance should be 1e18");
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding credit should be 0");
     }
 
@@ -203,6 +203,52 @@ contract LoanTest is DSTest {
         loan.withdraw(id, 0.1 ether);
         assertEq(supportedToken1.balanceOf(address(loan)), 0.4 ether, "Loan balance should be 1e18 * 0.4");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 0.4 ether, "Contract should have initial mint balance - 1e18 * 0.4");
+    }
+
+    function test_return_lender_funds_on_deposit_and_close() public {
+      assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+      assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
+      
+      loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+      loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+      bytes32 id = loan.ids(0);
+      
+      assert(id != bytes32(0));
+
+      assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+
+      // test depsoitAndClose()
+      loan.borrow(id, 1 ether);
+      assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+      loan.depositAndClose();
+      assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+      assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan should not have tokens");
+      
+      assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID), "Loan not repaid");
+    }
+
+    function test_return_lender_funds_on_close() public {
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
+        
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        bytes32 id = loan.ids(0);
+        assert(id != bytes32(0));
+
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+
+        loan.borrow(id, 1 ether);
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+        loan.depositAndRepay(1 ether);
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance after depositAndClose");
+        loan.close(id);
+
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after close");
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan should not have tokens");
+        assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID), "Loan not repaid");
     }
 
     function test_loan_status_changes_to_liquidatable() public {
