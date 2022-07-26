@@ -24,6 +24,8 @@ interface IEscrow {
 
     error NotLiquidatable();
 
+    function isLiquidatable() external returns(bool);
+
     function getCollateralRatio() external returns(uint);
 
     function getCollateralValue() external returns(uint);
