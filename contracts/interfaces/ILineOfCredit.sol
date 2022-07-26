@@ -33,6 +33,7 @@ interface ILineOfCredit is ILoan {
   error PositionExists();
   error CloseFailedWithPrincipal();
 
+  function updateOutstandingDebt() external returns(uint256, uint256);
 
   function addCredit(
     uint128 drate,

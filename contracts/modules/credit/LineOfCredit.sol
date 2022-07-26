@@ -30,9 +30,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     // Loan Financials aggregated accross all existing  Credit
     LoanLib.STATUS public loanStatus;
 
-    uint256 public principalUsd; // initial principal
-    uint256 public interestUsd; // unpaid interest
-
     /**
    * @dev - Loan borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
@@ -123,6 +120,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         (uint256 p, uint256 i) = _updateOutstandingDebt();
         return p + i;
     }
+    function updateOutstandingDebt() external override returns (uint256, uint256) {
+        return _updateOutstandingDebt();
+    }
 
     function _updateOutstandingDebt()
         internal
@@ -150,9 +150,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
                 credit.decimals
             );
         }
-
-        principalUsd = principal;
-        interestUsd = interest;
     }
 
     /**
