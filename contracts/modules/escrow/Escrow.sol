@@ -43,13 +43,16 @@ contract Escrow is IEscrow {
         borrower = _borrower;
     }
 
+    function isLiquidatable() external view returns(bool) {
+      return _getLatestCollateralRatio() < minimumCollateralRatio;
+    }
+
     /**
      * @notice updates the cratio according to the collateral value vs loan value
      * @dev calls accrue interest on the loan contract to update the latest interest payable
      * @return the updated collateral ratio in 18 decimals
      */
     function _getLatestCollateralRatio() internal returns (uint256) {
-        ILoan(loan).accrueInterest();
         uint256 debtValue = ILoan(loan).getOutstandingDebt();
         uint256 collateralValue = _getCollateralValue();
         if (collateralValue == 0) return 0;

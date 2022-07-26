@@ -66,6 +66,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
       if(s != LoanLib.STATUS.ACTIVE) {
         return s;
       }
+
       return EscrowedLoan._healthcheck();
     }
 

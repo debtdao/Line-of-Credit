@@ -23,7 +23,7 @@ abstract contract EscrowedLoan is IEscrowedLoan {
 
   /** @dev see BaseLoan._healthcheck */
   function _healthcheck() virtual internal returns(LoanLib.STATUS) {
-    if(escrow.getCollateralRatio() < escrow.minimumCollateralRatio()) {
+    if(escrow.isLiquidatable()) {
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 

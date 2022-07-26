@@ -270,7 +270,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(principal > 0) {  
             IERC20(credit.token).safeTransfer(borrower, principal);
 
-          credit.principal += principal;
+            credit.principal += principal;
             emit Borrow(id, principal);
         }
 

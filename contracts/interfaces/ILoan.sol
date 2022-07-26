@@ -20,7 +20,8 @@ interface ILoan {
     address indexed lender,
     address indexed token,
     uint256 indexed deposit,
-    uint256 initialPrincipal
+    uint256 initialPrincipal,
+    bytes32 positionId
   );
 
    event IncreaseCredit (
