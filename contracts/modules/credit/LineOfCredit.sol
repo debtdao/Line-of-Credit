@@ -78,6 +78,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _;
     }
 
+    modifier mutualConsentById(address _signerOne, bytes32 id) {
+      if(_mutualConsent(_signerOne, credits[id].lender))  {
+        // Run whatever code needed 2/2 consent
+        _;
+      }
+    }
+
     function healthcheck() external returns (LoanLib.STATUS) {
         return _updateLoanStatus(_healthcheck());
     }
@@ -206,24 +213,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     * @dev              - include lender in params for cheap gas and consistent API for mutualConsent
     * @dev              - callable by borrower or any lender
     * @param id - credit id that we are updating
-    * @param lender     - lender on id
     * @param drate      - new drawn rate
     * @param frate      - new facility rate
     
     */
     function setRates(
         bytes32 id,
-        address lender,
         uint128 drate,
         uint128 frate
     )
       external
       override
-      mutualConsent(lender, borrower)
+      mutualConsentById(borrower, id)
       returns (bool)
     {
         _accrueInterest(id);
-        if(lender != credits[id].lender) { revert CallerAccessDenied() ; }
         require(interestRate.setRate(id, drate, frate));
         emit SetRates(id, drate, frate);
         return true;
@@ -235,27 +239,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     *                   - can only increase while loan is healthy and ACTIVE.
     * @dev              - include lender in params for cheap gas and consistent API for mutualConsent
     * @dev              - callable by borrower    
-    * @param id - credit id that we are updating
-    * @param lender     - lender on id
+    * @param id         - credit id that we are updating
     * @param amount     - amount to increase deposit / capaciity by
-    * @param principal - amount to immediately draw down and send to borrower
+    * @param principal  - amount to immediately draw down and send to borrower
     */
     function increaseCredit(
         bytes32 id,
-        address lender,
         uint256 amount,
         uint256 principal
     )
       external
       override
       whileActive
-      mutualConsent(lender, borrower)
+      mutualConsentById(borrower, id)
       returns (bool)
     {
         _accrueInterest(id);
-        if(principal <= amount) { revert TokenTransferFailed() ; }
+        if(principal > amount) { revert TokenTransferFailed() ; }
         Credit memory credit = credits[id];
-        if(lender != credit.lender) { revert CallerAccessDenied() ; }
 
         IERC20(credit.token).safeTransferFrom(
           credit.lender,

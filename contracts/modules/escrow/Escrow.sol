@@ -43,7 +43,7 @@ contract Escrow is IEscrow {
         borrower = _borrower;
     }
 
-    function isLiquidatable() external view returns(bool) {
+    function isLiquidatable() external returns(bool) {
       return _getLatestCollateralRatio() < minimumCollateralRatio;
     }
 

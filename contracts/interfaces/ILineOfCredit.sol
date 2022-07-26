@@ -44,14 +44,12 @@ interface ILineOfCredit is ILoan {
 
   function setRates(
     bytes32 id,
-    address lender,
     uint128 drate,
     uint128 frate
   ) external returns(bool);
 
   function increaseCredit(
     bytes32 id,
-    address lender,
     uint256 amount,
     uint256 principal
   ) external returns(bool);
