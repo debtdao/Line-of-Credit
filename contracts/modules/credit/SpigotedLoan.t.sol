@@ -150,8 +150,8 @@ contract SpigotedLoanTest is DSTest {
 
       loan.borrow(loan.ids(0), lentAmount);
       
-      // amount of tokens owed in interest (not usd owed!)
-      uint256 interest = loan.accrueInterest() / uint(oracle.getLatestAnswer(address(creditToken)));
+      // no interest charged because no blocks processed
+      uint256 interest = 0;
 
       // oracle prices not relevant to trading test
       bytes memory tradeData = abi.encodeWithSignature(
