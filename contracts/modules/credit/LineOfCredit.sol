@@ -97,13 +97,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // Liquidate if all lines of credit arent closed by end of term
         if (block.timestamp >= deadline && ids.length > 0) {
-            uint256 len = ids.length;
-            for (uint256 i = 0; i < len; i++) { // Default every position
-                bytes32 id = ids[i];
-                uint256 amount = credits[id].principal +
-                    credits[id].interestAccrued;
-                emit Default(id, amount);
-            }
+            emit Default(ids[0]); // can query all defaulted positions offchain once event picked up
             return LoanLib.STATUS.LIQUIDATABLE;
         }
 
@@ -181,19 +175,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         address lender
     )
         external
-        virtual
         override
         whileActive
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        IERC20(token).safeTransferFrom(
-            lender,
-            address(this),
-            amount
-        );
+        IERC20(token).safeTransferFrom(lender, address(this), amount);
 
-        bytes32 id = _createCredit(lender, token, amount, 0);
+        bytes32 id = _createCredit(lender, token, amount);
 
         require(interestRate.setRate(id, drate, frate));
 
@@ -234,12 +223,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     * @dev              - callable by borrower    
     * @param id         - credit id that we are updating
     * @param amount     - amount to increase deposit / capaciity by
-    * @param principal  - amount to immediately draw down and send to borrower
     */
     function increaseCredit(
         bytes32 id,
-        uint256 amount,
-        uint256 principal
+        uint256 amount
     )
       external
       override
@@ -248,27 +235,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       returns (bool)
     {
         _accrueInterest(id);
-        if(principal > amount) { revert TokenTransferFailed() ; }
-        Credit memory credit = credits[id];
 
-        IERC20(credit.token).safeTransferFrom(
-          credit.lender,
+        IERC20(credits[id].token).safeTransferFrom(
+          credits[id].lender,
           address(this),
           amount
         );
-        credit.deposit += amount;
+        credits[id].deposit += amount;
         
-
-        emit IncreaseCredit(id, amount, principal);
-
-        if(principal > 0) {  
-            IERC20(credit.token).safeTransfer(borrower, principal);
-
-            credit.principal += principal;
-            emit Borrow(id, principal);
-        }
-
-        credits[id] = credit;
+        emit IncreaseCredit(id, amount);
 
         return true;
     }
@@ -294,11 +269,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 totalOwed = credits[id].principal + credits[id].interestAccrued;
 
         // borrower deposits remaining balance not already repaid and held in contract
-        IERC20(credits[id].token).safeTransferFrom(
-            msg.sender,
-            address(this),
-            totalOwed
-        );
+        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), totalOwed);
         // clear the credit
         _repay(id, totalOwed);
 
@@ -312,7 +283,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @notice - see _repay() for more details
      * @param amount - amount of `token` in `id` to pay back
      */
-
     function depositAndRepay(uint256 amount)
         external
         override
@@ -324,11 +294,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         require(amount <= credits[id].principal + credits[id].interestAccrued);
 
-        IERC20(credits[id].token).safeTransferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
+        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), amount);
 
         _repay(id, amount);
         return true;
@@ -386,12 +352,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         override
         returns (bool)
     {
-        if(msg.sender != credits[id].lender) {
-          revert CallerAccessDenied();
-        }
+        Credit memory credit = credits[id];
+        
+        if(msg.sender != credit.lender) { revert CallerAccessDenied(); }
 
         _accrueInterest(id);
-        Credit memory credit = credits[id];
 
         if(amount > credit.deposit + credit.interestRepaid - credit.principal) {
           revert NoLiquidity();
@@ -470,8 +435,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function _createCredit(
         address lender,
         address token,
-        uint256 amount,
-        uint256 principal
+        uint256 amount
     ) internal returns (bytes32 id) {
         id = LoanLib.computePositionId(address(this), lender, token);
 
@@ -491,7 +455,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             token: token,
             decimals: decimals,
             deposit: amount,
-            principal: principal,
+            principal: 0,
             interestAccrued: 0,
             interestRepaid: 0
         });
@@ -499,10 +463,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         ids.push(id); // add lender to end of repayment queue
 
         emit AddCredit(lender, token, amount, 0, id);
-
-        if(principal > 0) {
-            emit Borrow(id, principal);
-        }
 
         return id;
     }
@@ -556,20 +516,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         internal
         returns (uint256 accruedToken)
     {
-        Credit memory credit = credits[id];
         // get token demoninated interest accrued
         accruedToken = interestRate.accrueInterest(
             id,
-            credit.principal,
-            credit.deposit
+            credits[id].principal,
+            credits[id].deposit
         );
 
         // update credits balance
-        credit.interestAccrued += accruedToken;
+        credits[id].interestAccrued += accruedToken;
 
         emit InterestAccrued(id, accruedToken);
-
-        credits[id] = credit; // save updates to intterestAccrued
 
         return accruedToken;
     }
@@ -590,7 +547,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
                 credit.deposit + credit.interestRepaid
             );
         }
-
 
         delete credits[id]; // gas refunds
 

@@ -348,52 +348,26 @@ contract LoanTest is DSTest {
         (uint d,,,,,,) = loan.credits(id);
         
 
-        loan.increaseCredit(id, 1 ether, 0);
-        loan.increaseCredit(id, 1 ether, 0);
+        loan.increaseCredit(id, 1 ether);
+        loan.increaseCredit(id, 1 ether);
         (uint d2,,,,,,) = loan.credits(id);
         assertEq(d2 - d, 1 ether);
     }
 
-    function test_increase_credit_limit_initial_principal() public {
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        (,uint p,,,,,) = loan.credits(id);
+    // function test_cannot_increase_credit_limit_without_consent() public {
+    //     // TODO need a way to fake `lender` so mutualConsentById will fail
+    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     bytes32 id = loan.ids(0);
+    //     (uint d,,,,,,) = loan.credits(id);
         
 
-        loan.increaseCredit(id, 1 ether, 1 ether);
-        loan.increaseCredit(id, 1 ether, 1 ether);
-        (,uint p2,,,,,) = loan.credits(id);
-        
-        assertEq(p2, 1 ether);
-        assertEq(p2 - p, 1 ether);
-    }
-
-    function test_cannot_increase_credit_limit_without_consent() public {
-        // TODO need a way to fake `lender` so mutualConsentById will fail
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        (uint d,,,,,,) = loan.credits(id);
-        
-
-        // try to mock lender address as someone else
-        loan.increaseCredit(id, 1 ether, 1 ether);
-        loan.increaseCredit(id, 1 ether, 1 ether);
-        (uint d2,,,,,,) = loan.credits(id); 
-        assertEq(d2, d);
-    }
-
-    function testFail_cannot_increase_credit_with_bigger_principal() public {
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        (uint d,,,,,,) = loan.credits(id);
-
-        loan.increaseCredit(id, 1 ether, 10 ether);
-        loan.increaseCredit(id, 1 ether, 10 ether);
-    }
-
+    //     // try to mock lender address as someone else
+    //     loan.increaseCredit(id, 1 ether);
+    //     loan.increaseCredit(id, 1 ether);
+    //     (uint d2,,,,,,) = loan.credits(id); 
+    //     assertEq(d2, d);
+    // }
 
     function test_can_update_rates_with_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -410,20 +384,20 @@ contract LoanTest is DSTest {
         assertGt(drate, drawnRate);
     }
 
-    function test_cannot_update_rates_without_consent() public {
-        // TODO need a way to fake `lender` so mutualConsentById will fail
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
+    // function test_cannot_update_rates_without_consent() public {
+    //     // TODO need a way to fake `lender` so mutualConsentById will fail
+    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     bytes32 id = loan.ids(0);
       
 
-        // try to mock lender address as someone else
-        loan.setRates(id, uint128(1 ether), uint128(1 ether));
-        loan.setRates(id, uint128(1 ether), uint128(1 ether));
-        (uint128 drate, uint128 frate,) = loan.interestRate().rates(id);
-        assertEq(facilityRate, frate);
-        assertEq(drawnRate, drate);
-    }
+    //     // try to mock lender address as someone else
+    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
+    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
+    //     (uint128 drate, uint128 frate,) = loan.interestRate().rates(id);
+    //     assertEq(facilityRate, frate);
+    //     assertEq(drawnRate, drate);
+    // }
 
 
 }

@@ -51,8 +51,7 @@ interface ILineOfCredit is ILoan {
 
   function increaseCredit(
     bytes32 id,
-    uint256 amount,
-    uint256 principal
+    uint256 amount
   ) external returns(bool);
 
   function borrow(bytes32 id, uint256 amount) external returns(bool);

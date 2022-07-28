@@ -26,9 +26,9 @@ interface ILoan {
 
    event IncreaseCredit (
     bytes32 indexed id,
-    uint256 indexed deposit,
-    uint256 indexed initialPrincipal
+    uint256 indexed deposit
   );
+
   // can reference only id once AddCredit is emitted because it will be stored in subgraph
   // initialPrinicipal tells us if its a Revolver or Term
 
@@ -53,7 +53,7 @@ interface ILoan {
 
   event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
 
-  event Default(bytes32 indexed id, uint256 indexed amount);
+  event Default(bytes32 indexed id);
 
   // External Functions  
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
