@@ -89,7 +89,7 @@ library LoanLib {
       uint256 amount,
       uint8 decimals
     )
-      internal
+      internal pure
       returns(uint256)
     {
       return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
@@ -114,7 +114,7 @@ library LoanLib {
      * @param id - hash id that must be removed from active positions
      * @return newPositions - all active positions on loan after `id` is removed
      */
-    function removePosition(bytes32[] calldata positions, bytes32 id) external view returns(bytes32[] memory) {
+    function removePosition(bytes32[] calldata positions, bytes32 id) external pure returns(bytes32[] memory) {
       uint256 newLength = positions.length - 1;
       uint256 count = 0;
       bytes32[] memory newPositions = new bytes32[](newLength);
@@ -135,7 +135,7 @@ library LoanLib {
      * @param positions - all current active positions on the loan
      * @return newPositions - positions after moving first to last in array
      */
-    function stepQ(bytes32[] calldata positions) external view returns(bytes32[] memory) {
+    function stepQ(bytes32[] calldata positions) external pure returns(bytes32[] memory) {
       uint256 len = positions.length ;
       if(len <= 1) return positions; // already ordered
 
