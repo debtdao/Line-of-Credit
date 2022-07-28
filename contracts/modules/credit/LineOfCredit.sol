@@ -75,6 +75,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _;
     }
 
+    /** @notice - mutualConsent but uses position to get lender address instead of passing it in directly */
     modifier mutualConsentById(address _signerOne, bytes32 id) {
       if(_mutualConsent(_signerOne, credits[id].lender))  {
         // Run whatever code needed 2/2 consent

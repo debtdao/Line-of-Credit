@@ -1,4 +1,6 @@
 pragma solidity ^0.8.9;
+
+import {ISpigot} from "./ISpigot.sol";
 interface ISpigotedLoan {
   event RevenuePayment(
     address indexed token,
@@ -14,7 +16,16 @@ interface ISpigotedLoan {
     uint256 indexed debtTokensBought
   );
   
+  error NoSpigot();
+  error TradeFailed();
+  error ReleaseSpigotFailed();
+
   function unused(address token) external returns(uint256);
+
+  function addSpigot(address revenueContract, ISpigot.Setting calldata setting) external returns(bool);
+  function updateOwnerSplit(address revenueContract) external returns(bool);
+  function updateWhitelist(bytes4 func, bool allowed) external returns(bool);
+  function releaseSpigot() external returns(bool);
 
   function claimAndTrade(
     address claimToken, 

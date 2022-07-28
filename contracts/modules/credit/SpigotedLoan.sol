@@ -52,33 +52,6 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     }
 
     /**
-     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
-     * @dev    - callable `arbiter` + `borrower`
-     * @param revenueContract - spigot to update
-     */
-    function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(
-            revenueContract
-        );
-
-        require(transferFunc != bytes4(0), "SpgtLoan: no spigot");
-
-        if (
-            loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit
-        ) {
-            // if loan is healthy set split to default take rate
-            spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (
-            loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT
-        ) {
-            // if loan is in distress take all revenue to repay loan
-            spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
-        }
-
-        return true;
-    }
-
-    /**
 
    * @notice - Claims revenue tokens from Spigot attached to borrowers revenue generating tokens
                and sells them via 0x protocol to repay credits
@@ -171,14 +144,14 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
             (bool success, ) = swapTarget.call{value: tokensClaimed}(
                 zeroExTradeData
             );
-            require(success, "SpigotCnsm: trade failed");
+            if(!success) { revert TradeFailed(); }
         } else {
             IERC20(claimToken).approve(
                 swapTarget,
                 existingClaimTokens + tokensClaimed
             );
             (bool success, ) = swapTarget.call(zeroExTradeData);
-            require(success, "SpigotCnsm: trade failed");
+            if(!success) { revert TradeFailed(); }
         }
 
         uint256 targetTokens = IERC20(targetToken).balanceOf(address(this));
@@ -204,6 +177,34 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     }
 
     //  SPIGOT OWNER FUNCTIONS
+
+    /**
+     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
+     * @dev    - callable `arbiter` + `borrower`
+     * @param revenueContract - spigot to update
+     * @return whether or not split was updated
+     */
+    function updateOwnerSplit(address revenueContract) external returns (bool) {
+        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(
+            revenueContract
+        );
+
+        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
+
+        if (
+            loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit
+        ) {
+            // if loan is healthy set split to default take rate
+            return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
+        } else if (
+            loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT
+        ) {
+            // if loan is in distress take all revenue to repay loan
+            return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
+        }
+
+        return false;
+    }
 
     /**
      * @notice - allow Loan to add new revenue streams to reapy credit
@@ -235,21 +236,16 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
              -  doesnt transfer out if loan is unpaid and/or healthy
    * @dev    - callable by anyone 
+   * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
         if (loanStatus == LoanLib.STATUS.REPAID) {
-            require(
-                spigot.updateOwner(borrower),
-                "SpigotCnsmr: cant release spigot"
-            );
+            if(!spigot.updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
         if (loanStatus == LoanLib.STATUS.LIQUIDATABLE) {
-            require(
-                spigot.updateOwner(arbiter),
-                "SpigotCnsmr: cant release spigot"
-            );
+            if(!spigot.updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
