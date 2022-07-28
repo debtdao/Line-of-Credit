@@ -66,7 +66,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     modifier whileBorrowing() {
-        if(ids.length == 0 || credits[ids[0]].principal == 0) { revert Borrowing(); }
+        if(ids.length == 0 || credits[ids[0]].principal == 0) { revert NotBorrowing(); }
         _;
     }
 
@@ -489,7 +489,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return true;
     }
 
-    /**
+  /**
    * @dev - Loops over all credit positions, calls InterestRate module with position data,
             then updates `interestAccrued` on position with returned data.
             Also updates global USD values for `interestUsd`.
