@@ -51,10 +51,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
     returns(uint256)
   {
     require(msg.sender == arbiter);
-
-    _updateLoanStatus(_healthcheck());
-
-    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+    require(_updateLoanStatus(_healthcheck()) == LoanLib.STATUS.LIQUIDATABLE);
 
     // send tokens to arbiter for OTC sales
     return _liquidate(positionId, amount, targetToken, msg.sender);

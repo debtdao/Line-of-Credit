@@ -51,7 +51,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         deadline = block.timestamp + ttl_;
         interestRate = new InterestRateCredit();
 
-        loanStatus = LoanLib.STATUS.ACTIVE;
+        _updateLoanStatus(LoanLib.STATUS.ACTIVE);
 
         emit DeployLoan(oracle_, arbiter_, borrower_);
     }
@@ -376,29 +376,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             emit WithdrawProfit(id, amount);
         }
 
-        IERC20(credit.token).safeTransfer(credit.lender, amount);
-
         credits[id] = credit;
 
+        IERC20(credit.token).safeTransfer(credit.lender, amount);
+
         return true;
-    }
-
-    function withdrawInterest(bytes32 id)
-        external
-        override
-        returns (uint256)
-    {
-        if(msg.sender != credits[id].lender) { revert CallerAccessDenied(); }
-
-        _accrueInterest(id);
-
-        uint256 amount = credits[id].interestAccrued;
-
-        IERC20(credits[id].token).safeTransfer(credits[id].lender, amount);
-
-        emit WithdrawProfit(id, amount);
-
-        return amount;
     }
 
     /**
@@ -442,14 +424,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // MUST not double add position. otherwise we can not _close()
         if(credits[id].lender != address(0)) { revert PositionExists(); }
 
+        int price = IOracle(oracle).getLatestAnswer(token);
+        if(price <= 0 ) { revert NoTokenPrice(); }
+
         (bool passed, bytes memory result) = token.call(
             abi.encodeWithSignature("decimals()")
         );
         uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
         
-        int price = IOracle(oracle).getLatestAnswer(token);
-        if(price <= 0 ) { revert NoTokenPrice(); }
-
         credits[id] = Credit({
             lender: lender,
             token: token,
@@ -555,7 +537,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // brick loan contract if all positions closed
         if (ids.length == 0) {
-            loanStatus = LoanLib.STATUS.REPAID;
+            _updateLoanStatus(LoanLib.STATUS.REPAID);
         }
 
         emit CloseCreditPosition(id);
