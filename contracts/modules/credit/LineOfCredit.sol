@@ -116,10 +116,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
               Denominated in USD 1e8.
   * @dev    - callable by anyone
   */
-    function getOutstandingDebt() external override returns (uint256) {
-        (uint256 p, uint256 i) = _updateOutstandingDebt();
-        return p + i;
-    }
     function updateOutstandingDebt() external override returns (uint256, uint256) {
         return _updateOutstandingDebt();
     }

@@ -114,7 +114,8 @@ contract LoanTest is DSTest {
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
         loan.depositAndRepay(1 ether);
-        assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding credit should be 0");
+        (uint p, uint i) = loan.updateOutstandingDebt();
+        assertEq(p + i, 0, "Loan outstanding credit should be 0");
         loan.close(id);
     }
 
@@ -125,13 +126,13 @@ contract LoanTest is DSTest {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
-        assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit, "Loan outstanding credit should be set as one full unit price in USD");
         (uint p, uint i) = loan.updateOutstandingDebt();
+        assertEq(p + i, tokenPriceOneUnit, "Loan outstanding credit should be set as one full unit price in USD");
         assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
         assertEq(i, 0, "No interest should have been accrued");
         loan.depositAndRepay(1 ether);
-        assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding credit should be 0");
         (uint p2, uint i2) = loan.updateOutstandingDebt();
+        assertEq(p2 + i2, 0, "Loan outstanding credit should be 0");
         assertEq(p2, 0, "Principle should be 0");
         assertEq(i2, 0, "No interest should have been accrued");
     }
@@ -144,8 +145,8 @@ contract LoanTest is DSTest {
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
         loan.depositAndRepay(0.5 ether);
-        assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit / 2, "Loan outstanding credit should be set as half of one full unit price in USD");
         (uint p, uint i) = loan.updateOutstandingDebt();
+        assertEq(p + i, tokenPriceOneUnit / 2, "Loan outstanding credit should be set as half of one full unit price in USD");
         assertEq(p, tokenPriceOneUnit / 2, "Principal should be set as half of one full unit price in USD");
         assertEq(i, 0, "No interest should have been accrued");
     }
@@ -163,8 +164,8 @@ contract LoanTest is DSTest {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
         bytes32 id2 = loan.ids(1);
         loan.borrow(id2, 1 ether);
-        assertEq(loan.getOutstandingDebt(), tokenPriceOneUnit, "Loan outstanding credit should be set as one full unit price in USD");
         (uint p, uint i) = loan.updateOutstandingDebt();
+        assertEq(p + i, tokenPriceOneUnit, "Loan outstanding credit should be set as one full unit price in USD");
         assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
         assertEq(i, 0, "No interest should have been accrued");
     }
@@ -196,7 +197,8 @@ contract LoanTest is DSTest {
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
         loan.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Tokens should be sent back to lender");
-        assertEq(loan.getOutstandingDebt(), 0, "Loan outstanding credit should be 0");
+        (uint p, uint i) = loan.updateOutstandingDebt();
+        assertEq(p + i, 0, "Loan outstanding credit should be 0");
     }
 
     function test_can_withdraw_from_position() public {

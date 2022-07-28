@@ -53,7 +53,8 @@ contract Escrow is IEscrow {
      * @return the updated collateral ratio in 18 decimals
      */
     function _getLatestCollateralRatio() internal returns (uint256) {
-        uint256 debtValue = ILoan(loan).getOutstandingDebt();
+        (uint256 principal, uint256 interest)  = ILoan(loan).updateOutstandingDebt();
+        uint256 debtValue =  principal + interest;
         uint256 collateralValue = _getCollateralValue();
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
