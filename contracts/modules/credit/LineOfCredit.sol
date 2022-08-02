@@ -392,8 +392,19 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @param id -the credit position to close
      */
     function close(bytes32 id) external override returns (bool) {
-      if(msg.sender != credits[id].lender && msg.sender != borrower) {
+        address b = borrower;         // gas savings
+        if(msg.sender != credits[id].lender && msg.sender != b) {
           revert CallerAccessDenied();
+        }
+
+        // ensure all money owed is accounted for
+        _accrueInterest(id);
+        uint256 facilityFee = credits[id].interestAccrued;
+        if(facilityFee != 0) {
+          // only allow repaying interest since they are skipping repayment queue.
+          // If principal still owed, _close() MUST fail
+          IERC20( credits[id].token).safeTransferFrom(b, address(this), facilityFee);
+          _repay(id, facilityFee);
         }
 
         _close(id);
@@ -552,22 +563,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @return
      */
     function _sortIntoQ(bytes32 p) internal returns (bool) {
-        uint256 len = ids.length;
-        uint256 _i = 0; // index that p should be moved to
-
-        for (uint256 i = 0; i < len; i++) {
-            bytes32 id = ids[i];
+        uint256 lastSpot = ids.length - 1;
+        uint256 nextQSpot = lastSpot;
+        bytes32 id;
+        for (uint256 i = 0; i <= lastSpot; i++) {
+            id = ids[i];
             if (p != id) {
-                if (credits[id].principal > 0) continue; // `id` should be placed before `p`
-                _i = i; // index of first undrawn LoC found
+                if (
+                  nextQSpot != lastSpot ||  // position already found. skip to find `p` asap
+                  credits[id].principal > 0 //`id` should be placed before `p` 
+                ) continue;
+                nextQSpot = i;              // index of first undrawn line found
             } else {
-                if (_i == 0) return true; // `p` in earliest possible index
+                if(nextQSpot == lastSpot) return true; // nothing to update
                 // swap positions
-                ids[i] = ids[_i];
-                ids[_i] = p;
+                ids[i] = ids[nextQSpot];    // id put into old `p` position
+                ids[nextQSpot] = p;       // p put at target index
+                return true; 
             }
         }
-
-        return true;
     }
 }

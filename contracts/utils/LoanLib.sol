@@ -152,7 +152,7 @@ library LoanLib {
         newPositions[i - 1] = positions[i];
       }
       // cycle first el back to end of queue
-      newPositions[len] = positions[0];
+      newPositions[len - 1] = positions[0];
 
       return newPositions;
     }

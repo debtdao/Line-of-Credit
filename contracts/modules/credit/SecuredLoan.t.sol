@@ -170,21 +170,143 @@ contract LoanTest is DSTest {
         assertEq(i, 0, "No interest should have been accrued");
     }
 
-    function testFail_can_repay_loan_later_in_queue() public {
-        int prc = oracle.getLatestAnswer(address(supportedToken2));
-        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        loan.depositAndRepay(1 ether);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
 
-        bytes32 id2 = loan.ids(1);
+    function setupQueueTest(uint amount) internal returns (address[] memory) {
+      address[] memory tokens = new address[](amount);
+      // generate token for simulating different repayment flows
+      for(uint i = 0; i < amount; i++) {
+        RevenueToken token = new RevenueToken();
+        tokens[i] = address(token);
+
+        token.mint(address(this), mintAmount);
+        token.approve(address(loan), mintAmount);
+        token.approve(address(escrow), mintAmount);
+        oracle.changePrice(address(token), 1 ether);
+        escrow.enableCollateral(address(token));
+
+        // add collateral for each token so we can borrow it during tests
+        escrow.addCollateral(1 ether, address(token));
+      }
+      
+      return tokens;
+    }
+
+    function test_positions_move_in_queue_of_2() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id2 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        assertEq(loan.ids(0), id);
+        assertEq(loan.ids(1), id2);
+
         loan.borrow(id2, 1 ether);
+        
+        assertEq(loan.ids(0), id2);
+        assertEq(loan.ids(1), id);
 
-        loan.depositAndRepay(1 ether); // this should fail
+        loan.depositAndClose();
+
+        assertEq(loan.ids(0), id);
+    }
+
+    function test_positions_move_in_queue_of_4_random_active_line() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id2 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        // create 3rd token to fully test array sorting
+        address[] memory tokens = setupQueueTest(2);
+        address token3 = tokens[0];
+        address token4 = tokens[1];
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        bytes32 id3 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        bytes32 id4 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+
+        assertEq(loan.ids(0), id);
+        assertEq(loan.ids(1), id2);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id4);
+
+        loan.borrow(id2, 1 ether);
+        
+        assertEq(loan.ids(0), id2);
+        assertEq(loan.ids(1), id);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id4);
+        
+        loan.borrow(id4, 1 ether);
+
+        assertEq(loan.ids(0), id2);
+        assertEq(loan.ids(1), id4);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id); // id switches with id4, not just pushed one step back in queue
+
+        loan.depositAndClose();
+
+        assertEq(loan.ids(0), id4);
+        assertEq(loan.ids(1), id3);
+        assertEq(loan.ids(2), id);
+    }
+
+
+
+    // check that only borrowing from the last possible id will still sort queue properly
+    // testing for bug in code where _i is initialized at 0 and never gets updated causing position to go to first position in repayment queue
+    function test_positions_move_in_queue_of_4_only_last() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id2 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        address[] memory tokens = setupQueueTest(2);
+        address token3 = tokens[0];
+        address token4 = tokens[1];
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        bytes32 id3 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        bytes32 id4 = loan.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+
+        assertEq(loan.ids(0), id);
+        assertEq(loan.ids(1), id2);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id4);
+
+        loan.borrow(id4, 1 ether);
+        
+        assertEq(loan.ids(0), id4);
+        assertEq(loan.ids(1), id2);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id);
+        
+        loan.borrow(id, 1 ether);
+
+        assertEq(loan.ids(0), id4);
+        assertEq(loan.ids(1), id);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id2); // id switches with id4, not just pushed one step back in queue
+
+        loan.depositAndRepay(1 wei);
+
+        assertEq(loan.ids(0), id4);
+        assertEq(loan.ids(1), id);
+        assertEq(loan.ids(2), id3);
+        assertEq(loan.ids(3), id2);
+
+        loan.depositAndClose();
+
+        assertEq(loan.ids(0), id);
+        assertEq(loan.ids(1), id3);
+        assertEq(loan.ids(2), id2);
     }
 
     function test_can_deposit_and_close_position() public {
@@ -252,6 +374,29 @@ contract LoanTest is DSTest {
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
         loan.depositAndRepay(1 ether);
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance after depositAndClose");
+        loan.close(id);
+
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after close");
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan should not have tokens");
+        assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID), "Loan not repaid");
+    }
+
+    function test_accrues_and_repays_facility_fee_on_close() public {
+        assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
+        
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        bytes32 id = loan.ids(0);
+
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+
+        loan.borrow(id, 1 ether);
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+        loan.depositAndRepay(1 ether);
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance after depositAndClose");
+
         loan.close(id);
 
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after close");
