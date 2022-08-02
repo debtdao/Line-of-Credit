@@ -357,7 +357,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      */
     function _updateWhitelist(bytes4 func, bool allowed) internal returns (bool) {
         whitelistedFunctions[func] = allowed;
-        emit UpdateWhitelistFunction(func, true);
+        emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
 

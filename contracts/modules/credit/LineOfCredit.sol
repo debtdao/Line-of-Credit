@@ -400,7 +400,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // ensure all money owed is accounted for
         _accrueInterest(id);
         uint256 facilityFee = credits[id].interestAccrued;
-        if(facilityFee != 0) {
+        if(facilityFee > 0) {
           // only allow repaying interest since they are skipping repayment queue.
           // If principal still owed, _close() MUST fail
           IERC20( credits[id].token).safeTransferFrom(b, address(this), facilityFee);
