@@ -15,6 +15,8 @@ interface ISpigot {
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
+
     event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
     event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);

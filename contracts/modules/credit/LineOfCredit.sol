@@ -274,7 +274,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // clear the credit
         _repay(id, totalOwed);
 
-        require(_close(id));
+        _close(id);
         return true;
     }
 
@@ -336,7 +336,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         emit Borrow(id, amount);
 
-        require(_sortIntoQ(id));
+        _sortIntoQ(id);
 
         return true;
     }
@@ -396,7 +396,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
           revert CallerAccessDenied();
         }
 
-        require(_close(id));
+        _close(id);
 
         return true;
     }
@@ -445,7 +445,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         ids.push(id); // add lender to end of repayment queue
 
-        emit AddCredit(lender, token, amount, 0, id);
+        emit AddCredit(lender, token, amount, id);
 
         return id;
     }
@@ -463,7 +463,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         returns (bool)
     {
         Credit memory credit = credits[id];
-        int price = oracle.getLatestAnswer(credit.token);
         
         if (amount <= credit.interestAccrued) {
             credit.interestAccrued -= amount;

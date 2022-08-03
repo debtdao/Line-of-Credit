@@ -283,6 +283,8 @@ contract Spigot is ISpigot, ReentrancyGuard {
       require(ownerSplit >= 0 && ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
 
       settings[revenueContract].ownerSplit = ownerSplit;
+      emit UpdateOwnerSplit(revenueContract, ownerSplit);
+      
       return true;
     }
     /**

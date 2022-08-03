@@ -6,8 +6,11 @@ import {MutualConsent} from "../../utils/MutualConsent.sol";
 import {Spigot} from "../spigot/Spigot.sol";
 import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
+    using SafeERC20 for IERC20;
+
     Spigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
@@ -185,20 +188,14 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
      * @return whether or not split was updated
      */
     function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(
-            revenueContract
-        );
+        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(revenueContract);
 
         if(transferFunc == bytes4(0)) { revert NoSpigot(); }
 
-        if (
-            loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit
-        ) {
+        if(loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
             // if loan is healthy set split to default take rate
             return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (
-            loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT
-        ) {
+        } else if (loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
             // if loan is in distress take all revenue to repay loan
             return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
         }
@@ -214,7 +211,11 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     function addSpigot(
         address revenueContract,
         Spigot.Setting calldata setting
-    ) external mutualConsent(arbiter, borrower) returns (bool) {
+    )
+        external
+        mutualConsent(arbiter, borrower)
+        returns (bool)
+    {
         return spigot.addSpigot(revenueContract, setting);
     }
 
@@ -275,7 +276,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         if (token == address(0)) {
             payable(to).transfer(x);
         } else {
-            require(IERC20(token).transfer(to, x));
+            IERC20(token).safeTransfer(to, x);
         }
         delete unusedTokens[token];
     }
