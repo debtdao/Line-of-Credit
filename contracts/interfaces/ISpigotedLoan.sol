@@ -1,4 +1,5 @@
 pragma solidity ^0.8.9;
+import { ISpigot } from "./ISpigot.sol";
 interface ISpigotedLoan {
   event RevenuePayment(
     address indexed token,
@@ -13,6 +14,15 @@ interface ISpigotedLoan {
     address indexed debtToken,
     uint256 indexed debtTokensBought
   );
+
+  error NoSpigot();
+  error TradeFailed();
+  error ReleaseSpigotFailed();
+
+  function addSpigot(address revenueContract, ISpigot.Setting calldata setting) external returns(bool);
+  function updateOwnerSplit(address revenueContract) external returns(bool);
+  function updateWhitelist(bytes4 func, bool allowed) external returns(bool);
+  function releaseSpigot() external returns(bool);
   
   function unused(address token) external returns(uint256);
 
@@ -24,7 +34,7 @@ interface ISpigotedLoan {
   function claimAndRepay(
     address token,
     bytes calldata zeroExTradeData
-  ) external returns(bool);
+  ) external returns(uint256);
 
   function sweep(address token) external returns(uint256);
 }

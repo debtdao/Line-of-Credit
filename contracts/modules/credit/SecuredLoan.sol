@@ -35,7 +35,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
 
 
   function init() external override(LineOfCredit) virtual returns(LoanLib.STATUS) {
-    return _updateLoanStatus(_init());
+    return LoanLib.updateStatus(loanStatus, _init());
   }
 
   function _init() internal override(SpigotedLoan, EscrowedLoan) virtual returns(LoanLib.STATUS) {
@@ -70,9 +70,8 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
   {
     require(msg.sender == arbiter);
 
-    _updateLoanStatus(_healthcheck());
-
-    require(loanStatus == LoanLib.STATUS.LIQUIDATABLE, "Loan: not liquidatable");
+    LoanLib.STATUS status = LoanLib.updateStatus(loanStatus, _healthcheck());
+    require(status == LoanLib.STATUS.LIQUIDATABLE);
 
     // send tokens to arbiter for OTC sales
     return _liquidate(positionId, amount, targetToken, msg.sender);

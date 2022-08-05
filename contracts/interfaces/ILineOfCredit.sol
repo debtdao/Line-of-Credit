@@ -1,5 +1,6 @@
 import { LoanLib } from "../utils/LoanLib.sol";
 import { ILoan } from "./ILoan.sol";
+import { IOracle } from "../interfaces/IOracle.sol";
 
 interface ILineOfCredit is ILoan {
   // Lender data
@@ -19,7 +20,7 @@ interface ILineOfCredit is ILoan {
 
   // Access Errors
   error NotActive();
-  error Borrowing();
+  error NotBorrowing();
   error CallerAccessDenied();
   
   // Tokens
@@ -49,13 +50,21 @@ interface ILineOfCredit is ILoan {
     uint128 frate
   ) external returns(bool);
 
-  function increaseCredit(
-    bytes32 id,
-    address lender,
-    uint256 amount,
-    uint256 principal
-  ) external returns(bool);
+  function increaseCredit(bytes32 id, address lender, uint256 amount) external returns(bool);
   
   function borrow(bytes32 id, uint256 amount) external returns(bool);
+  function depositAndRepay(uint256 amount) external returns(bool);
+  function depositAndClose() external returns(bool);
   function close(bytes32 id) external returns(bool);
+
+  function withdraw(bytes32 id, uint256 amount) external returns(bool);
+
+  function accrueInterest() external returns(bool);
+  function getOutstandingDebt() external returns(uint256 totalCredit);
+  function updateOutstandingDebt() external returns(uint256, uint256);
+  function healthcheck() external returns(LoanLib.STATUS);
+
+  function borrower() external returns(address);
+  function arbiter() external returns(address);
+  function oracle() external returns(IOracle);
 }

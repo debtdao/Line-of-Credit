@@ -43,20 +43,16 @@ interface ISpigot {
     function treasury() external view returns (address);
     function operator() external view returns (address);
 
-    function claimRevenue(address revenueContract, bytes calldata data)
-      external returns (uint256 claimed);
+    function claimRevenue(address revenueContract, bytes calldata data) external returns (uint256 claimed);
  
-    function claimEscrow(address token) external returns (uint256 claimed) ;
+    function operate(address revenueContract, bytes calldata data) external returns (bool);
+
 
     function getEscrowBalance(address token) external view returns (uint256);
-
-    function operate(address revenueContract, bytes calldata data) external returns (bool);
  
-    function doOperations(address[] calldata contracts, bytes[] calldata data) external returns (bool);
- 
+    function claimEscrow(address token) external returns (uint256 claimed) ;
  
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
- 
  
     function removeSpigot(address revenueContract) external returns (bool);
         

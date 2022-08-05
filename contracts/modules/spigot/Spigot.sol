@@ -107,7 +107,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         } else {
             // pull payments
             if(bytes4(data) != settings[revenueContract].claimFunction) { revert BadFunction(); }
-            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
+            (bool claimSuccess,) = revenueContract.call(data);
             if(!claimSuccess) { revert ClaimFailed(); }
             // claimed = total balance - existing balance
             claimed = _getBalance(token) - existingBalance;
@@ -175,21 +175,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
     }
 
     /**
-
-     * @notice - operate() on multiple contracts in one tx
-     * @dev - callable by `operator`
-     * @param contracts - smart contracts to call
-     * @param data- tx data, including function signature, to call contracts with
-     */
-    function doOperations(address[] calldata contracts, bytes[] calldata data) external returns (bool) {
-        if(msg.sender != operator) { revert CallerAccessDenied(); }
-        for(uint256 i = 0; i < data.length; i++) {
-            _operate(contracts[i], data[i]);
-        }
-        return true;
-    }
-
-    /**
      * @notice - Checks that operation is whitelisted by Spigot Owner and calls revenue contract with supplied data
      * @param revenueContract - smart contracts to call
      * @param data - tx data, including function signature, to call contracts with
@@ -201,7 +186,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
 
         
-        (bool success, bytes memory opData) = revenueContract.call(data);
+        (bool success,) = revenueContract.call(data);
         require(success, "Spigot: Operation failed");
 
         return true;
@@ -264,7 +249,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
             emit ClaimEscrow(token, claimable, owner);
         }
         
-        (bool success, bytes memory callData) = revenueContract.call(
+        (bool success,) = revenueContract.call(
             abi.encodeWithSelector(
                 settings[revenueContract].transferOwnerFunction,
                 operator    // assume function only takes one param that is new owner address
@@ -370,7 +355,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         if(token!= address(0)) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH
-            (bool success, bytes memory data) = payable(receiver).call{value: amount}("");
+            (bool success,) = payable(receiver).call{value: amount}("");
             require(success);
         }
         return true;

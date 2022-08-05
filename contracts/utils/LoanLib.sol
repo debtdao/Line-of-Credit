@@ -1,11 +1,12 @@
 pragma solidity 0.8.9;
+import { ILoan } from "../interfaces/ILoan.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 /**
   * @title Debt DAO P2P Loan Library
   * @author Kiba Gateaux
   * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
  */
-library LoanLib {
+library LoanLib is ILoan {
     address constant DEBT_TOKEN = address(0xdebf);
 
     enum STATUS {
@@ -31,6 +32,14 @@ library LoanLib {
         // Loan is no longer active, successfully repaid or insolvent
         REPAID,
         INSOLVENT
+    }
+
+    function updateStatus(STATUS status, STATUS target) returns(STATUS) {
+        STATUS s = status;          // gas savings
+        if (s == target) return s;  // check if it needs updating
+        status = target;            // set storage in Line contract
+        emit UpdateLoanStatus(uint256(s));
+        return s;
     }
 
     /**
@@ -107,53 +116,5 @@ library LoanLib {
       return keccak256(abi.encode(loan, lender, token));
     }
 
-    /**
-     * @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
-          This means cleanup on _close() and checks on addDebtPosition are CRITICAL. If `id` is duplicated then the position can't be closed
-     * @param positions - all current active positions on the loan
-     * @param id - hash id that must be removed from active positions
-     * @return newPositions - all active positions on loan after `id` is removed
-     */
-    function removePosition(bytes32[] calldata positions, bytes32 id) external pure returns(bytes32[] memory) {
-      uint256 newLength = positions.length - 1;
-      uint256 count = 0;
-      bytes32[] memory newPositions = new bytes32[](newLength);
 
-      for(uint i = 0; i < positions.length; i++) {
-          if(positions[i] != id) {
-              newPositions[count] = positions[i];
-              count++;
-          }
-      }
-
-      return newPositions;
-    }
-
-    /**
-     * @notice - removes debt position from head of repayement queue and puts it at end of line
-     *         - moves 2nd in line to first
-     * @param positions - all current active positions on the loan
-     * @return newPositions - positions after moving first to last in array
-     */
-    function stepQ(bytes32[] calldata positions) external pure returns(bytes32[] memory) {
-      uint256 len = positions.length ;
-      if(len <= 1) return positions; // already ordered
-
-      bytes32[] memory newPositions = new bytes32[](len);
-      
-      if(len == 2) {
-        newPositions[0] = positions[1];
-        newPositions[1] = positions[0];
-        return newPositions;
-      }
-      
-      // move all existing positions up in line
-      for(uint i = 1; i < len; i++) {
-        newPositions[i - 1] = positions[i];
-      }
-      // cycle first el back to end of queue
-      newPositions[len] = positions[0];
-
-      return newPositions;
-    }
 }
