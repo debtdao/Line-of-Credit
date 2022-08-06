@@ -45,7 +45,6 @@ contract LoanTest is DSTest {
           address(0),
           address(spigot),
           address(escrow),
-          1 ether,
           150 days,
           0
         );
@@ -338,8 +337,6 @@ contract LoanTest is DSTest {
         loan.borrow(id, 1 ether);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-        (,uint p_, uint i_,,,address token,) = loan.credits(id);
-        
         loan.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Tokens should be sent back to lender");
         (uint p, uint i) = loan.updateOutstandingDebt();

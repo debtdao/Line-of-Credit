@@ -21,7 +21,7 @@ contract RevenueToken4626 is RevenueToken {
     }
 
     // mimic eip-4626
-    function asset() public returns(address) {
+    function asset() public view returns(address) {
         return _asset;
     }
 

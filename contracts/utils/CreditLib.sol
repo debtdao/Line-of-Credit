@@ -136,7 +136,7 @@ library CreditLib {
       uint256 amount,
       uint8 decimals
     )
-      internal pure
+      external pure
       returns(uint256)
     {
       return _calculateValue(price, amount, decimals);

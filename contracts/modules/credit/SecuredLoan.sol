@@ -14,7 +14,6 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
         address swapTarget_,
         address spigot_,
         address escrow_,
-        uint minCollateral_,
         uint ttl_,
         uint8 defaultSplit_
     ) SpigotedLoan(
@@ -25,12 +24,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
         swapTarget_,
         ttl_,
         defaultSplit_
-    ) EscrowedLoan(
-        minCollateral_,
-        escrow_,
-        oracle_,
-        borrower_
-    ) {
+    ) EscrowedLoan(escrow_) {
 
     }
 

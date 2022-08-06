@@ -8,7 +8,7 @@ contract MockLoan {
     address escrow;
     address public arbiter;
 
-    constructor(uint _debt) public {
+    constructor(uint _debt) {
         debtValueUSD = _debt;
         // console.log("arbiter", msg.sender);
         arbiter = msg.sender;
@@ -31,11 +31,11 @@ contract MockLoan {
         IEscrow(escrow).liquidate(amount, token, to);
     }
 
-    function accrueInterest() external returns(uint256) {
+    function accrueInterest() external pure returns(uint256) {
         return 0;
     }
 
-    function updateOutstandingDebt() external returns(uint256,uint256) {
+    function updateOutstandingDebt() external view returns(uint256,uint256) {
         return (debtValueUSD, 0);
     }
 

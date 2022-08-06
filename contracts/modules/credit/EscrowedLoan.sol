@@ -8,12 +8,7 @@ abstract contract EscrowedLoan is IEscrowedLoan {
   // contract holding all collateral for borrower
   IEscrow immutable public escrow;
 
-  constructor(
-    uint _minimumCollateralRatio,
-    address _escrow,
-    address _oracle,
-    address _borrower
-  ) {
+  constructor(address _escrow) {
     escrow = IEscrow(_escrow);
   }
 

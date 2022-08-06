@@ -36,7 +36,7 @@ contract Escrow is IEscrow {
         address _oracle,
         address _loan,
         address _borrower
-    ) public {
+    ) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
         loan = _loan;

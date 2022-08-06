@@ -331,16 +331,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
      */
      function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
-        return _updateWhitelist(func, allowed);
-    }
-
-    /**
-
-     * @notice - Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
-     * @param func - smart contract function signature to whitelist
-     * @param allowed - true/false whether to allow this function to be called by Operator
-     */
-    function _updateWhitelist(bytes4 func, bool allowed) internal returns (bool) {
         whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, allowed);
         return true;

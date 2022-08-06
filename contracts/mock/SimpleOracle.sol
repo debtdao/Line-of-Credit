@@ -12,7 +12,7 @@ contract SimpleOracle is IOracle {
         prices[_supportedToken2] = 2000 * 1e8; // 2000 USD
     }
 
-    function init() external returns(bool) {
+    function init() external pure returns(bool) {
         return true;
     }
 
@@ -20,7 +20,7 @@ contract SimpleOracle is IOracle {
         prices[token] = newPrice;
     }
 
-    function getLatestAnswer(address token) external returns(int256) {
+    function getLatestAnswer(address token) external view returns(int256) {
         // mimic eip4626
         // (bool success, bytes memory result) = token.call(abi.encodeWithSignature("asset()"));
         // if(success && result.length > 0) {
@@ -32,11 +32,11 @@ contract SimpleOracle is IOracle {
         return prices[token];
     }
 
-    function healthcheck() external returns (LoanLib.STATUS status) {
+    function healthcheck() external pure returns (LoanLib.STATUS status) {
         return LoanLib.STATUS.ACTIVE;
     }
 
-    function loan() external returns (address) {
+    function loan() external pure returns (address) {
         return address(0);
     }
 
