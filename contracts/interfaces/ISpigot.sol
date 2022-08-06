@@ -15,6 +15,8 @@ interface ISpigot {
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
+
     event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
     event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);
@@ -42,12 +44,17 @@ interface ISpigot {
     function owner() external view returns (address);
     function treasury() external view returns (address);
     function operator() external view returns (address);
+    
+    function getSetting(address revenueContract) external view returns (address, uint8, bytes4, bytes4);
+
+    // ops funcs 
 
     function claimRevenue(address revenueContract, bytes calldata data) external returns (uint256 claimed);
  
     function operate(address revenueContract, bytes calldata data) external returns (bool);
 
 
+    // owner funcs 
     function getEscrowBalance(address token) external view returns (uint256);
  
     function claimEscrow(address token) external returns (uint256 claimed) ;
@@ -56,7 +63,9 @@ interface ISpigot {
  
     function removeSpigot(address revenueContract) external returns (bool);
         
- 
+  
+    // stakeholder funcs 
+
     function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool);
 
     function updateOwner(address newOwner) external returns (bool);
@@ -66,11 +75,5 @@ interface ISpigot {
     function updateTreasury(address newTreasury) external returns (bool);
  
     function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool);
-
- 
-    function getSetting(address revenueContract)
-        external view
-        returns(address, uint8, bytes4, bytes4);
- 
 
 }

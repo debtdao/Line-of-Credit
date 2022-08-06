@@ -8,39 +8,6 @@ import { CreditLib } from "./CreditLib.sol";
   * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
  */
 library CreditListLib {
-      using CreditLib for ILineOfCredit.Credit;
-
-    // function getOutstandingDebt(
-    //   ILineOfCredit.Credit[] storage self,
-    //   IOracle oracle
-    // )
-    //   external
-    //   returns (uint256 principal, uint256 interest)
-    // {
-    //     uint256 len = self.length;
-    //     if (len == 0) return (0, 0);
-
-    //     ILineOfCredit.Credit memory credit;
-    //     for (uint256 i = 0; i < len; i++) {
-    //         bytes32 id = self[i];
-    //         _accrueInterest(id); // Issue is accruing interest from here
-    //         credit = credits[id];
-
-    //         int256 price = oracle.getLatestAnswer(credit.token);
-
-    //         principal += _calculateValue(
-    //             price,
-    //             credit.principal,
-    //             credit.decimals
-    //         );
-    //         interest += _calculateValue(
-    //             price,
-    //             credit.interestAccrued,
-    //             credit.decimals
-    //         );
-    //     }
-    // }
-
     /**
      * @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
           This means cleanup on _close() and checks on addDebtPosition are CRITICAL. If `id` is duplicated then the position can't be closed
@@ -48,15 +15,15 @@ library CreditListLib {
      * @param id - hash id that must be removed from active positions
      * @return newPositions - all active positions on loan after `id` is removed
      */
-    function removePosition(bytes32[] storage ids, bytes32 id) external pure returns(bool) {
+    function removePosition(bytes32[] storage ids, bytes32 id) external returns(bool) {
       uint256 len = ids.length;
-      uint256 count = 0;
 
-      for(uint i = 0; i < len; i++) {
-          if(ids[i] != id) {
-              ids[count] = ids[i];
-              count++;
+      for(uint i = 0; i < len;) {
+          if(ids[i] == id) {
+              delete ids[i];
+              return true;
           }
+          unchecked { ++i; }
       }
 
       return true;
@@ -68,7 +35,7 @@ library CreditListLib {
      * @param ids - all current active positions on the loan
      * @return newPositions - positions after moving first to last in array
      */
-    function stepQ(bytes32[] storage ids) external pure returns(bool) {
+    function stepQ(bytes32[] storage ids) external returns(bool) {
       uint256 len = ids.length ;
       if(len <= 1) return true; // already ordered
 
@@ -80,7 +47,7 @@ library CreditListLib {
       } else {
         // move all existing ids up in line
         for(uint i = 1; i < len; i++) {
-          ids[i - 1] = ids[i];
+          ids[i - 1] = ids[i]; // could also clean arr here like in _SoritIntoQ
         }
         // cycle first el back to end of queue
         ids[len - 1] = last;

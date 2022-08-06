@@ -1,3 +1,5 @@
+pragma solidity 0.8.9;
+
 import { LoanLib } from "../utils/LoanLib.sol";
 import { ILoan } from "./ILoan.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
@@ -45,13 +47,12 @@ interface ILineOfCredit is ILoan {
 
   function setRates(
     bytes32 id,
-    address lender,
     uint128 drate,
     uint128 frate
   ) external returns(bool);
 
-  function increaseCredit(bytes32 id, address lender, uint256 amount) external returns(bool);
-  
+  function increaseCredit(bytes32 id, uint256 amount) external returns(bool);
+
   function borrow(bytes32 id, uint256 amount) external returns(bool);
   function depositAndRepay(uint256 amount) external returns(bool);
   function depositAndClose() external returns(bool);
@@ -60,7 +61,6 @@ interface ILineOfCredit is ILoan {
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
 
   function accrueInterest() external returns(bool);
-  function getOutstandingDebt() external returns(uint256 totalCredit);
   function updateOutstandingDebt() external returns(uint256, uint256);
   function healthcheck() external returns(LoanLib.STATUS);
 

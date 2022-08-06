@@ -16,10 +16,11 @@ library SpigotedLoanLib {
         address targetToken,
         address swapTarget,
         address spigot,
+        uint256 unused,
         bytes calldata zeroExTradeData
     ) 
         external
-        returns(uint256 tokensBought, int256 unused)
+        returns(uint256 tokensBought, uint256 totalUnused)
     {
         uint256 existingClaimTokens = IERC20(claimToken).balanceOf(address(this));
         uint256 existingTargetTokens = IERC20(targetToken).balanceOf(address(this));
@@ -44,7 +45,7 @@ library SpigotedLoanLib {
         // underflow revert ensures we have more tokens than we started with
         tokensBought = targetTokens - existingTargetTokens;
 
-        emit ISpigot.TradeSpigotRevenue(
+        emit TradeSpigotRevenue(
             claimToken,
             tokensClaimed,
             targetToken,
@@ -52,9 +53,12 @@ library SpigotedLoanLib {
         );
 
         // TODO update with work from branch halborn-fixes
-        // update unused if we didnt sell all claimed tokens in trade
-        // returns negative if extra tokens used. Positive if tokens to add to unused
-        unused = IERC20(claimToken).balanceOf(address(this)) - existingClaimTokens;
+        // update totalUnused if we didnt sell all claimed tokens in trade
+        // returns negative if extra tokens used. Positive if tokens to add to totalUnused
+        uint256 unusedClaim = IERC20(claimToken).balanceOf(address(this)) - existingClaimTokens;
+        totalUnused= unusedClaim > 0
+          ? unused +  uint256(unusedClaim)
+          : unused -  uint256(unusedClaim);
 
     }
 }

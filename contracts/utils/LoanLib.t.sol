@@ -1,78 +1,85 @@
 pragma solidity 0.8.9;
 
 import { DSTest } from "../../lib/ds-test/src/test.sol";
-import { LoanLib } from "./LoanLib.sol";
+import { CreditListLib } from "./CreditListLib.sol";
+import { CreditLib } from "./CreditLib.sol";
 
 contract LoanLibTest is DSTest {
+    using CreditListLib for bytes32[];
+    bytes32[] private ids;
 
     address lender = address(0);
     address loan = address(1);
     address token = address(2);
 
-    function test_computes_the_same_position_id() public {
-        bytes32 id = LoanLib.computePositionId(loan, lender, token);
-        bytes32 id2 = LoanLib.computePositionId(loan, lender, token);
+    function test_computes_the_same_position_id() public view {
+        bytes32 id = CreditLib.computePositionId(loan, lender, token);
+        bytes32 id2 = CreditLib.computePositionId(loan, lender, token);
         assert(id == id2);
     }
 
-    function test_computes_a_different_position_id() public {
-        bytes32 id = LoanLib.computePositionId(loan, lender, token);
-        bytes32 id2 = LoanLib.computePositionId(loan, address(this), token);
+    function test_computes_a_different_position_id() public view {
+        bytes32 id = CreditLib.computePositionId(loan, lender, token);
+        bytes32 id2 = CreditLib.computePositionId(loan, address(this), token);
         assert(id != id2);
-        bytes32 idSameInputsDifferentOrder = LoanLib.computePositionId(lender, loan, token);
+        bytes32 idSameInputsDifferentOrder = CreditLib.computePositionId(lender, loan, token);
         assert(idSameInputsDifferentOrder != id);
     }
 
     function test_can_remove_position() public {
-        bytes32 id = LoanLib.computePositionId(loan, lender, token);
-        bytes32 id2 = LoanLib.computePositionId(loan, address(this), token);
-        bytes32[] memory ids = new bytes32[](2);
-        ids[0] = id;
-        ids[1] = id2;
+        bytes32 id = CreditLib.computePositionId(loan, lender, token);
+        bytes32 id2 = CreditLib.computePositionId(loan, address(this), token);
+        ids.push(id);
+        ids.push(id2);
+        
         assert(ids.length == 2);
-        bytes32[] memory newIds = LoanLib.removePosition(ids, id2);
-        assert(newIds.length == 1);
-        assert(newIds[0] == id);
+        ids.removePosition(id2);
+        assert(ids.length == 2); // not deleted, only null
+
+        assert(ids[0] == id);
+        assert(ids[1] == bytes32(0)); // ensure deleted
     }
 
     function testFail_cannot_remove_non_existent_position() public {
-        bytes32 id = LoanLib.computePositionId(loan, lender, token);
-        bytes32[] memory ids = new bytes32[](1);
+        bytes32 id = CreditLib.computePositionId(loan, lender, token);
         ids[0] = id;
         assert(ids.length == 1);
-        LoanLib.removePosition(ids, bytes32(0));
+        ids.removePosition(bytes32(0));
     }
 
-    function prove_can_properly_sort_queue(uint256 amount) public {
-        if(amount == 0) { return; }
 
-        bytes32[] memory ids = new bytes32[](amount);
-        if(amount == 1) {
+    function test_can_properly_step_queue(uint256 length) public {
+        uint l = 10;
+        ids = new bytes32[](l);
+        if(length == 0 || length > ids.length) { return; } // ensure array is within reasonable bounds
+        if(length == 1) {
             ids[0] = bytes32(0);
-            bytes32[] memory newIds = LoanLib.stepQ(ids);
-            assertEq(newIds[0], ids[0]);
+            ids.stepQ();
+            assertEq(ids[0], ids[0]);
             return;
         }
 
-        if(amount == 2) {
+        if(length == 2) {
             ids[0] = bytes32(0);
             ids[1] = bytes32(uint(1));
 
-            bytes32[] memory newIds = LoanLib.stepQ(ids);
-            assertEq(newIds[0], ids[1]);
-            assertEq(newIds[1], ids[0]);
+            ids.stepQ();
+            assertEq(ids[0], bytes32(uint(1)));
+            assertEq(ids[1], bytes32(0));
             return;
         }
 
-        for(uint256 i = 0; i < amount; i++) {
+        for(uint256 i = 0; i < length; i++) {
           ids[i] == bytes32(i);
         }
-        bytes32[] memory newIds = LoanLib.stepQ(ids);
-
-        assertEq(newIds.length, amount);
-        assertEq(ids[amount - 1], bytes32(0)); // first -> last
-        assertEq(ids[0], bytes32(uint(1))); // second -> first
-        assertEq(ids[amount - 2], bytes32(amount -1)); // last -> second last
+        ids.stepQ();
+        
+        assertEq(ids.length, l);
+        
+        for(uint256 i = 0; i < l; i++) {
+          if(i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
+          else assertEq(ids[i], ids[i - 1]);      // all others move one index down
+        }
     }
 
     function test_calculates_right_price_w_decimals(int256 price, uint256 amount) public {
@@ -85,10 +92,10 @@ contract LoanLibTest is DSTest {
         uint8 decimals2 = 1;
         
 
-        uint val = LoanLib.calculateValue(price, amount, decimals);
+        uint val = CreditLib.calculateValue(price, amount, decimals);
         assertEq(val,  realPrice * amount * ( 1 * 10 ** decimals));
 
-        uint val2 = LoanLib.calculateValue(price, amount, decimals2);
+        uint val2 = CreditLib.calculateValue(price, amount, decimals2);
         assertEq(val2,  realPrice * amount * ( 1 * 10 ** decimals2));
     }
 }

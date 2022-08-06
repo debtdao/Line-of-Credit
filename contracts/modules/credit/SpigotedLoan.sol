@@ -8,8 +8,11 @@ import {MutualConsent} from "../../utils/MutualConsent.sol";
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
+    using SafeERC20 for IERC20;
+
     ISpigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
@@ -46,40 +49,17 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         require(defaultRevenueSplit_ <= MAX_SPLIT);
 
         spigot = ISpigot(spigot_);
-
         defaultRevenueSplit = defaultRevenueSplit_;
-
         swapTarget = swapTarget_;
     }
 
     function _init() internal virtual override(LineOfCredit) returns(LoanLib.STATUS) {
-      require(spigot.owner() == address(this));
+      if(spigot.owner() != address(this)) return LoanLib.STATUS.UNINITIALIZED;
       return LineOfCredit._init();
     }
 
     function unused(address token) external view returns (uint256) {
         return unusedTokens[token];
-    }
-
-    /**
-     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
-     * @dev    - callable `arbiter` + `borrower`
-     * @param revenueContract - spigot to update
-     */
-    function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(revenueContract);
-
-        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
-
-        if (loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
-            // if loan is healthy set split to default take rate
-            spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
-            // if loan is in distress take all revenue to repay loan
-            spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
-        }
-
-        return true;
     }
 
     /**
@@ -101,23 +81,24 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         Credit memory credit = credits[id];
 
         require(msg.sender == borrower || msg.sender == arbiter);
-        credit =  CreditLib.accrue(credit, id, interestRate);
+        credit =  CreditLib.accrue(credit, id, address(interestRate));
 
         address targetToken = credit.token;
 
-        uint256 tokensBought = SpigotedLoanLib.claimAndTrade(
+        (uint256 tokensBought, uint256 totalUnused) = _claimAndTrade(
             claimToken,
             targetToken,
-            zeroExTradeData,
-            unusedTokens[claimToken]
+            zeroExTradeData
         );
 
-        uint256 repaid = tokensBought + unusedTokens[targetToken];
+        unusedTokens[claimToken] = totalUnused;
+
+        repaid = tokensBought + unusedTokens[targetToken];
         uint256 debt = credit.interestAccrued + credit.principal;
 
-        // cap payment to credit value
+        // cap payment to debt value
         if (repaid > debt) repaid = debt;
-
+        // update unused amount based on usage
         if (repaid > tokensBought) {
             // using bought + unused to repay loan
             unusedTokens[targetToken] -= repaid - tokensBought;
@@ -128,7 +109,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
         credits[id] = _repay(credit, id, repaid);
 
-        emit RevenuePayment(claimToken, tokensBought);
+        emit RevenuePayment(claimToken, repaid);
     }
 
     /**
@@ -142,23 +123,64 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     function claimAndTrade(address claimToken, bytes calldata zeroExTradeData)
         external
         whileBorrowing
-        returns (uint256 tokensBought)
+        returns (uint256)
     {
         require(msg.sender == borrower || msg.sender == arbiter);
 
         address targetToken = credits[ids[0]].token;
-      
-        tokensBought = SpigotedLoanLib.claimAndTrade(
-            claimToken,
-            targetToken,
-            zeroExTradeData,
-            unusedTokens[claimToken]
+        (uint256 tokensBought, uint256 totalUnused) = _claimAndTrade(
+          claimToken,
+          targetToken,
+          zeroExTradeData
         );
         // add bought tokens to unused balance
         unusedTokens[targetToken] += tokensBought;
+        unusedTokens[claimToken] += totalUnused;
+        return tokensBought;
+    }
+
+    function _claimAndTrade(
+      address claimToken,
+      address targetToken,
+      bytes calldata zeroExTradeData
+    )
+        internal
+        whileBorrowing
+        returns (uint256 tokensBought, uint256 totalUnused)
+    {
+      return SpigotedLoanLib.claimAndTrade(
+            claimToken,
+            targetToken,
+            swapTarget,
+            address(spigot),
+            unusedTokens[claimToken],
+            zeroExTradeData
+        );
     }
 
     //  SPIGOT OWNER FUNCTIONS
+
+    /**
+     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
+     * @dev    - callable `arbiter` + `borrower`
+     * @param revenueContract - spigot to update
+     * @return whether or not split was updated
+     */
+    function updateOwnerSplit(address revenueContract) external returns (bool) {
+        (,uint8 split,  ,bytes4 transferFunc) = spigot.getSetting(revenueContract);
+
+        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
+
+        if(loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
+            // if loan is healthy set split to default take rate
+            return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
+        } else if (loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
+            // if loan is in distress take all revenue to repay loan
+            return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
+        }
+
+        return false;
+    }
 
     /**
      * @notice - allow Loan to add new revenue streams to reapy credit
@@ -168,7 +190,11 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     function addSpigot(
         address revenueContract,
         ISpigot.Setting calldata setting
-    ) external mutualConsent(arbiter, borrower) returns (bool) {
+    )
+        external
+        mutualConsent(arbiter, borrower)
+        returns (bool)
+    {
         return spigot.addSpigot(revenueContract, setting);
     }
 
@@ -190,15 +216,16 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
              -  doesnt transfer out if loan is unpaid and/or healthy
    * @dev    - callable by anyone 
+   * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
         if (loanStatus == LoanLib.STATUS.REPAID) {
-            if(spigot.updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
+           if(!spigot.updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
         if (loanStatus == LoanLib.STATUS.LIQUIDATABLE) {
-            if(spigot.updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
+            if(!spigot.updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
@@ -228,7 +255,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         if (token == address(0)) {
             payable(to).transfer(x);
         } else {
-            require(IERC20(token).transfer(to, x));
+            IERC20(token).safeTransfer(to, x);
         }
         delete unusedTokens[token];
     }

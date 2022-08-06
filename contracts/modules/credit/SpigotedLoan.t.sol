@@ -1,8 +1,6 @@
 
 pragma solidity ^0.8.9;
 
-pragma solidity 0.8.9;
-
 import { DSTest } from  "../../../lib/ds-test/src/test.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";

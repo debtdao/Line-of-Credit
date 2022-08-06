@@ -6,8 +6,8 @@ import { IOracle } from "../interfaces/IOracle.sol";
   * @author Kiba Gateaux
   * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
  */
-library LoanLib is ILoan {
-    address constant DEBT_TOKEN = address(0xdebf);
+library LoanLib {
+    event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
     enum STATUS {
         // ¿hoo dis
@@ -34,87 +34,10 @@ library LoanLib is ILoan {
         INSOLVENT
     }
 
-    function updateStatus(STATUS status, STATUS target) returns(STATUS) {
-        STATUS s = status;          // gas savings
-        if (s == target) return s;  // check if it needs updating
+    function updateStatus(STATUS status, STATUS target) external returns(STATUS) {
+        if (status == target) return status;  // check if it needs updating
         status = target;            // set storage in Line contract
-        emit UpdateLoanStatus(uint256(s));
-        return s;
+        emit UpdateLoanStatus(uint256(status));
+        return status;
     }
-
-    /**
-     * @notice         - Gets total valuation for amount of tokens using given oracle. 
-     * @dev            - Assumes oracles all return answers in USD with 1e8 decimals
-                       - Does not check if price < 0. HAndled in Oracle or Loan
-     * @param oracle   - oracle contract specified by loan getting valuation
-     * @param token    - token to value on oracle
-     * @param amount   - token amount
-     * @param decimals - token decimals
-     * @return         - total value in usd of all tokens 
-     */
-    function getValuation(
-      IOracle oracle,
-      address token,
-      uint256 amount,
-      uint8 decimals
-    )
-      external
-      returns(uint256)
-    {
-      return _calculateValue(oracle.getLatestAnswer(token), amount, decimals);
-    }
-
-    /**
-     * @notice
-     * @dev            - Assumes oracles all return answers in USD with 1e8 decimals
-                       - Does not check if price < 0. HAndled in Oracle or Loan
-     * @param price    - oracle price of asset. 8 decimals
-     * @param amount   - amount of tokens vbeing valued.
-     * @param decimals - token decimals to remove for usd price
-     * @return         - total USD value of amount in 8 decimals 
-     */
-    function calculateValue(
-      int price,
-      uint256 amount,
-      uint8 decimals
-    )
-      internal
-      returns(uint256)
-    {
-      return _calculateValue(price, amount, decimals);
-    }
-
-
-      /**
-     * @notice         - calculates value of tokens and denominates in USD 8
-     * @dev            - Assumes all oracles return USD responses in 1e8 decimals
-     * @param price    - oracle price of asset. 8 decimals
-     * @param amount   - amount of tokens vbeing valued.
-     * @param decimals - token decimals to remove for usd price
-     * @return         - total value in usd of all tokens 
-     */
-    function _calculateValue(
-      int price,
-      uint256 amount,
-      uint8 decimals
-    )
-      internal pure
-      returns(uint256)
-    {
-      return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
-    }
-
-
-    /**
-     * @dev          - Create deterministic hash id for a debt position on `loan` given position details
-     * @param loan   - loan that debt position exists on
-     * @param lender - address managing debt position
-     * @param token  - token that is being lent out in debt position
-     * @return positionId
-     */
-    function computePositionId(address loan, address lender, address token) external pure returns(bytes32) {
-      return keccak256(abi.encode(loan, lender, token));
-    }
-
-
 }

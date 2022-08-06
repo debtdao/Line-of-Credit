@@ -65,12 +65,30 @@ contract EscrowTest is DSTest {
         return address(escrow);
     }
 
+    function test_enable_valid_collateral_as_arbiter() public {
+        RevenueToken token = new RevenueToken();
+
+        token.mint(address(this), mintAmount);
+        oracle.changePrice(address(token), 1 ether); // need oracle price to enable
+        escrow.enableCollateral(address(token));
+    }
+
+    function testFail_enable_invalid_collateral_as_arbiter() public {
+        RevenueToken token = new RevenueToken();
+        token.mint(address(this), mintAmount);
+        escrow.enableCollateral(address(token));
+    }
+
+    function testFail_enable_collateral_as_anon() public {
+        loan.setArbiter(address(0xdebf));
+        escrow.enableCollateral(address(supportedToken1));
+    }
+
     function test_can_get_correct_collateral_value() public {
         escrow.addCollateral(mintAmount, address(supportedToken1));
         uint collateralValue = escrow.getCollateralValue();
         assertEq(collateralValue, (1000 * 1e8) * (mintAmount / 1 ether), "collateral value should equal the mint amount * price");
     }
-
     function test_can_get_correct_collateral_value_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
         escrow.enableCollateral(address(token4626));
@@ -155,6 +173,7 @@ contract EscrowTest is DSTest {
 
     function test_can_liquidate_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
+        escrow.enableCollateral(address(token4626));
         token4626.setAssetMultiplier(5);
         escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
@@ -189,6 +208,7 @@ contract EscrowTest is DSTest {
 
     function test_cratio_values_with_eip4626() public {
         token4626.setAssetAddress(address(supportedToken2));
+        escrow.enableCollateral(address(token4626));
         token4626.setAssetMultiplier(2); // share token should be worth double the underlying (which is now supportedToken2)
         escrow.enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));

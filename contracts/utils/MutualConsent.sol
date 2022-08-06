@@ -27,6 +27,13 @@ abstract contract MutualConsent {
     *         - signers can be anyone. only two signers per contract or dynamic signers per tx.
     */
     modifier mutualConsent(address _signerOne, address _signerTwo) {
+      if(_mutualConsent(_signerOne, _signerTwo))  {
+        // Run whatever code needed 2/2 consent
+        _;
+      }
+    }
+
+    function _mutualConsent(address _signerOne, address _signerTwo) internal returns(bool) {
         require(
             msg.sender == _signerOne || msg.sender == _signerTwo,
             "Must be authorized address"
@@ -45,15 +52,13 @@ abstract contract MutualConsent {
 
             emit MutualConsentRegistered(newHash);
 
-            return;
+            return false;
         }
 
         delete mutualConsents[expectedHash];
 
-        // Run the rest of the consents
-        _;
+        return true;
     }
-
 
 
     /* ============ Internal Functions ============ */

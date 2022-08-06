@@ -1,3 +1,4 @@
+pragma solidity ^0.8.9;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
@@ -35,7 +36,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
 
 
   function init() external override(LineOfCredit) virtual returns(LoanLib.STATUS) {
-    return LoanLib.updateStatus(loanStatus, _init());
+    return _updateStatus(_init());
   }
 
   function _init() internal override(SpigotedLoan, EscrowedLoan) virtual returns(LoanLib.STATUS) {
@@ -70,7 +71,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
   {
     require(msg.sender == arbiter);
 
-    LoanLib.STATUS status = LoanLib.updateStatus(loanStatus, _healthcheck());
+    LoanLib.STATUS status = _updateStatus(_healthcheck());
     require(status == LoanLib.STATUS.LIQUIDATABLE);
 
     // send tokens to arbiter for OTC sales

@@ -1,3 +1,5 @@
+pragma solidity 0.8.9;
+
 import { LoanLib } from "../utils/LoanLib.sol";
 
 interface ILoan {
@@ -20,7 +22,9 @@ interface ILoan {
     bytes32 positionId
   );
 
+
    event IncreaseCredit (bytes32 indexed id, uint256 indexed deposit);
+
   // can reference only id once AddCredit is emitted because it will be stored in subgraph
   // initialPrinicipal tells us if its a Revolver or Term
 
@@ -45,5 +49,5 @@ interface ILoan {
 
   event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
 
-  event Default(bytes32 indexed id, uint256 indexed amount);
+  event Default(bytes32 indexed id);
 }

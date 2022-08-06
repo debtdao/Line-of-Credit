@@ -4,8 +4,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
-import {ILoan} from "../../interfaces/ILoan.sol";
-import {LoanLib} from "../../utils/LoanLib.sol";
+import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
+import {CreditLib} from "../../utils/CreditLib.sol";
 
 contract Escrow is IEscrow {
     using SafeERC20 for IERC20;
@@ -59,7 +59,8 @@ contract Escrow is IEscrow {
      * @return the updated collateral ratio in 18 decimals
      */
     function _getLatestCollateralRatio() internal returns (uint256) {
-        uint256 debtValue = ILoan(loan).getOutstandingDebt();
+        (uint256 principal, uint256 interest)  = ILineOfCredit(loan).updateOutstandingDebt();
+        uint256 debtValue =  principal + interest;
         uint256 collateralValue = _getCollateralValue();
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
@@ -113,7 +114,7 @@ contract Escrow is IEscrow {
                     if (!success) continue;
                     deposit = abi.decode(assetAmount, (uint256));
                 }
-                collateralValue += LoanLib.getValuation(o, d.asset, deposit, d.assetDecimals);
+                collateralValue += CreditLib.getValuation(o, d.asset, deposit, d.assetDecimals);
             }
         }
 
@@ -153,7 +154,7 @@ contract Escrow is IEscrow {
      * @param token - the token to all borrow to deposit as collateral
      */
     function enableCollateral(address token) external returns (bool) {
-        require(msg.sender == ILoan(loan).arbiter());
+        require(msg.sender == ILineOfCredit(loan).arbiter());
 
         _enableToken(token);
 

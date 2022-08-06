@@ -268,6 +268,8 @@ contract Spigot is ISpigot, ReentrancyGuard {
       require(ownerSplit >= 0 && ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
 
       settings[revenueContract].ownerSplit = ownerSplit;
+      emit UpdateOwnerSplit(revenueContract, ownerSplit);
+      
       return true;
     }
     /**
@@ -340,7 +342,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      */
     function _updateWhitelist(bytes4 func, bool allowed) internal returns (bool) {
         whitelistedFunctions[func] = allowed;
-        emit UpdateWhitelistFunction(func, true);
+        emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
 
@@ -355,8 +357,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         if(token!= address(0)) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH
-            (bool success,) = payable(receiver).call{value: amount}("");
-            require(success);
+            payable(receiver).transfer(amount);
         }
         return true;
     }

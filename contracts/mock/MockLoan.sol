@@ -35,8 +35,8 @@ contract MockLoan {
         return 0;
     }
 
-    function getOutstandingDebt() external returns(uint256) {
-        return debtValueUSD;
+    function updateOutstandingDebt() external returns(uint256,uint256) {
+        return (debtValueUSD, 0);
     }
 
 }
