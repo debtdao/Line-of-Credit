@@ -160,7 +160,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_pushPaymentToken(uint256 totalRevenue) public {
-        if(totalRevenue == 0) return;
+        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
 
         // send revenue token directly to spigot (push)
         token.mint(address(spigot), totalRevenue);
@@ -169,12 +169,11 @@ contract SpigotTest is Test {
         bytes memory claimData;
         spigot.claimRevenue(revenueContract, claimData);
 
-        emit log_named_uint("total revenue: ", totalRevenue);
         assertSpigotSplits(address(token), totalRevenue);
     }
 
     function test_claimRevenue_pullPaymentToken(uint256 totalRevenue) public {
-        if(totalRevenue == 0) return;
+        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
         
         token.mint(revenueContract, totalRevenue); // send revenue
@@ -190,7 +189,7 @@ contract SpigotTest is Test {
      @param totalRevenue - uint96 because that is max ETH in this testing address when dapptools initializes
      */
     function test_claimRevenue_pushPaymentETH(uint96 totalRevenue) public {
-        if(totalRevenue == 0) return;
+        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(eth, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         payable(address(spigot)).transfer(totalRevenue);
@@ -199,14 +198,14 @@ contract SpigotTest is Test {
         bytes memory claimData;
         uint256 revenueClaimed = spigot.claimRevenue(revenueContract, claimData); 
         assertEq(totalRevenue, revenueClaimed, 'Improper revenue amount claimed');
-        emit log_named_uint("escrowdAmount", spigot.getEscrowBalance(eth));
+        emit log_named_uint("escrowdAmount", spigot.getEscrowed(eth));
 
         
         assertSpigotSplits(eth, totalRevenue);
     }
 
     function test_claimRevenue_pullPaymentETH(uint96 totalRevenue) public {
-        if(totalRevenue == 0) return;
+        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(eth, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         payable(revenueContract).transfer(totalRevenue);
@@ -221,7 +220,7 @@ contract SpigotTest is Test {
     // Claim escrow 
 
     function test_claimEscrow_AsOwner(uint256 totalRevenue) public {
-        if(totalRevenue == 0) return;
+        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         // send revenue and claim it
         token.mint(address(spigot), totalRevenue);
         bytes memory claimData;
@@ -236,18 +235,35 @@ contract SpigotTest is Test {
     }
 
     function testFail_claimEscrow_AsNonOwner() public {
-        owner = address(0xdebf); // change owner of spigot to deploy
-        _initSpigot(address(token), 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
-
         // send revenue and claim it
         token.mint(address(spigot), 10**10);
         bytes memory claimData;
         spigot.claimRevenue(revenueContract, claimData);
 
+        hoax(address(0xdebf));
+
         // claim fails
         spigot.claimEscrow(address(token));
     }
 
+    function testFail_claimEscrow_UnclaimedRevenue() public {
+        // send revenue and claim it
+        token.mint(address(spigot), MAX_REVENUE + 1);
+        bytes memory claimData;
+        spigot.claimRevenue(revenueContract, claimData);
+
+        spigot.claimEscrow(address(token));       // reverts because excess tokens
+    }
+
+    function test_claimEscrow_AllRevenueClaimed() public {
+        // send revenue and claim it
+        token.mint(address(spigot), MAX_REVENUE + 1);
+        bytes memory claimData;
+        spigot.claimRevenue(revenueContract, claimData); // collect majority of revenue
+        spigot.claimRevenue(revenueContract, claimData); // collect remained
+
+        spigot.claimEscrow(address(token));       // should pass bc no unlciamed revenue
+    }
 
     function testFail_claimEscrow_UnregisteredToken() public {
         // create new token and send push payment
@@ -263,6 +279,7 @@ contract SpigotTest is Test {
   
     
     // Spigot initialization
+    
 
     function test_addSpigot_ProperSettings() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
@@ -409,11 +426,15 @@ contract SpigotTest is Test {
     }
 
     function testFail_removeSpigot_AsNonOwner() public {
-        spigot.updateOwner(address(0xdebf));
-        
-        assertEq(spigot.owner(), address(0xdebf));
-        
+        hoax(address(0xdebf));
         spigot.removeSpigot(revenueContract);
+    }
+
+    function testFail_removeSpigot_UnclaimedRevenue() public {
+        // send revenue and dont claim
+        token.mint(address(spigot), type(uint).max);
+
+        spigot.claimEscrow(address(token));       // reverts because excess tokens
     }
 
 

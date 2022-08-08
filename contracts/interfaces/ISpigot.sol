@@ -1,3 +1,5 @@
+pragma solidity ^0.8.9;
+
 interface ISpigot {
 
     struct Setting {
@@ -35,6 +37,8 @@ interface ISpigot {
     error ClaimFailed();
 
     error NoRevenue();
+
+    error UnclaimedRevenue();
 
     error CallerAccessDenied();
     

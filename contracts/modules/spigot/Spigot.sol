@@ -56,7 +56,15 @@ contract Spigot is ISpigot, ReentrancyGuard {
         treasury = _treasury;
     }
 
-
+    modifier whileNoUnclaimedRevenue(address token) {
+      // if excess revenue sitting in Spigot after MAX_REVENUE cut,
+      // prevent actions until all revenue claimed and escrow updated
+      // only protects push payments not pull payments.
+      if(IERC20(token).balanceOf(address(this)) > escrowed[token]) {
+        revert UnclaimedRevenue();
+      }
+      _;
+    }
 
     // ##########################
     // #####   Claimoooor   #####
@@ -129,10 +137,14 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @return claimed -  The amount of tokens claimed from revenue garnish by `owner`
 
     */
-    function claimEscrow(address token) external nonReentrant returns (uint256 claimed)  {
+    function claimEscrow(address token)
+        external
+        nonReentrant
+        whileNoUnclaimedRevenue(token)
+        returns (uint256 claimed) 
+    {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
-
-
+        
         claimed = escrowed[token];
 
         if(claimed == 0) { revert ClaimFailed(); }
@@ -264,7 +276,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
      */
-    function removeSpigot(address revenueContract) external returns (bool) {
+    function removeSpigot(address revenueContract)
+        external
+        whileNoUnclaimedRevenue(settings[revenueContract].token)
+        returns (bool)
+    {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
         
         address token = settings[revenueContract].token;
@@ -288,17 +304,21 @@ contract Spigot is ISpigot, ReentrancyGuard {
         return true;
     }
 
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool) {
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
+        external
+        whileNoUnclaimedRevenue(settings[revenueContract].token)
+        returns(bool)
+    {
       if(msg.sender != owner) { revert CallerAccessDenied(); }
-      require(ownerSplit >= 0 && ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
+      require(ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
 
       settings[revenueContract].ownerSplit = ownerSplit;
       emit UpdateOwnerSplit(revenueContract, ownerSplit);
       
       return true;
     }
-    /**
 
+    /**
      * @notice - Update Owner role of Spigot contract.
      *      New Owner receives revenue stream split and can control Spigot
      * @dev - callable by `owner`
@@ -356,21 +376,10 @@ contract Spigot is ISpigot, ReentrancyGuard {
      */
      function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
-        return _updateWhitelist(func, allowed);
-    }
-
-    /**
-
-     * @notice - Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
-     * @param func - smart contract function signature to whitelist
-     * @param allowed - true/false whether to allow this function to be called by Operator
-     */
-    function _updateWhitelist(bytes4 func, bool allowed) internal returns (bool) {
         whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
-
     /**
 
      * @notice - Send ETH or ERC20 token from this contract to an external contract
