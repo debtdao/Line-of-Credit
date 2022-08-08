@@ -108,18 +108,18 @@ library LoanLib {
     }
 
     /**
-     * @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
-          This means cleanup on _close() and checks on addDebtPosition are CRITICAL. If `id` is duplicated then the position can't be closed
+     * @dev `id` MUST be in `positions` array ONLY ONCE.
+          This means cleanup on _close() and checks on addCredit are CRITICAL. If `id` is duplicated then the position can't be closed
      * @param positions - all current active positions on the loan
      * @param id - hash id that must be removed from active positions
      * @return newPositions - all active positions on loan after `id` is removed
      */
     function removePosition(bytes32[] calldata positions, bytes32 id) external pure returns(bytes32[] memory) {
-      uint256 newLength = positions.length - 1;
+      uint256 len = positions.length - 1;
       uint256 count = 0;
-      bytes32[] memory newPositions = new bytes32[](newLength);
+      bytes32[] memory newPositions = new bytes32[](len);
 
-      for(uint i = 0; i < positions.length; i++) {
+      for(uint i = 0; i <= len; i++) {
           if(positions[i] != id) {
               newPositions[count] = positions[i];
               count++;

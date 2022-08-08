@@ -1,8 +1,10 @@
 pragma solidity 0.8.9;
 
 import { Escrow } from "../escrow/Escrow.sol";
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
+import { MutualConsent } from "../../utils/MutualConsent.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { SecuredLoan } from "./SecuredLoan.sol";
@@ -421,37 +423,42 @@ contract LoanTest is Test {
 
     function testFail_cannot_open_credit_position_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         loan.borrow(loan.ids(0), 1 ether);
     }
 
-    function testFail_cannot_borrow_from_credit_position_if_under_collateralised() public {
+    function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
         loan.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
+        vm.expectRevert(ILineOfCredit.NotActive.selector); 
         loan.borrow(id, 100 ether);
     }
 
-    function testFail_cannot_withdraw_if_all_loaned_out() public {
+    function test_cannot_withdraw_if_all_loaned_out() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         loan.withdraw(id, 0.1 ether);
     }
 
-    function testFail_cannot_borrow_more_than_position() public {
+    function test_cannot_borrow_more_than_position() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         loan.borrow(id, 100 ether);
     }
 
-    function testFail_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
+    function test_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
+        vm.expectRevert('SimpleOracle: unsupported token' ); 
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
     }
 
-    function testFail_cannot_borrow_if_not_active() public {
+    function test_cannot_borrow_if_not_active() public {
         assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
         loan.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
@@ -459,32 +466,50 @@ contract LoanTest is Test {
         loan.borrow(id, 0.1 ether);
         oracle.changePrice(address(supportedToken2), 1);
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+        vm.expectRevert(ILineOfCredit.NotActive.selector); 
         loan.borrow(id, 0.9 ether);
     }
 
-    function testFail_cannot_borrow_against_closed_position() public {
+    function test_cannot_borrow_against_closed_position() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        
+        loan.depositAndClose();
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector);
+        loan.borrow(id, 1 ether);
+    }
+
+    function test_cannot_borrow_against_repaid_line() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
         loan.depositAndClose();
+        vm.expectRevert(ILineOfCredit.NotActive.selector);
         loan.borrow(id, 1 ether);
     }
 
-    function testFail_cannot_manually_close_if_credit_outstanding() public {
+    function test_cannot_manually_close_if_debt_outstanding() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 0.1 ether);
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
         loan.close(id);
     }
 
-    function testFail_cannot_liquidate_escrow_if_cratio_above_min() public {
+    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+        vm.expectRevert(); // no error/message
         loan.liquidate(0, 1 ether, address(supportedToken1));
     }
 
-    function testFail_health_is_not_liquidatable_if_cratio_above_min() public {
-        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    function test_health_is_not_liquidatable_if_cratio_above_min() public {
+        assertTrue(loan.healthcheck() != LoanLib.STATUS.LIQUIDATABLE);
     }
 
     function test_increase_credit_limit_with_consent() public {
@@ -509,7 +534,7 @@ contract LoanTest is Test {
 
         loan.increaseCredit(id, 1 ether);
         hoax(address(0xdebf)); 
-        // vm.expectRevert(MutualConsent. unauthorized address)
+        vm.expectRevert(MutualConsent.Unauthorized.selector);
         loan.increaseCredit(id, 1 ether);
     }
 
@@ -528,14 +553,14 @@ contract LoanTest is Test {
         assertGt(drate, drawnRate);
     }
 
-    function testFail_cannot_update_rates_without_consent() public {
+    function test_cannot_update_rates_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
       
         loan.setRates(id, uint128(1 ether), uint128(1 ether));
-        hoax(address(0xdebf)); 
-        // expect MutualConsent. unauthorized address
+        vm.expectRevert(MutualConsent.Unauthorized.selector);
+        hoax(address(0xdebf));
         loan.setRates(id, uint128(1 ether), uint128(1 ether));
     }
 

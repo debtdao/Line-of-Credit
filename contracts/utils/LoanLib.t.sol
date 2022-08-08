@@ -1,6 +1,7 @@
 pragma solidity 0.8.9;
 
-import { Test } from "forge-std/Test.sol";
+import "forge-std/Test.sol";
+
 
 import { LoanLib } from "./LoanLib.sol";
 
@@ -36,11 +37,12 @@ contract LoanLibTest is Test {
         assert(newIds[0] == id);
     }
 
-    function testFail_cannot_remove_non_existent_position() public {
+    function test_remove_non_existent_position() public {
         bytes32 id = LoanLib.computePositionId(loan, lender, token);
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = id;
         assert(ids.length == 1);
+        vm.expectRevert(stdError.indexOOBError);
         LoanLib.removePosition(ids, bytes32(0));
     }
 
