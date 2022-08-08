@@ -1,7 +1,7 @@
 
 pragma solidity ^0.8.9;
 
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
+import { Test } from "forge-std/Test.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { ZeroEx } from "../../mock/ZeroEx.sol";
@@ -16,7 +16,7 @@ import { ISpigot } from '../../interfaces/ISpigot.sol';
  * @dev - does not test spigot integration e.g. claimEscrow() since that should already be covered in Spigot tests
  *      - these tests would fail if that assumption was wrong anyway
  */
-contract SpigotedLoanTest is DSTest {
+contract SpigotedLoanTest is Test {
     ZeroEx dex;
     SpigotedLoan loan;
     Spigot spigot;

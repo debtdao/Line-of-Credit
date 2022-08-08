@@ -1,9 +1,10 @@
 pragma solidity 0.8.9;
 
-import { DSTest } from "../../lib/ds-test/src/test.sol";
+import { Test } from "forge-std/Test.sol";
+
 import { LoanLib } from "./LoanLib.sol";
 
-contract LoanLibTest is DSTest {
+contract LoanLibTest is Test {
 
     address lender = address(0);
     address loan = address(1);

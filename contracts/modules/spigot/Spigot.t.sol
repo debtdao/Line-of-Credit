@@ -1,12 +1,13 @@
 pragma solidity 0.8.9;
 
+import { Test } from "forge-std/Test.sol";
 import { Spigot } from "./Spigot.sol";
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
+
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
 import { ISpigot } from '../../interfaces/ISpigot.sol';
 
-contract SpigotTest is DSTest {
+contract SpigotTest is Test {
     // spigot contracts/configurations to test against
     RevenueToken private token;
     address private revenueContract;

@@ -1,14 +1,14 @@
 pragma solidity 0.8.9;
 
 import { Escrow } from "./Escrow.sol";
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
+import { Test } from "forge-std/Test.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { RevenueToken4626 } from "../../mock/RevenueToken4626.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { MockLoan } from "../../mock/MockLoan.sol";
 
-contract EscrowTest is DSTest {
+contract EscrowTest is Test {
 
     Escrow escrow;
     RevenueToken supportedToken1;
