@@ -302,10 +302,7 @@ contract SpigotTest is Test {
     }
 
      function testFail_addSpigot_AsNonOwner() public {
-        owner =  address(0xdebf);
-        
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(address(0xdebf));
         spigot.addSpigot(address(0xdebf), settings);
     }
 
@@ -317,12 +314,47 @@ contract SpigotTest is Test {
         spigot.addSpigot(address(spigot), settings);
     }
 
+
+    //  Updating
+    function test_updateOwnerSplit_AsOwner() public {
+        spigot.updateOwnerSplit(revenueContract, 0);
+    }
+
+    function test_updateOwnerSplit_0To100(uint8 split) public {
+        if(split > 100) return;
+        assertTrue(spigot.updateOwnerSplit(revenueContract, split));
+        (,uint8 split_,,) = spigot.getSetting(revenueContract);
+        assertEq(split, split_);
+    }
+
+    function testFail_updateOwnerSplit_AsNonOwner() public {
+        hoax(address(0xdebf));
+        spigot.updateOwnerSplit(revenueContract, 0);
+    }
+
+    function testFail_updateOwnerSplit_Over100(uint8 split) public {
+        if(split <= 100) revert();
+        spigot.updateOwnerSplit(revenueContract, split);
+    }
+
+    function testFail_updateOwnerSplit_UnclaimedRevenue() public {
+        // send revenue and dont claim
+        token.mint(address(spigot), type(uint).max);
+
+        spigot.updateOwnerSplit(revenueContract, 0);     // reverts because excess tokens
+    }
+
+
     // Operate()
 
+    function testFail_operate_NonWhitelistedFunction() public {
+        assertTrue(spigot.updateWhitelistedFunction(opsFunc, false));
+        spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc));
+    }
+
     function test_operate_OperatorCanOperate() public {
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-        // assertEq(true, spigot.updateWhitelistedFunction(opsFunc, true));
-        // assertEq(true, spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
+        assertTrue(spigot.updateWhitelistedFunction(opsFunc, true));
+        assertTrue(spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
     }
 
     function testFail_operate_ClaimRevenueFunction() public {
@@ -334,23 +366,24 @@ contract SpigotTest is Test {
     
 
     function testFail_operate_AsNonOperator() public {
-        operator = address(0xdebf);
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(address(0xdebf));
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         spigot.operate(revenueContract, claimData);
     }
 
 
-     function testFail_operate_FailOnNonWhitelistFunc() public {
+     function testFail_operate_NonWhitelistFunc() public {
         spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc));
     }
 
-    function test_updateWhitelistedFunction() public {
-        // allow to operate()
+    function test_updateWhitelistedFunction_ToTrue() public {
         assertTrue(spigot.updateWhitelistedFunction(opsFunc, true));
-        // // op()
-        assertTrue(spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
+        assertTrue(spigot.isWhitelisted(opsFunc));
+    }
+
+    function test_updateWhitelistedFunction_ToFalse() public {
+        assertTrue(spigot.updateWhitelistedFunction(opsFunc, false));
+        assertFalse(spigot.isWhitelisted(opsFunc));
     }
 
     // Release
@@ -367,7 +400,6 @@ contract SpigotTest is Test {
 
 
     function testFail_removeSpigot_AsOperator() public {
-        operator = address(this); // explicitly test operator can't change
         spigot.updateOwner(address(0xdebf)); // random owner
         
         assertEq(spigot.owner(), address(0xdebf));
@@ -397,9 +429,7 @@ contract SpigotTest is Test {
     }
 
     function test_updateTreasury_AsTreasury() public {
-        treasury =  address(this);
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(treasury);
         spigot.updateTreasury(address(0xdebf));
         assertEq(spigot.treasury(), address(0xdebf));
     }
@@ -410,9 +440,7 @@ contract SpigotTest is Test {
     }
 
     function testFail_updateOwner_AsNonOwner() public {
-        owner =  address(0xdebf);
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(address(0xdebf));
         spigot.updateOwner(address(this));
     }
 
@@ -421,9 +449,7 @@ contract SpigotTest is Test {
     }
 
     function testFail_updateOperator_AsNonOperator() public {
-        operator =  address(0xdebf);
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(address(0xdebf));
         spigot.updateOperator(address(this));
     }
 
@@ -432,19 +458,12 @@ contract SpigotTest is Test {
     }
 
     function testFail_updateTreasury_AsNonTreasuryOrOperator() public {
-        treasury =  address(0xdebf);
-        operator =  address(0xdebf);
-
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(address(0xdebf));
         spigot.updateTreasury(address(this));
     }
 
     function testFail_updateTreasury_NullAddress() public {
-        treasury = address(this);
-
-        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-
+        hoax(treasury);
         spigot.updateTreasury(address(0));
     }
 }

@@ -413,14 +413,15 @@ contract LoanTest is Test {
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
     }
 
-    function test_cannot_open_credit_position_if_only_one_party_agrees() public {
+    function test_cannot_open_credit_position_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "borrower balance should be original");
     }
 
-    function testFail_cannot_open_credit_position_if_only_one_party_agrees() public {
+    function testFail_cannot_open_credit_position_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.ids(0);
+        loan.borrow(loan.ids(0), 1 ether);
     }
 
     function testFail_cannot_borrow_from_credit_position_if_under_collateralised() public {
@@ -499,20 +500,18 @@ contract LoanTest is Test {
         assertEq(d2 - d, 1 ether);
     }
 
-    // function test_cannot_increase_credit_limit_without_consent() public {
-    //     // TODO need a way to fake `lender` so mutualConsentById will fail
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     bytes32 id = loan.ids(0);
-    //     (uint d,,,,,,) = loan.credits(id);
+    function test_cannot_increase_credit_limit_without_consent() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        (uint d,,,,,,) = loan.credits(id);
         
 
-    //     // try to mock lender address as someone else
-    //     loan.increaseCredit(id, 1 ether);
-    //     loan.increaseCredit(id, 1 ether);
-    //     (uint d2,,,,,,) = loan.credits(id); 
-    //     assertEq(d2, d);
-    // }
+        loan.increaseCredit(id, 1 ether);
+        hoax(address(0xdebf)); 
+        // vm.expectRevert(MutualConsent. unauthorized address)
+        loan.increaseCredit(id, 1 ether);
+    }
 
     function test_can_update_rates_with_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -529,20 +528,16 @@ contract LoanTest is Test {
         assertGt(drate, drawnRate);
     }
 
-    // function test_cannot_update_rates_without_consent() public {
-    //     // TODO need a way to fake `lender` so mutualConsentById will fail
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     bytes32 id = loan.ids(0);
+    function testFail_cannot_update_rates_without_consent() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
       
-
-    //     // try to mock lender address as someone else
-    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
-    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
-    //     (uint128 drate, uint128 frate,) = loan.interestRate().rates(id);
-    //     assertEq(facilityRate, frate);
-    //     assertEq(drawnRate, drate);
-    // }
+        loan.setRates(id, uint128(1 ether), uint128(1 ether));
+        hoax(address(0xdebf)); 
+        // expect MutualConsent. unauthorized address
+        loan.setRates(id, uint128(1 ether), uint128(1 ether));
+    }
 
 
 }

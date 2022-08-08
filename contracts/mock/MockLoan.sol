@@ -8,10 +8,10 @@ contract MockLoan {
     address escrow;
     address public arbiter;
 
-    constructor(uint _debt) public {
+    constructor(uint _debt, address arbiter_) public {
         debtValueUSD = _debt;
         // console.log("arbiter", msg.sender);
-        arbiter = msg.sender;
+        arbiter = arbiter_;
     }
 
     function setEscrow(address _escrow) public {
@@ -28,6 +28,7 @@ contract MockLoan {
     }
 
     function liquidate(uint positionId, uint amount, address token, address to) external {
+        require(msg.sender == arbiter);
         IEscrow(escrow).liquidate(amount, token, to);
     }
 

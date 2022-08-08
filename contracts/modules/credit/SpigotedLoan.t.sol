@@ -196,8 +196,11 @@ contract SpigotedLoanTest is Test {
     // Spigot integration tests
     // Only checking that Loan functions dont fail. Check `Spigot.t.sol` for expected functionality
 
-    function test_can_deposit_and_repay() public {
+    function test_anyone_can_deposit_and_repay() public {
       loan.borrow(loan.ids(0), lentAmount);
+      creditToken.mint(address(0xdebf), lentAmount);
+      hoax(address(0xdebf));
+      creditToken.approve(address(loan), lentAmount);
       loan.depositAndRepay(lentAmount);
     }
 
