@@ -129,7 +129,7 @@ contract SpigotedLoanTest is Test {
         buyAmount
       );
 
-      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+      uint claimable = spigot.getEscrowed(address(revenueToken));
 
       loan.claimAndTrade(address(revenueToken), tradeData);
       
@@ -160,7 +160,7 @@ contract SpigotedLoanTest is Test {
         buyAmount
       );
 
-      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+      uint claimable = spigot.getEscrowed(address(revenueToken));
 
       loan.claimAndRepay(address(revenueToken), tradeData);
 

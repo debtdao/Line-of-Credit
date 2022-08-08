@@ -31,11 +31,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
     // Spigot variables
 
     // Total amount of tokens escrowed by spigot
-    mapping(address => uint256) escrowed; // token  -> amount escrowed
+    mapping(address => uint256) private escrowed; // token  -> amount escrowed
     //  allowed by operator on all revenue contracts
-    mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
+    mapping(bytes4 => bool) private whitelistedFunctions; // function -> allowed
     // Configurations for revenue contracts to split
-    mapping(address => Setting) settings; // revenue contract -> settings
+    mapping(address => Setting) private settings; // revenue contract -> settings
 
     /**
      *
@@ -150,9 +150,19 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
      * @param token Revenue token that is being garnished from spigots
     */
-    function getEscrowBalance(address token) external view returns (uint256) {
+    function getEscrowed(address token) external view returns (uint256) {
         return escrowed[token];
     }
+
+    /**
+     * @notice - If a function is callable on revenue contracts
+     * @param func Function to check on whitelist 
+    */
+
+    function isWhitelisted(bytes4 func) external view returns(bool) {
+      return whitelistedFunctions[func];
+    }
+
 
 
 

@@ -137,7 +137,7 @@ contract SpigotTest is Test {
         uint256 escrowed = maxRevenue * settings.ownerSplit / 100;
 
         assertEq(
-            spigot.getEscrowBalance(_token),
+            spigot.getEscrowed(_token),
             escrowed,
             'Invalid escrow amount for spigot revenue'
         );

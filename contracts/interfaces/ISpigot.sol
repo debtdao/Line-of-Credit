@@ -40,4 +40,7 @@ interface ISpigot {
     
     error BadSetting();
 
+    function isWhitelisted(bytes4 func) external view returns(bool);
+    function getEscrowed(address token) external view returns(uint256);
+
 }
