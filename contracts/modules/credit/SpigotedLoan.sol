@@ -192,10 +192,11 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
         if(transferFunc == bytes4(0)) { revert NoSpigot(); }
 
-        if(loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if(s == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
             // if loan is healthy set split to default take rate
             return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
+        } else if (s == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
             // if loan is in distress take all revenue to repay loan
             return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
         }
@@ -240,12 +241,13 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
-        if (loanStatus == LoanLib.STATUS.REPAID) {
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if (s == LoanLib.STATUS.REPAID) {
             if(!spigot.updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
-        if (loanStatus == LoanLib.STATUS.LIQUIDATABLE) {
+        if (s == LoanLib.STATUS.LIQUIDATABLE) {
             if(!spigot.updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
             return true;
         }
@@ -261,10 +263,11 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @param token - token to take out
   */
     function sweep(address token) external returns (uint256) {
-        if (loanStatus == LoanLib.STATUS.REPAID) {
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if (s == LoanLib.STATUS.REPAID) {
             return _sweep(borrower, token);
         }
-        if (loanStatus == LoanLib.STATUS.INSOLVENT) {
+        if (s == LoanLib.STATUS.INSOLVENT) {
             return _sweep(arbiter, token);
         }
 

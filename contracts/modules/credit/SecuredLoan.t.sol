@@ -22,6 +22,7 @@ contract LoanTest is Test {
     uint minCollateralRatio = 1 ether; // 100%
     uint128 drawnRate = 100;
     uint128 facilityRate = 1;
+    uint ttl = 150 days;
 
     address borrower;
     address arbiter;
@@ -35,7 +36,7 @@ contract LoanTest is Test {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        loan = new SecuredLoan(address(oracle), arbiter, borrower, address(0), 1 ether, 150 days, 0);
+        loan = new SecuredLoan(address(oracle), arbiter, borrower, address(0), 1 ether, ttl, 0);
         escrow = loan.escrow();
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
@@ -53,31 +54,6 @@ contract LoanTest is Test {
         unsupportedToken.mint(borrower, mintAmount);
         unsupportedToken.approve(address(escrow), MAX_INT);
         unsupportedToken.approve(address(loan), MAX_INT);
-    }
-
-    function test_can_liquidate_escrow_if_cratio_below_min() public {
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
-        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        (uint p, uint i) = loan.updateOutstandingDebt();
-        assertGt(p, 0);
-        oracle.changePrice(address(supportedToken2), 1);
-        loan.liquidate(id, 1 ether, address(supportedToken2));
-        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
-        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
-    }
-
-    function test_health_becomes_liquidatable_if_cratio_below_min() public {
-        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
     }
 
     function test_loan_is_active_on_deployment() public {
@@ -406,25 +382,16 @@ contract LoanTest is Test {
         assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID), "Loan not repaid");
     }
 
-    function test_loan_status_changes_to_liquidatable() public {
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
-    }
-
     function test_cannot_open_credit_position_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "borrower balance should be original");
     }
 
-    function testFail_cannot_open_credit_position_without_consent() public {
+    function test_cannot_borrow_from_nonexistant_position() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
-        loan.borrow(loan.ids(0), 1 ether);
+        loan.borrow(bytes32(uint(12743134)), 1 ether);
     }
 
     function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
@@ -503,14 +470,94 @@ contract LoanTest is Test {
         loan.close(id);
     }
 
+    // Liquidate  / Liquidatable
+
+
+    function test_health_becomes_liquidatable_if_cratio_below_min() public {
+        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        oracle.changePrice(address(supportedToken2), 1);
+        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    }
+
+
+    function test_health_becomes_liquidatable_if_debt_past_deadline() public {
+        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
+        emit log_named_uint("deadline", block.timestamp + ttl);
+        // add line otherwise no debt == passed
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        vm.warp(ttl+1);
+        emit log_named_uint("overdue", block.timestamp - ttl);
+        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    }
+
+    function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
+        hoax(arbiter);
+        vm.warp(ttl+1);
+        vm.expectRevert();
+        loan.liquidate(0, 1 ether, address(supportedToken2));
+    }
+
+    function test_can_liquidate_if_debt_when_deadline_passes() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        vm.warp(ttl+1);
+        loan.liquidate(id, 0.9 ether, address(supportedToken2));
+    }
+
     function test_cannot_liquidate_escrow_if_cratio_above_min() public {
         vm.expectRevert(); // no error/message
-        loan.liquidate(0, 1 ether, address(supportedToken1));
+        loan.liquidate(0, 1 ether, address(supportedToken2));
     }
 
     function test_health_is_not_liquidatable_if_cratio_above_min() public {
         assertTrue(loan.healthcheck() != LoanLib.STATUS.LIQUIDATABLE);
     }
+
+
+    function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
+        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        (uint p, uint i) = loan.updateOutstandingDebt();
+        assertGt(p, 0);
+        oracle.changePrice(address(supportedToken2), 1);
+        loan.liquidate(id, 1 ether, address(supportedToken2));
+        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
+        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
+    }
+
+
+    function test_health_becomes_liquidatable_when_cratio_below_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        oracle.changePrice(address(supportedToken2), 1);
+        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    }
+
+    function test_cannot_liquidate_as_anon() public {
+        hoax(address(0xdead));
+        vm.expectRevert(); // no error/message
+        loan.liquidate(0, 1 ether, address(supportedToken2));
+    }
+
+    function test_cannot_liquidate_as_borrower() public {
+        // hoax(borrower);
+        // vm.expectRevert(); // no error/message
+        // loan.liquidate(0, 1 ether, address(supportedToken2));
+    }
+
 
     function test_increase_credit_limit_with_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);

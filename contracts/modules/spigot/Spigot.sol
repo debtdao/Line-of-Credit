@@ -218,13 +218,12 @@ contract Spigot is ISpigot, ReentrancyGuard {
      */
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
         // extract function signature from tx data and check whitelist
-        require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
+        if(!whitelistedFunctions[bytes4(data)]) { revert BadFunction(); }
         // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
-        require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
+        if(settings[revenueContract].claimFunction == bytes4(data)) { revert BadFunction(); }
 
-        
         (bool success, bytes memory opData) = revenueContract.call(data);
-        require(success, "Spigot: Operation failed");
+        if(!success) { revert BadFunction(); }
 
         return true;
     }
@@ -255,13 +254,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function _addSpigot(address revenueContract, Setting memory setting) internal returns (bool) {
         require(revenueContract != address(this));
         // spigot setting already exists
-        if(settings[revenueContract].transferOwnerFunction != bytes4(0))  {
-          revert BadSetting();
-        }
+        require(settings[revenueContract].transferOwnerFunction == bytes4(0));
         
         // must set transfer func
         if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
-        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit >= 0, "Spigot: Invalid split rate");
+        if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -310,7 +307,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         returns(bool)
     {
       if(msg.sender != owner) { revert CallerAccessDenied(); }
-      require(ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
+      if(ownerSplit > MAX_SPLIT) { revert BadSetting(); }
 
       settings[revenueContract].ownerSplit = ownerSplit;
       emit UpdateOwnerSplit(revenueContract, ownerSplit);
@@ -413,7 +410,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function getSetting(address revenueContract)
         external view
         returns(address, uint8, bytes4, bytes4)
-    {   
+    {
         return (
             settings[revenueContract].token,
             settings[revenueContract].ownerSplit,
