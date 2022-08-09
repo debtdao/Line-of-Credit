@@ -7,7 +7,7 @@ import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { RevenueToken4626 } from "../../mock/RevenueToken4626.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { MockLoan } from "../../mock/MockLoan.sol";
-
+import { IEscrow } from "../../interfaces/IEscrow.sol";
 contract EscrowTest is Test {
 
     Escrow escrow;
@@ -231,29 +231,55 @@ contract EscrowTest is Test {
         assertEq(escrow.getCollateralRatio(), 0.65 ether, "cratio should be 65%");
     }
 
-    function testFail_cannot_remove_collateral_when_under_collateralized() public {
+    function test_can_remove_all_collateral_when_loan_repaid() public {
+        uint balance = supportedToken1.balanceOf(address(this));
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        uint balance2 = supportedToken1.balanceOf(address(this));
+        assertEq(balance - 1 ether, balance2);
+
+        loan.setStatus(LoanLib.STATUS.REPAID);
+        escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
+
+        uint balance3 = supportedToken1.balanceOf(address(this));
+        assertEq(balance, balance3);
+        assertEq(balance2 + 1 ether, balance3);
+    }
+
+    function test_cannot_remove_collateral_as_anon() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         loan.setDebtValue(2000 ether);
+        hoax(address(0xdebf));
+        vm.expectRevert(IEscrow.CallerAccessDenied.selector);
         escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
     }
 
-    function testFail_cannot_remove_collateral_when_under_collateralized_eip4626() public {
+    function test_cannot_remove_collateral_when_under_collateralized() public {
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        loan.setDebtValue(2000 ether);
+        vm.expectRevert(IEscrow.UnderCollateralized.selector);
+        escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
+    }
+
+    function test_cannot_remove_collateral_when_under_collateralized_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
         _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
+        vm.expectRevert(IEscrow.UnderCollateralized.selector);
         escrow.releaseCollateral(1 ether, address(token4626), borrower);
     }
 
-    function testFail_cannot_liquidate_when_loan_healthy() public {
+    function test_can_liquidate_when_cratio_healthy() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
+        hoax(arbiter);
         loan.liquidate(0, 1 ether, address(supportedToken1), arbiter);
     }
 
-    function testFail_cannot_liquidate_when_loan_healthy_eip4626() public {
+    function test_can_liquidate_when_loan_healthy_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
         _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
+        hoax(arbiter);
         loan.liquidate(0, 1 ether, address(token4626), arbiter);
     }
 

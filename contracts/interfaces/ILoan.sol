@@ -66,5 +66,6 @@ interface ILoan {
 
   function borrower() external returns(address);
   function arbiter() external returns(address);
+  function loanStatus() external returns(LoanLib.STATUS);
   function oracle() external returns(IOracle);
 }

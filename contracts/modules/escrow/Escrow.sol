@@ -218,7 +218,12 @@ contract Escrow is IEscrow {
         deposited[token].amount -= amount;
         IERC20(token).safeTransfer(to, amount);
         uint256 cratio = _getLatestCollateralRatio();
-        if(cratio < minimumCollateralRatio) { revert UnderCollateralized(); }
+        // fail if reduces cratio below min 
+        // but allow borrower to always withdraw if fully repaid
+        if(
+          cratio < minimumCollateralRatio &&         // if undercollateralized, revert;
+          ILoan(loan).loanStatus() != LoanLib.STATUS.REPAID // if repaid, skip;
+        ) { revert UnderCollateralized(); }
         
         emit RemoveCollateral(token, amount);
 
@@ -245,6 +250,7 @@ contract Escrow is IEscrow {
 
     /**
      * @notice liquidates borrowers collateral by token and amount
+     *         loan can liquidate at anytime based off other covenants besides cratio
      * @dev requires that the cratio is at or below the liquidation threshold
      * @dev callable by `loan`
      * @param amount - the amount of tokens to liquidate
