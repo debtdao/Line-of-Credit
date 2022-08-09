@@ -260,7 +260,6 @@ contract Escrow is IEscrow {
         require(amount > 0);
         if(msg.sender != loan) { revert CallerAccessDenied(); }
         if(deposited[token].amount < amount) { revert InvalidCollateral(); }
-        if(minimumCollateralRatio < _getLatestCollateralRatio()) { revert NotLiquidatable(); }
 
         deposited[token].amount -= amount;
         
