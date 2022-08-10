@@ -1,0 +1,309 @@
+{
+  "address": "0xD0a68b3894704A17056FE6Cc64Fb314a528813A4",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "position",
+          "type": "bytes32"
+        }
+      ],
+      "name": "NoLiquidity",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoTokenPrice",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "PositionExists",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "lender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "deposit",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "positionId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "AddCredit",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Borrow",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "InterestAccrued",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "RepayInterest",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "RepayPrincipal",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "WithdrawDeposit",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "id",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "WithdrawProfit",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "price",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint8",
+          "name": "decimals",
+          "type": "uint8"
+        }
+      ],
+      "name": "calculateValue",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "loan",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "lender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "computePositionId",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0x2b370fc4b8d84df555f34e6ca9101cb8913311bb85547db50518f023549f4d3f",
+  "receipt": {
+    "to": null,
+    "from": "0x41d28426925E8201b2A163C4bC1A45D9EAFb32f4",
+    "contractAddress": "0xD0a68b3894704A17056FE6Cc64Fb314a528813A4",
+    "transactionIndex": 55,
+    "gasUsed": "1333227",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x7dc18f86889cec3d6c6cb21c1814ecf4159b567a85a5fce60c3a3f28f862e2a8",
+    "transactionHash": "0x2b370fc4b8d84df555f34e6ca9101cb8913311bb85547db50518f023549f4d3f",
+    "logs": [],
+    "blockNumber": 7381230,
+    "cumulativeGasUsed": "9113506",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "2a60ac237244dc390ce3bdbc44555d3c",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.9+commit.e5eed63a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"position\",\"type\":\"bytes32\"}],\"name\":\"NoLiquidity\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NoTokenPrice\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PositionExists\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"lender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"deposit\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"positionId\",\"type\":\"bytes32\"}],\"name\":\"AddCredit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"Borrow\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"InterestAccrued\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"RepayInterest\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"RepayPrincipal\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"WithdrawDeposit\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"id\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"WithdrawProfit\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"int256\",\"name\":\"price\",\"type\":\"int256\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"decimals\",\"type\":\"uint8\"}],\"name\":\"calculateValue\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"loan\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"lender\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"computePositionId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Kiba Gateaux\",\"kind\":\"dev\",\"methods\":{\"calculateValue(int256,uint256,uint8)\":{\"params\":{\"amount\":\"- amount of tokens vbeing valued.\",\"decimals\":\"- token decimals to remove for usd price\",\"price\":\"- oracle price of asset. 8 decimals\"},\"returns\":{\"_0\":\"- total USD value of amount in 8 decimals \"}},\"computePositionId(address,address,address)\":{\"details\":\"- Create deterministic hash id for a debt position on `loan` given position details\",\"params\":{\"lender\":\"- address managing debt position\",\"loan\":\"- loan that debt position exists on\",\"token\":\"- token that is being lent out in debt position\"},\"returns\":{\"_0\":\"positionId\"}},\"getValuation(IOracle,address,uint256,uint8)\":{\"details\":\"- Assumes oracles all return answers in USD with 1e8 decimals - Does not check if price < 0. HAndled in Oracle or Loan\",\"params\":{\"amount\":\"- token amount\",\"decimals\":\"- token decimals\",\"oracle\":\"- oracle contract specified by loan getting valuation\",\"token\":\"- token to value on oracle\"},\"returns\":{\"_0\":\"- total value in usd of all tokens \"}}},\"title\":\"Debt DAO P2P Loan Library\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"calculateValue(int256,uint256,uint8)\":{\"notice\":\"@dev            - Assumes oracles all return answers in USD with 1e8 decimals - Does not check if price < 0. HAndled in Oracle or Loan\"},\"getValuation(IOracle,address,uint256,uint8)\":{\"notice\":\"- Gets total valuation for amount of tokens using given oracle. \"}},\"notice\":\"Core logic and variables to be reused across all Debt DAO Marketplace loans\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/utils/CreditLib.sol\":\"CreditLib\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IInterestRateCredit.sol\":{\"content\":\"pragma solidity ^0.8.9;\\n\\ninterface IInterestRateCredit {\\n  struct Rate {\\n    // interest rate on amount currently being borrower\\n    // in bps, 4 decimals\\n    uint128 drawnRate;\\n    // interest rate on amount deposited by lender but not currently being borrowed\\n    // in bps, 4 decimals\\n    uint128 facilityRate;\\n    // timestamp that interest was last accrued on this position\\n    uint256 lastAccrued;\\n  }\\n\\n  function accrueInterest(\\n    bytes32 positionId,\\n    uint256 drawnAmount,\\n    uint256 facilityAmount\\n  ) external returns(uint256);\\n\\n  function setRate(\\n    bytes32 positionId,\\n    uint128 drawnRate,\\n    uint128 facilityRate\\n  ) external returns(bool);\\n}\\n\",\"keccak256\":\"0x327d41c69ed0b4fe4ff4e74801df7ee1d90ff90cc0b52b737fccd699f6e3fea8\"},\"contracts/interfaces/ILineOfCredit.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\nimport { LoanLib } from \\\"../utils/LoanLib.sol\\\";\\nimport { ILoan } from \\\"./ILoan.sol\\\";\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\n\\ninterface ILineOfCredit is ILoan {\\n  // Lender data\\n  struct Credit {\\n    //  all denominated in token, not USD\\n    uint256 deposit;          // total liquidity provided by lender for token\\n    uint256 principal;        // amount actively lent out\\n    uint256 interestAccrued;  // interest accrued but not repaid\\n    uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender\\n    uint8 decimals;           // decimals of credit token for calcs\\n    address token;            // token being lent out\\n    address lender;           // person to repay\\n  }\\n\\n  event SetRates(bytes32 indexed id, uint128 indexed drawnRate, uint128 indexed facilityRate);\\n\\n\\n  // Access Errors\\n  error NotActive();\\n  error NotBorrowing();\\n  error CallerAccessDenied();\\n  \\n  // Tokens\\n  error TokenTransferFailed();\\n  error NoTokenPrice();\\n\\n  // Loan\\n  error BadModule(address module);\\n  error NoLiquidity(bytes32 position);\\n  error PositionExists();\\n  error CloseFailedWithPrincipal();\\n\\n  function init() external returns(LoanLib.STATUS);\\n\\n  function addCredit(\\n    uint128 drate,\\n    uint128 frate,\\n    uint256 amount,\\n    address token,\\n    address lender\\n  ) external returns(bytes32);\\n\\n  function setRates(\\n    bytes32 id,\\n    uint128 drate,\\n    uint128 frate\\n  ) external returns(bool);\\n\\n  function increaseCredit(bytes32 id, uint256 amount) external returns(bool);\\n\\n  function borrow(bytes32 id, uint256 amount) external returns(bool);\\n  function depositAndRepay(uint256 amount) external returns(bool);\\n  function depositAndClose() external returns(bool);\\n  function close(bytes32 id) external returns(bool);\\n\\n  function withdraw(bytes32 id, uint256 amount) external returns(bool);\\n\\n  function accrueInterest() external returns(bool);\\n  function updateOutstandingDebt() external returns(uint256, uint256);\\n  function healthcheck() external returns(LoanLib.STATUS);\\n\\n  function borrower() external returns(address);\\n  function arbiter() external returns(address);\\n  function oracle() external returns(IOracle);\\n}\\n\",\"keccak256\":\"0xf69a055a8cfaccd9b612207a0a49e0fdfedf3776e3a6e5a7edf0fb5c6d6cbe60\"},\"contracts/interfaces/ILoan.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\nimport { LoanLib } from \\\"../utils/LoanLib.sol\\\";\\n\\ninterface ILoan {\\n\\n  // General Events\\n  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n  event DeployLoan(\\n    address indexed oracle,\\n    address indexed arbiter,\\n    address indexed borrower\\n  );\\n\\n  // Lender Events\\n\\n  event AddCredit(\\n    address indexed lender,\\n    address indexed token,\\n    uint256 indexed deposit,\\n    bytes32 positionId\\n  );\\n\\n\\n   event IncreaseCredit (bytes32 indexed id, uint256 indexed deposit);\\n\\n  // can reference only id once AddCredit is emitted because it will be stored in subgraph\\n  // initialPrinicipal tells us if its a Revolver or Term\\n\\n  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);\\n  // lender removing funds from Loan  principal\\n  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);\\n  // lender taking interest earned out of contract\\n\\n  event CloseCreditPosition(bytes32 indexed id);\\n  // lender officially repaid in full. if Credit then facility has also been closed.\\n\\n  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);\\n  // interest added to borrowers outstanding balance\\n\\n\\n  // Borrower Events\\n\\n  event Borrow(bytes32 indexed id, uint256 indexed amount);\\n  // receive full loan or drawdown on credit\\n\\n  event RepayInterest(bytes32 indexed id, uint256 indexed amount);\\n\\n  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);\\n\\n  event Default(bytes32 indexed id);\\n}\\n\",\"keccak256\":\"0x63d7f761402d6d221e38e1d8fe3302e1a1f153ea7835f6ac96966f43fa6ee7be\"},\"contracts/interfaces/IOracle.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\ninterface IOracle {\\n    /** current price for token asset. denominated in USD */\\n    function getLatestAnswer(address token) external returns(int);\\n}\\n\",\"keccak256\":\"0xdefae1f6dd298ddfba2a88c77096e77e59ac0a567bc3c8e76ef5a3424e4b832f\"},\"contracts/utils/CreditLib.sol\":{\"content\":\"pragma solidity 0.8.9;\\nimport { ILineOfCredit } from \\\"../interfaces/ILineOfCredit.sol\\\";\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\nimport { IInterestRateCredit } from \\\"../interfaces/IInterestRateCredit.sol\\\";\\nimport { ILoan } from \\\"../interfaces/ILoan.sol\\\";\\nimport { LoanLib } from \\\"./LoanLib.sol\\\";\\n\\n/**\\n  * @title Debt DAO P2P Loan Library\\n  * @author Kiba Gateaux\\n  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans\\n */\\nlibrary CreditLib {\\n\\n    event AddCredit(\\n        address indexed lender,\\n        address indexed token,\\n        uint256 indexed deposit,\\n        bytes32 positionId\\n    );\\n\\n  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);\\n  // lender removing funds from Loan  principal\\n  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);\\n  // lender taking interest earned out of contract\\n\\n  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);\\n  // interest added to borrowers outstanding balance\\n\\n\\n  // Borrower Events\\n\\n  event Borrow(bytes32 indexed id, uint256 indexed amount);\\n  // receive full loan or drawdown on credit\\n\\n  event RepayInterest(bytes32 indexed id, uint256 indexed amount);\\n\\n  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);\\n\\n\\n  error NoTokenPrice();\\n\\n  error PositionExists();\\n\\n\\n  /**\\n   * @dev          - Create deterministic hash id for a debt position on `loan` given position details\\n   * @param loan   - loan that debt position exists on\\n   * @param lender - address managing debt position\\n   * @param token  - token that is being lent out in debt position\\n   * @return positionId\\n   */\\n  function computePositionId(\\n    address loan,\\n    address lender,\\n    address token\\n  )\\n    external pure\\n    returns(bytes32)\\n  {\\n    return _computePositionId(loan, lender, token);\\n  }\\n\\n  function _computePositionId(\\n    address loan,\\n    address lender,\\n    address token\\n  )\\n    internal pure\\n    returns(bytes32)\\n  {\\n    return keccak256(abi.encode(loan, lender, token));\\n  }\\n\\n\\n    function getOutstandingDebt(\\n      ILineOfCredit.Credit memory credit,\\n      bytes32 id,\\n      address oracle,\\n      address interestRate\\n    )\\n      external\\n      returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest)\\n    {\\n        c = _accrue(credit, id, IInterestRateCredit(interestRate)); // Issue is accruing interest from here\\n\\n        int256 price = IOracle(oracle).getLatestAnswer(c.token);\\n\\n        principal += _calculateValue(\\n            price,\\n            c.principal,\\n            c.decimals\\n        );\\n        interest += _calculateValue(\\n            price,\\n            c.interestAccrued,\\n            c.decimals\\n        );\\n\\n        return (c, principal, interest);\\n  }\\n\\n   /**\\n     * @notice         - Gets total valuation for amount of tokens using given oracle. \\n     * @dev            - Assumes oracles all return answers in USD with 1e8 decimals\\n                       - Does not check if price < 0. HAndled in Oracle or Loan\\n     * @param oracle   - oracle contract specified by loan getting valuation\\n     * @param token    - token to value on oracle\\n     * @param amount   - token amount\\n     * @param decimals - token decimals\\n     * @return         - total value in usd of all tokens \\n     */\\n    function getValuation(\\n      IOracle oracle,\\n      address token,\\n      uint256 amount,\\n      uint8 decimals\\n    )\\n      external\\n      returns(uint256)\\n    {\\n      return _calculateValue(oracle.getLatestAnswer(token), amount, decimals);\\n    }\\n\\n    /**\\n     * @notice\\n     * @dev            - Assumes oracles all return answers in USD with 1e8 decimals\\n                       - Does not check if price < 0. HAndled in Oracle or Loan\\n     * @param price    - oracle price of asset. 8 decimals\\n     * @param amount   - amount of tokens vbeing valued.\\n     * @param decimals - token decimals to remove for usd price\\n     * @return         - total USD value of amount in 8 decimals \\n     */\\n    function calculateValue(\\n      int price,\\n      uint256 amount,\\n      uint8 decimals\\n    )\\n      external pure\\n      returns(uint256)\\n    {\\n      return _calculateValue(price, amount, decimals);\\n    }\\n\\n\\n      /**\\n     * @notice         - calculates value of tokens and denominates in USD 8\\n     * @dev            - Assumes all oracles return USD responses in 1e8 decimals\\n     * @param price    - oracle price of asset. 8 decimals\\n     * @param amount   - amount of tokens vbeing valued.\\n     * @param decimals - token decimals to remove for usd price\\n     * @return         - total value in usd of all tokens \\n     */\\n    function _calculateValue(\\n      int price,\\n      uint256 amount,\\n      uint8 decimals\\n    )\\n      internal pure\\n      returns(uint256)\\n    {\\n      return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);\\n    }\\n\\n  \\n\\n  function create(\\n      bytes32 id,\\n      uint256 amount,\\n      address lender,\\n      address token,\\n      address oracle\\n  )\\n      external \\n      returns(ILineOfCredit.Credit memory credit)\\n  {\\n      return _create(id, amount, lender, token, oracle);\\n  }\\n\\n  function _create(\\n      bytes32 id,\\n      uint256 amount,\\n      address lender,\\n      address token,\\n      address oracle\\n  )\\n      internal \\n      returns(ILineOfCredit.Credit memory credit)\\n  {\\n      int price = IOracle(oracle).getLatestAnswer(token);\\n      if(price <= 0 ) { revert NoTokenPrice(); }\\n\\n      (bool passed, bytes memory result) = token.call(\\n          abi.encodeWithSignature(\\\"decimals()\\\")\\n      );\\n      uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));\\n\\n      credit = ILineOfCredit.Credit({\\n          lender: lender,\\n          token: token,\\n          decimals: decimals,\\n          deposit: amount,\\n          principal: 0,\\n          interestAccrued: 0,\\n          interestRepaid: 0\\n      });\\n\\n      emit AddCredit(lender, token, amount, id);\\n\\n      return credit;\\n  }\\n\\n  function repay(\\n    ILineOfCredit.Credit memory credit,\\n    bytes32 id,\\n    uint256 amount\\n  )\\n    external\\n    // TODO don't need to return all uints if we can get events working in library to show up on subgraph\\n    returns (ILineOfCredit.Credit memory)\\n  { unchecked {\\n      if (amount <= credit.interestAccrued) {\\n          credit.interestAccrued -= amount;\\n          credit.interestRepaid += amount;\\n          emit RepayInterest(id, amount);\\n          return credit;\\n      } else {\\n          uint256 interest = credit.interestAccrued;\\n          uint256 principalPayment = amount - interest;\\n\\n          // update individual credit position denominated in token\\n          credit.principal -= principalPayment;\\n          credit.interestRepaid += interest;\\n          credit.interestAccrued = 0;\\n\\n          emit RepayInterest(id, interest);\\n          emit RepayPrincipal(id, principalPayment);\\n\\n          return credit;\\n      }\\n  } }\\n\\n  function withdraw(\\n    ILineOfCredit.Credit memory credit,\\n    bytes32 id,\\n    uint256 amount\\n  )\\n    external\\n    returns (ILineOfCredit.Credit memory)\\n  { unchecked {\\n      if(amount > credit.deposit - credit.principal + credit.interestRepaid) {\\n        revert ILineOfCredit.NoLiquidity(id);\\n      }\\n\\n      if (amount > credit.interestRepaid) {\\n          uint256 interest = credit.interestRepaid;\\n          amount -= interest;\\n\\n          credit.deposit -= amount;\\n          credit.interestRepaid = 0;\\n\\n          // emit events before seeting to 0\\n          emit WithdrawDeposit(id, amount);\\n          emit WithdrawProfit(id, interest);\\n\\n          return credit;\\n      } else {\\n          credit.interestRepaid -= amount;\\n          emit WithdrawProfit(id, amount);\\n          return credit;\\n      }\\n  } }\\n\\n\\n  function accrue(\\n    ILineOfCredit.Credit memory credit,\\n    bytes32 id,\\n    address interest\\n  )\\n    external\\n    returns (ILineOfCredit.Credit memory)\\n  { \\n    return _accrue(credit, id, IInterestRateCredit(interest));\\n  }\\n\\n  function _accrue(\\n    ILineOfCredit.Credit memory credit,\\n    bytes32 id,\\n    IInterestRateCredit interest\\n  )\\n    internal\\n    returns (ILineOfCredit.Credit memory)\\n  { unchecked {\\n      // interest will almost always be less than deposit\\n      // low risk of overflow unless extremely high interest rate\\n\\n      // get token demoninated interest accrued\\n      uint256 accruedToken = interest.accrueInterest(\\n          id,\\n          credit.principal,\\n          credit.deposit\\n      );\\n\\n      // update credits balance\\n      credit.interestAccrued += accruedToken;\\n\\n      emit InterestAccrued(id, accruedToken);\\n      return credit;\\n  } }\\n}\\n\",\"keccak256\":\"0xc4d0601e61130fd6a37a31a915f49eeab62cbc0f5605bc463d57a20f09194a5b\"},\"contracts/utils/LoanLib.sol\":{\"content\":\"pragma solidity 0.8.9;\\nimport { ILoan } from \\\"../interfaces/ILoan.sol\\\";\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\n/**\\n  * @title Debt DAO P2P Loan Library\\n  * @author Kiba Gateaux\\n  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans\\n */\\nlibrary LoanLib {\\n    event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n    enum STATUS {\\n        // \\u00bfhoo dis\\n        // Loan has been deployed but terms and conditions are still being signed off by parties\\n        UNINITIALIZED,\\n        INITIALIZED,\\n\\n        // ITS ALLLIIIIVVEEE\\n        // Loan is operational and actively monitoring status\\n        ACTIVE,\\n        UNDERCOLLATERALIZED,\\n        LIQUIDATABLE, // [#X\\n        DELINQUENT,\\n\\n        // Loan is in distress and paused\\n        LIQUIDATING,\\n        OVERDRAWN,\\n        DEFAULT,\\n        ARBITRATION,\\n\\n        // L\\u00f6n izz ded\\n        // Loan is no longer active, successfully repaid or insolvent\\n        REPAID,\\n        INSOLVENT\\n    }\\n\\n    function updateStatus(STATUS status, STATUS target) external returns(STATUS) {\\n        if (status == target) return status;  // check if it needs updating\\n        status = target;            // set storage in Line contract\\n        emit UpdateLoanStatus(uint256(status));\\n        return status;\\n    }\\n}\\n\",\"keccak256\":\"0xf245bd57fcc50793a607c24d652535b99a7bff5e39e77ef7a8c9d7743d3100ef\"}},\"version\":1}",
+  "bytecode": "0x611731610053600b82828239805160001a607314610046577f4e487b7100000000000000000000000000000000000000000000000000000000600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106100925760003560e01c8063e2c92dfa11610065578063e2c92dfa1461018d578063eb21469a146101ca578063ec65f1bf146101fa578063f052fa511461022a57610092565b80639496dda214610097578063beccf5db146100d4578063cae8b71214610111578063d6af3ef61461014e575b600080fd5b8180156100a357600080fd5b506100be60048036038101906100b99190610da3565b610267565b6040516100cb9190610eb3565b60405180910390f35b8180156100e057600080fd5b506100fb60048036038101906100f69190610ece565b610283565b6040516101089190610eb3565b60405180910390f35b81801561011d57600080fd5b5061013860048036038101906101339190610f87565b6102a3565b6040516101459190610ffd565b60405180910390f35b81801561015a57600080fd5b5061017560048036038101906101709190611018565b610344565b60405161018493929190611082565b60405180910390f35b81801561019957600080fd5b506101b460048036038101906101af91906110bb565b61043a565b6040516101c19190610eb3565b60405180910390f35b6101e460048036038101906101df9190611110565b610579565b6040516101f19190611172565b60405180910390f35b610214600480360381019061020f91906111c3565b61058f565b6040516102219190610ffd565b60405180910390f35b81801561023657600080fd5b50610251600480360381019061024c91906110bb565b6105a5565b60405161025e9190610eb3565b60405180910390f35b61026f610ae0565b61027a8484846106b2565b90509392505050565b61028b610ae0565b610298868686868661079e565b905095945050505050565b600061033a8573ffffffffffffffffffffffffffffffffffffffff16636849a3ba866040518263ffffffff1660e01b81526004016102e19190611225565b602060405180830381600087803b1580156102fb57600080fd5b505af115801561030f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103339190611255565b8484610a60565b9050949350505050565b61034c610ae0565b60008061035a8787866106b2565b925060008573ffffffffffffffffffffffffffffffffffffffff16636849a3ba8560a001516040518263ffffffff1660e01b815260040161039b9190611225565b602060405180830381600087803b1580156103b557600080fd5b505af11580156103c9573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103ed9190611255565b90506104028185602001518660800151610a60565b8361040d91906112b1565b92506104228185604001518660800151610a60565b8261042d91906112b1565b9150509450945094915050565b610442610ae0565b836060015184602001518560000151030182111561049657826040517efdbb9b00000000000000000000000000000000000000000000000000000000815260040161048d9190611316565b60405180910390fd5b836060015182111561053057600084606001519050808303925082856000018181510391508181525050600085606001818152505082847fa8c6fb49698d38e185a46a516da8802444a0816d0e0ee3a5d3f530e17b6fa41f60405160405180910390a380847f4f78e5d544f0502bfc2b8cfc5ae7f6b6918cab2266650ddf720f878b6b832c8360405160405180910390a384915050610572565b8184606001818151039150818152505081837f4f78e5d544f0502bfc2b8cfc5ae7f6b6918cab2266650ddf720f878b6b832c8360405160405180910390a38390505b9392505050565b6000610586848484610aaa565b90509392505050565b600061059c848484610a60565b90509392505050565b6105ad610ae0565b8360400151821161060e57818460400181815103915081815250508184606001818151019150818152505081837f456ba55dea464bc558df162999372fd0cbe95b91cd2bcc1349883a369d02080d60405160405180910390a38390506106ab565b600084604001519050600081840390508086602001818151039150818152505081866060018181510191508181525050600086604001818152505081857f456ba55dea464bc558df162999372fd0cbe95b91cd2bcc1349883a369d02080d60405160405180910390a380857f4a4ac2794c0e12ecef8c0bcc232f21af4af8f92ffe355e95409eb612e90e64f360405160405180910390a385925050505b9392505050565b6106ba610ae0565b60008273ffffffffffffffffffffffffffffffffffffffff1663c619835285876020015188600001516040518463ffffffff1660e01b815260040161070193929190611340565b602060405180830381600087803b15801561071b57600080fd5b505af115801561072f573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610753919061138c565b90508085604001818151019150818152505080847f0af10eb295a95d39da2bdd3886bc7184c16b2dd4bff03d6879ce1ec5e7435c9d60405160405180910390a3849150509392505050565b6107a6610ae0565b60008273ffffffffffffffffffffffffffffffffffffffff16636849a3ba856040518263ffffffff1660e01b81526004016107e19190611225565b602060405180830381600087803b1580156107fb57600080fd5b505af115801561080f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108339190611255565b90506000811361086f576040517ff053c44900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000808573ffffffffffffffffffffffffffffffffffffffff166040516024016040516020818303038152906040527f313ce567000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050506040516109199190611433565b6000604051808303816000865af19150503d8060008114610956576040519150601f19603f3d011682016040523d82523d6000602084013e61095b565b606091505b509150915060008215610981578180602001905181019061097c919061145f565b610984565b60125b90506040518060e001604052808a81526020016000815260200160008152602001600081526020018260ff1681526020018873ffffffffffffffffffffffffffffffffffffffff1681526020018973ffffffffffffffffffffffffffffffffffffffff168152509450888773ffffffffffffffffffffffffffffffffffffffff168973ffffffffffffffffffffffffffffffffffffffff167f0ed17caf762b6cecb5e1725587f5cf76bd3c92af215ec2f19a773d976e693bb68d604051610a4b9190611316565b60405180910390a45050505095945050505050565b600080841315610a9e5781600a610a7791906115bf565b6001610a83919061160a565b8484610a8f919061160a565b610a999190611693565b610aa1565b60005b90509392505050565b6000838383604051602001610ac1939291906116c4565b6040516020818303038152906040528051906020012090509392505050565b6040518060e0016040528060008152602001600081526020016000815260200160008152602001600060ff168152602001600073ffffffffffffffffffffffffffffffffffffffff168152602001600073ffffffffffffffffffffffffffffffffffffffff1681525090565b6000604051905090565b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b610ba982610b60565b810181811067ffffffffffffffff82111715610bc857610bc7610b71565b5b80604052505050565b6000610bdb610b4c565b9050610be78282610ba0565b919050565b6000819050919050565b610bff81610bec565b8114610c0a57600080fd5b50565b600081359050610c1c81610bf6565b92915050565b600060ff82169050919050565b610c3881610c22565b8114610c4357600080fd5b50565b600081359050610c5581610c2f565b92915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610c8682610c5b565b9050919050565b610c9681610c7b565b8114610ca157600080fd5b50565b600081359050610cb381610c8d565b92915050565b600060e08284031215610ccf57610cce610b5b565b5b610cd960e0610bd1565b90506000610ce984828501610c0d565b6000830152506020610cfd84828501610c0d565b6020830152506040610d1184828501610c0d565b6040830152506060610d2584828501610c0d565b6060830152506080610d3984828501610c46565b60808301525060a0610d4d84828501610ca4565b60a08301525060c0610d6184828501610ca4565b60c08301525092915050565b6000819050919050565b610d8081610d6d565b8114610d8b57600080fd5b50565b600081359050610d9d81610d77565b92915050565b60008060006101208486031215610dbd57610dbc610b56565b5b6000610dcb86828701610cb9565b93505060e0610ddc86828701610d8e565b925050610100610dee86828701610ca4565b9150509250925092565b610e0181610bec565b82525050565b610e1081610c22565b82525050565b610e1f81610c7b565b82525050565b60e082016000820151610e3b6000850182610df8565b506020820151610e4e6020850182610df8565b506040820151610e616040850182610df8565b506060820151610e746060850182610df8565b506080820151610e876080850182610e07565b5060a0820151610e9a60a0850182610e16565b5060c0820151610ead60c0850182610e16565b50505050565b600060e082019050610ec86000830184610e25565b92915050565b600080600080600060a08688031215610eea57610ee9610b56565b5b6000610ef888828901610d8e565b9550506020610f0988828901610c0d565b9450506040610f1a88828901610ca4565b9350506060610f2b88828901610ca4565b9250506080610f3c88828901610ca4565b9150509295509295909350565b6000610f5482610c7b565b9050919050565b610f6481610f49565b8114610f6f57600080fd5b50565b600081359050610f8181610f5b565b92915050565b60008060008060808587031215610fa157610fa0610b56565b5b6000610faf87828801610f72565b9450506020610fc087828801610ca4565b9350506040610fd187828801610c0d565b9250506060610fe287828801610c46565b91505092959194509250565b610ff781610bec565b82525050565b60006020820190506110126000830184610fee565b92915050565b600080600080610140858703121561103357611032610b56565b5b600061104187828801610cb9565b94505060e061105287828801610d8e565b93505061010061106487828801610ca4565b92505061012061107687828801610ca4565b91505092959194509250565b6000610120820190506110986000830186610e25565b6110a560e0830185610fee565b6110b3610100830184610fee565b949350505050565b600080600061012084860312156110d5576110d4610b56565b5b60006110e386828701610cb9565b93505060e06110f486828701610d8e565b92505061010061110686828701610c0d565b9150509250925092565b60008060006060848603121561112957611128610b56565b5b600061113786828701610ca4565b935050602061114886828701610ca4565b925050604061115986828701610ca4565b9150509250925092565b61116c81610d6d565b82525050565b60006020820190506111876000830184611163565b92915050565b6000819050919050565b6111a08161118d565b81146111ab57600080fd5b50565b6000813590506111bd81611197565b92915050565b6000806000606084860312156111dc576111db610b56565b5b60006111ea868287016111ae565b93505060206111fb86828701610c0d565b925050604061120c86828701610c46565b9150509250925092565b61121f81610c7b565b82525050565b600060208201905061123a6000830184611216565b92915050565b60008151905061124f81611197565b92915050565b60006020828403121561126b5761126a610b56565b5b600061127984828501611240565b91505092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006112bc82610bec565b91506112c783610bec565b9250827fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff038211156112fc576112fb611282565b5b828201905092915050565b61131081610d6d565b82525050565b600060208201905061132b6000830184611307565b92915050565b61133a81610bec565b82525050565b60006060820190506113556000830186611307565b6113626020830185611331565b61136f6040830184611331565b949350505050565b60008151905061138681610bf6565b92915050565b6000602082840312156113a2576113a1610b56565b5b60006113b084828501611377565b91505092915050565b600081519050919050565b600081905092915050565b60005b838110156113ed5780820151818401526020810190506113d2565b838111156113fc576000848401525b50505050565b600061140d826113b9565b61141781856113c4565b93506114278185602086016113cf565b80840191505092915050565b600061143f8284611402565b915081905092915050565b60008151905061145981610c2f565b92915050565b60006020828403121561147557611474610b56565b5b60006114838482850161144a565b91505092915050565b60008160011c9050919050565b6000808291508390505b60018511156114e3578086048111156114bf576114be611282565b5b60018516156114ce5780820291505b80810290506114dc8561148c565b94506114a3565b94509492505050565b6000826114fc57600190506115b8565b8161150a57600090506115b8565b8160018114611520576002811461152a57611559565b60019150506115b8565b60ff84111561153c5761153b611282565b5b8360020a91508482111561155357611552611282565b5b506115b8565b5060208310610133831016604e8410600b841016171561158e5782820a90508381111561158957611588611282565b5b6115b8565b61159b8484846001611499565b925090508184048111156115b2576115b1611282565b5b81810290505b9392505050565b60006115ca82610bec565b91506115d583610c22565b92506116027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff84846114ec565b905092915050565b600061161582610bec565b915061162083610bec565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048311821515161561165957611658611282565b5b828202905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b600061169e82610bec565b91506116a983610bec565b9250826116b9576116b8611664565b5b828204905092915050565b60006060820190506116d96000830186611216565b6116e66020830185611216565b6116f36040830184611216565b94935050505056fea2646970667358221220b6ac3871c0769518af658acb039e09ae550392dce602ae486d8db51cc08b1b7c64736f6c63430008090033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106100925760003560e01c8063e2c92dfa11610065578063e2c92dfa1461018d578063eb21469a146101ca578063ec65f1bf146101fa578063f052fa511461022a57610092565b80639496dda214610097578063beccf5db146100d4578063cae8b71214610111578063d6af3ef61461014e575b600080fd5b8180156100a357600080fd5b506100be60048036038101906100b99190610da3565b610267565b6040516100cb9190610eb3565b60405180910390f35b8180156100e057600080fd5b506100fb60048036038101906100f69190610ece565b610283565b6040516101089190610eb3565b60405180910390f35b81801561011d57600080fd5b5061013860048036038101906101339190610f87565b6102a3565b6040516101459190610ffd565b60405180910390f35b81801561015a57600080fd5b5061017560048036038101906101709190611018565b610344565b60405161018493929190611082565b60405180910390f35b81801561019957600080fd5b506101b460048036038101906101af91906110bb565b61043a565b6040516101c19190610eb3565b60405180910390f35b6101e460048036038101906101df9190611110565b610579565b6040516101f19190611172565b60405180910390f35b610214600480360381019061020f91906111c3565b61058f565b6040516102219190610ffd565b60405180910390f35b81801561023657600080fd5b50610251600480360381019061024c91906110bb565b6105a5565b60405161025e9190610eb3565b60405180910390f35b61026f610ae0565b61027a8484846106b2565b90509392505050565b61028b610ae0565b610298868686868661079e565b905095945050505050565b600061033a8573ffffffffffffffffffffffffffffffffffffffff16636849a3ba866040518263ffffffff1660e01b81526004016102e19190611225565b602060405180830381600087803b1580156102fb57600080fd5b505af115801561030f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103339190611255565b8484610a60565b9050949350505050565b61034c610ae0565b60008061035a8787866106b2565b925060008573ffffffffffffffffffffffffffffffffffffffff16636849a3ba8560a001516040518263ffffffff1660e01b815260040161039b9190611225565b602060405180830381600087803b1580156103b557600080fd5b505af11580156103c9573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906103ed9190611255565b90506104028185602001518660800151610a60565b8361040d91906112b1565b92506104228185604001518660800151610a60565b8261042d91906112b1565b9150509450945094915050565b610442610ae0565b836060015184602001518560000151030182111561049657826040517efdbb9b00000000000000000000000000000000000000000000000000000000815260040161048d9190611316565b60405180910390fd5b836060015182111561053057600084606001519050808303925082856000018181510391508181525050600085606001818152505082847fa8c6fb49698d38e185a46a516da8802444a0816d0e0ee3a5d3f530e17b6fa41f60405160405180910390a380847f4f78e5d544f0502bfc2b8cfc5ae7f6b6918cab2266650ddf720f878b6b832c8360405160405180910390a384915050610572565b8184606001818151039150818152505081837f4f78e5d544f0502bfc2b8cfc5ae7f6b6918cab2266650ddf720f878b6b832c8360405160405180910390a38390505b9392505050565b6000610586848484610aaa565b90509392505050565b600061059c848484610a60565b90509392505050565b6105ad610ae0565b8360400151821161060e57818460400181815103915081815250508184606001818151019150818152505081837f456ba55dea464bc558df162999372fd0cbe95b91cd2bcc1349883a369d02080d60405160405180910390a38390506106ab565b600084604001519050600081840390508086602001818151039150818152505081866060018181510191508181525050600086604001818152505081857f456ba55dea464bc558df162999372fd0cbe95b91cd2bcc1349883a369d02080d60405160405180910390a380857f4a4ac2794c0e12ecef8c0bcc232f21af4af8f92ffe355e95409eb612e90e64f360405160405180910390a385925050505b9392505050565b6106ba610ae0565b60008273ffffffffffffffffffffffffffffffffffffffff1663c619835285876020015188600001516040518463ffffffff1660e01b815260040161070193929190611340565b602060405180830381600087803b15801561071b57600080fd5b505af115801561072f573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610753919061138c565b90508085604001818151019150818152505080847f0af10eb295a95d39da2bdd3886bc7184c16b2dd4bff03d6879ce1ec5e7435c9d60405160405180910390a3849150509392505050565b6107a6610ae0565b60008273ffffffffffffffffffffffffffffffffffffffff16636849a3ba856040518263ffffffff1660e01b81526004016107e19190611225565b602060405180830381600087803b1580156107fb57600080fd5b505af115801561080f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108339190611255565b90506000811361086f576040517ff053c44900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000808573ffffffffffffffffffffffffffffffffffffffff166040516024016040516020818303038152906040527f313ce567000000000000000000000000000000000000000000000000000000007bffffffffffffffffffffffffffffffffffffffffffffffffffffffff19166020820180517bffffffffffffffffffffffffffffffffffffffffffffffffffffffff83818316178352505050506040516109199190611433565b6000604051808303816000865af19150503d8060008114610956576040519150601f19603f3d011682016040523d82523d6000602084013e61095b565b606091505b509150915060008215610981578180602001905181019061097c919061145f565b610984565b60125b90506040518060e001604052808a81526020016000815260200160008152602001600081526020018260ff1681526020018873ffffffffffffffffffffffffffffffffffffffff1681526020018973ffffffffffffffffffffffffffffffffffffffff168152509450888773ffffffffffffffffffffffffffffffffffffffff168973ffffffffffffffffffffffffffffffffffffffff167f0ed17caf762b6cecb5e1725587f5cf76bd3c92af215ec2f19a773d976e693bb68d604051610a4b9190611316565b60405180910390a45050505095945050505050565b600080841315610a9e5781600a610a7791906115bf565b6001610a83919061160a565b8484610a8f919061160a565b610a999190611693565b610aa1565b60005b90509392505050565b6000838383604051602001610ac1939291906116c4565b6040516020818303038152906040528051906020012090509392505050565b6040518060e0016040528060008152602001600081526020016000815260200160008152602001600060ff168152602001600073ffffffffffffffffffffffffffffffffffffffff168152602001600073ffffffffffffffffffffffffffffffffffffffff1681525090565b6000604051905090565b600080fd5b600080fd5b6000601f19601f8301169050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b610ba982610b60565b810181811067ffffffffffffffff82111715610bc857610bc7610b71565b5b80604052505050565b6000610bdb610b4c565b9050610be78282610ba0565b919050565b6000819050919050565b610bff81610bec565b8114610c0a57600080fd5b50565b600081359050610c1c81610bf6565b92915050565b600060ff82169050919050565b610c3881610c22565b8114610c4357600080fd5b50565b600081359050610c5581610c2f565b92915050565b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b6000610c8682610c5b565b9050919050565b610c9681610c7b565b8114610ca157600080fd5b50565b600081359050610cb381610c8d565b92915050565b600060e08284031215610ccf57610cce610b5b565b5b610cd960e0610bd1565b90506000610ce984828501610c0d565b6000830152506020610cfd84828501610c0d565b6020830152506040610d1184828501610c0d565b6040830152506060610d2584828501610c0d565b6060830152506080610d3984828501610c46565b60808301525060a0610d4d84828501610ca4565b60a08301525060c0610d6184828501610ca4565b60c08301525092915050565b6000819050919050565b610d8081610d6d565b8114610d8b57600080fd5b50565b600081359050610d9d81610d77565b92915050565b60008060006101208486031215610dbd57610dbc610b56565b5b6000610dcb86828701610cb9565b93505060e0610ddc86828701610d8e565b925050610100610dee86828701610ca4565b9150509250925092565b610e0181610bec565b82525050565b610e1081610c22565b82525050565b610e1f81610c7b565b82525050565b60e082016000820151610e3b6000850182610df8565b506020820151610e4e6020850182610df8565b506040820151610e616040850182610df8565b506060820151610e746060850182610df8565b506080820151610e876080850182610e07565b5060a0820151610e9a60a0850182610e16565b5060c0820151610ead60c0850182610e16565b50505050565b600060e082019050610ec86000830184610e25565b92915050565b600080600080600060a08688031215610eea57610ee9610b56565b5b6000610ef888828901610d8e565b9550506020610f0988828901610c0d565b9450506040610f1a88828901610ca4565b9350506060610f2b88828901610ca4565b9250506080610f3c88828901610ca4565b9150509295509295909350565b6000610f5482610c7b565b9050919050565b610f6481610f49565b8114610f6f57600080fd5b50565b600081359050610f8181610f5b565b92915050565b60008060008060808587031215610fa157610fa0610b56565b5b6000610faf87828801610f72565b9450506020610fc087828801610ca4565b9350506040610fd187828801610c0d565b9250506060610fe287828801610c46565b91505092959194509250565b610ff781610bec565b82525050565b60006020820190506110126000830184610fee565b92915050565b600080600080610140858703121561103357611032610b56565b5b600061104187828801610cb9565b94505060e061105287828801610d8e565b93505061010061106487828801610ca4565b92505061012061107687828801610ca4565b91505092959194509250565b6000610120820190506110986000830186610e25565b6110a560e0830185610fee565b6110b3610100830184610fee565b949350505050565b600080600061012084860312156110d5576110d4610b56565b5b60006110e386828701610cb9565b93505060e06110f486828701610d8e565b92505061010061110686828701610c0d565b9150509250925092565b60008060006060848603121561112957611128610b56565b5b600061113786828701610ca4565b935050602061114886828701610ca4565b925050604061115986828701610ca4565b9150509250925092565b61116c81610d6d565b82525050565b60006020820190506111876000830184611163565b92915050565b6000819050919050565b6111a08161118d565b81146111ab57600080fd5b50565b6000813590506111bd81611197565b92915050565b6000806000606084860312156111dc576111db610b56565b5b60006111ea868287016111ae565b93505060206111fb86828701610c0d565b925050604061120c86828701610c46565b9150509250925092565b61121f81610c7b565b82525050565b600060208201905061123a6000830184611216565b92915050565b60008151905061124f81611197565b92915050565b60006020828403121561126b5761126a610b56565b5b600061127984828501611240565b91505092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b60006112bc82610bec565b91506112c783610bec565b9250827fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff038211156112fc576112fb611282565b5b828201905092915050565b61131081610d6d565b82525050565b600060208201905061132b6000830184611307565b92915050565b61133a81610bec565b82525050565b60006060820190506113556000830186611307565b6113626020830185611331565b61136f6040830184611331565b949350505050565b60008151905061138681610bf6565b92915050565b6000602082840312156113a2576113a1610b56565b5b60006113b084828501611377565b91505092915050565b600081519050919050565b600081905092915050565b60005b838110156113ed5780820151818401526020810190506113d2565b838111156113fc576000848401525b50505050565b600061140d826113b9565b61141781856113c4565b93506114278185602086016113cf565b80840191505092915050565b600061143f8284611402565b915081905092915050565b60008151905061145981610c2f565b92915050565b60006020828403121561147557611474610b56565b5b60006114838482850161144a565b91505092915050565b60008160011c9050919050565b6000808291508390505b60018511156114e3578086048111156114bf576114be611282565b5b60018516156114ce5780820291505b80810290506114dc8561148c565b94506114a3565b94509492505050565b6000826114fc57600190506115b8565b8161150a57600090506115b8565b8160018114611520576002811461152a57611559565b60019150506115b8565b60ff84111561153c5761153b611282565b5b8360020a91508482111561155357611552611282565b5b506115b8565b5060208310610133831016604e8410600b841016171561158e5782820a90508381111561158957611588611282565b5b6115b8565b61159b8484846001611499565b925090508184048111156115b2576115b1611282565b5b81810290505b9392505050565b60006115ca82610bec565b91506115d583610c22565b92506116027fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff84846114ec565b905092915050565b600061161582610bec565b915061162083610bec565b9250817fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff048311821515161561165957611658611282565b5b828202905092915050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601260045260246000fd5b600061169e82610bec565b91506116a983610bec565b9250826116b9576116b8611664565b5b828204905092915050565b60006060820190506116d96000830186611216565b6116e66020830185611216565b6116f36040830184611216565b94935050505056fea2646970667358221220b6ac3871c0769518af658acb039e09ae550392dce602ae486d8db51cc08b1b7c64736f6c63430008090033",
+  "devdoc": {
+    "author": "Kiba Gateaux",
+    "kind": "dev",
+    "methods": {
+      "calculateValue(int256,uint256,uint8)": {
+        "params": {
+          "amount": "- amount of tokens vbeing valued.",
+          "decimals": "- token decimals to remove for usd price",
+          "price": "- oracle price of asset. 8 decimals"
+        },
+        "returns": {
+          "_0": "- total USD value of amount in 8 decimals "
+        }
+      },
+      "computePositionId(address,address,address)": {
+        "details": "- Create deterministic hash id for a debt position on `loan` given position details",
+        "params": {
+          "lender": "- address managing debt position",
+          "loan": "- loan that debt position exists on",
+          "token": "- token that is being lent out in debt position"
+        },
+        "returns": {
+          "_0": "positionId"
+        }
+      },
+      "getValuation(IOracle,address,uint256,uint8)": {
+        "details": "- Assumes oracles all return answers in USD with 1e8 decimals - Does not check if price < 0. HAndled in Oracle or Loan",
+        "params": {
+          "amount": "- token amount",
+          "decimals": "- token decimals",
+          "oracle": "- oracle contract specified by loan getting valuation",
+          "token": "- token to value on oracle"
+        },
+        "returns": {
+          "_0": "- total value in usd of all tokens "
+        }
+      }
+    },
+    "title": "Debt DAO P2P Loan Library",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "calculateValue(int256,uint256,uint8)": {
+        "notice": "@dev            - Assumes oracles all return answers in USD with 1e8 decimals - Does not check if price < 0. HAndled in Oracle or Loan"
+      },
+      "getValuation(IOracle,address,uint256,uint8)": {
+        "notice": "- Gets total valuation for amount of tokens using given oracle. "
+      }
+    },
+    "notice": "Core logic and variables to be reused across all Debt DAO Marketplace loans",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

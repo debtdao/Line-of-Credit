@@ -1,0 +1,102 @@
+{
+  "address": "0x1bE9f52E11fAa2AfF774Ce89D316Cce5685c587D",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "_consentHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "MutualConsentRegistered",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "mutualConsents",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0xd05d6017ca3810d2f361cfec1bdd17a0a9f952bc74d680e309edf5b32afa1be9",
+  "receipt": {
+    "to": null,
+    "from": "0x41d28426925E8201b2A163C4bC1A45D9EAFb32f4",
+    "contractAddress": "0x1bE9f52E11fAa2AfF774Ce89D316Cce5685c587D",
+    "transactionIndex": 4,
+    "gasUsed": "53000",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x82781d88b336fda471f084e83a5dfa01363453b96b59db5505635a359d5362e2",
+    "transactionHash": "0xd05d6017ca3810d2f361cfec1bdd17a0a9f952bc74d680e309edf5b32afa1be9",
+    "logs": [],
+    "blockNumber": 7381232,
+    "cumulativeGasUsed": "397285",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "2a60ac237244dc390ce3bdbc44555d3c",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.9+commit.e5eed63a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"_consentHash\",\"type\":\"bytes32\"}],\"name\":\"MutualConsentRegistered\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"mutualConsents\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"author\":\"Set Protocol The MutualConsent contract contains a modifier for handling mutual consents between two parties\",\"kind\":\"dev\",\"methods\":{},\"title\":\"MutualConsent\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/utils/MutualConsent.sol\":\"MutualConsent\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/utils/MutualConsent.sol\":{\"content\":\"// forked from https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/lib/MutualConsent.sol\\n\\npragma solidity 0.8.9;\\n\\n/**\\n * @title MutualConsent\\n * @author Set Protocol\\n *\\n * The MutualConsent contract contains a modifier for handling mutual consents between two parties\\n */\\nabstract contract MutualConsent {\\n    /* ============ State Variables ============ */\\n\\n    // Mapping of upgradable units and if consent has been initialized by other party\\n    mapping(bytes32 => bool) public mutualConsents;\\n\\n    /* ============ Events ============ */\\n\\n    event MutualConsentRegistered(\\n        bytes32 _consentHash\\n    );\\n\\n    /* ============ Modifiers ============ */\\n\\n    /**\\n    * @notice - allows a function to be called if only two specific stakeholders signoff on the tx data\\n    *         - signers can be anyone. only two signers per contract or dynamic signers per tx.\\n    */\\n    modifier mutualConsent(address _signerOne, address _signerTwo) {\\n      if(_mutualConsent(_signerOne, _signerTwo))  {\\n        // Run whatever code needed 2/2 consent\\n        _;\\n      }\\n    }\\n\\n    function _mutualConsent(address _signerOne, address _signerTwo) internal returns(bool) {\\n        require(\\n            msg.sender == _signerOne || msg.sender == _signerTwo,\\n            \\\"Must be authorized address\\\"\\n        );\\n\\n        address nonCaller = _getNonCaller(_signerOne, _signerTwo);\\n\\n        // The consent hash is defined by the hash of the transaction call data and sender of msg,\\n        // which uniquely identifies the function, arguments, and sender.\\n        bytes32 expectedHash = keccak256(abi.encodePacked(msg.data, nonCaller));\\n\\n        if (!mutualConsents[expectedHash]) {\\n            bytes32 newHash = keccak256(abi.encodePacked(msg.data, msg.sender));\\n\\n            mutualConsents[newHash] = true;\\n\\n            emit MutualConsentRegistered(newHash);\\n\\n            return false;\\n        }\\n\\n        delete mutualConsents[expectedHash];\\n\\n        return true;\\n    }\\n\\n\\n    /* ============ Internal Functions ============ */\\n\\n    function _getNonCaller(address _signerOne, address _signerTwo) internal view returns(address) {\\n        return msg.sender == _signerOne ? _signerTwo : _signerOne;\\n    }\\n}\\n\",\"keccak256\":\"0x46c2880b924397e8a4f0280740c6a19d4b270a42a301de51b31c0273ef689ae0\"}},\"version\":1}",
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "devdoc": {
+    "author": "Set Protocol The MutualConsent contract contains a modifier for handling mutual consents between two parties",
+    "kind": "dev",
+    "methods": {},
+    "title": "MutualConsent",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 15518,
+        "contract": "contracts/utils/MutualConsent.sol:MutualConsent",
+        "label": "mutualConsents",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_bytes32,t_bool)"
+      }
+    ],
+    "types": {
+      "t_bool": {
+        "encoding": "inplace",
+        "label": "bool",
+        "numberOfBytes": "1"
+      },
+      "t_bytes32": {
+        "encoding": "inplace",
+        "label": "bytes32",
+        "numberOfBytes": "32"
+      },
+      "t_mapping(t_bytes32,t_bool)": {
+        "encoding": "mapping",
+        "key": "t_bytes32",
+        "label": "mapping(bytes32 => bool)",
+        "numberOfBytes": "32",
+        "value": "t_bool"
+      }
+    }
+  }
+}

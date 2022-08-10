@@ -1,0 +1,167 @@
+{
+  "address": "0x7233038E589913DcA4b6D15FF8Bba263A433AED2",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_supportedToken1",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_supportedToken2",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "int256",
+          "name": "newPrice",
+          "type": "int256"
+        }
+      ],
+      "name": "changePrice",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "getLatestAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "healthcheck",
+      "outputs": [
+        {
+          "internalType": "enum LoanLib.STATUS",
+          "name": "status",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "init",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "loan",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ],
+  "transactionHash": "0xcd955f72965cccab3e445b42b6f1a3460e7b7b361149fcbdcdf4cc561ded7ef6",
+  "receipt": {
+    "to": null,
+    "from": "0x41d28426925E8201b2A163C4bC1A45D9EAFb32f4",
+    "contractAddress": "0x7233038E589913DcA4b6D15FF8Bba263A433AED2",
+    "transactionIndex": 4,
+    "gasUsed": "379163",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x85258cd4aaaf9bd0e191f1410db5bb1e50fa23de829987097b01e3e4324412ed",
+    "transactionHash": "0xcd955f72965cccab3e445b42b6f1a3460e7b7b361149fcbdcdf4cc561ded7ef6",
+    "logs": [],
+    "blockNumber": 7381132,
+    "cumulativeGasUsed": "2123120",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [
+    "0xFf03B21659936A258F1f1F996f38452643421E24",
+    "0x0000000000000000000000000000000000000000"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "2a60ac237244dc390ce3bdbc44555d3c",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.9+commit.e5eed63a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_supportedToken1\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_supportedToken2\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"internalType\":\"int256\",\"name\":\"newPrice\",\"type\":\"int256\"}],\"name\":\"changePrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"}],\"name\":\"getLatestAnswer\",\"outputs\":[{\"internalType\":\"int256\",\"name\":\"\",\"type\":\"int256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"healthcheck\",\"outputs\":[{\"internalType\":\"enum LoanLib.STATUS\",\"name\":\"status\",\"type\":\"uint8\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"init\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"loan\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{},\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"getLatestAnswer(address)\":{\"notice\":\"current price for token asset. denominated in USD \"}},\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/mock/SimpleOracle.sol\":\"SimpleOracle\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/ILoan.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\nimport { LoanLib } from \\\"../utils/LoanLib.sol\\\";\\n\\ninterface ILoan {\\n\\n  // General Events\\n  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n  event DeployLoan(\\n    address indexed oracle,\\n    address indexed arbiter,\\n    address indexed borrower\\n  );\\n\\n  // Lender Events\\n\\n  event AddCredit(\\n    address indexed lender,\\n    address indexed token,\\n    uint256 indexed deposit,\\n    bytes32 positionId\\n  );\\n\\n\\n   event IncreaseCredit (bytes32 indexed id, uint256 indexed deposit);\\n\\n  // can reference only id once AddCredit is emitted because it will be stored in subgraph\\n  // initialPrinicipal tells us if its a Revolver or Term\\n\\n  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);\\n  // lender removing funds from Loan  principal\\n  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);\\n  // lender taking interest earned out of contract\\n\\n  event CloseCreditPosition(bytes32 indexed id);\\n  // lender officially repaid in full. if Credit then facility has also been closed.\\n\\n  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);\\n  // interest added to borrowers outstanding balance\\n\\n\\n  // Borrower Events\\n\\n  event Borrow(bytes32 indexed id, uint256 indexed amount);\\n  // receive full loan or drawdown on credit\\n\\n  event RepayInterest(bytes32 indexed id, uint256 indexed amount);\\n\\n  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);\\n\\n  event Default(bytes32 indexed id);\\n}\\n\",\"keccak256\":\"0x63d7f761402d6d221e38e1d8fe3302e1a1f153ea7835f6ac96966f43fa6ee7be\"},\"contracts/interfaces/IOracle.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\ninterface IOracle {\\n    /** current price for token asset. denominated in USD */\\n    function getLatestAnswer(address token) external returns(int);\\n}\\n\",\"keccak256\":\"0xdefae1f6dd298ddfba2a88c77096e77e59ac0a567bc3c8e76ef5a3424e4b832f\"},\"contracts/mock/SimpleOracle.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\nimport { LoanLib } from \\\"../utils/LoanLib.sol\\\";\\n\\ncontract SimpleOracle is IOracle {\\n\\n    mapping(address => int) prices;\\n\\n    constructor(address _supportedToken1, address _supportedToken2) {\\n        prices[_supportedToken1] = 1000 * 1e8; // 1000 USD\\n        prices[_supportedToken2] = 2000 * 1e8; // 2000 USD\\n    }\\n\\n    function init() external pure returns(bool) {\\n        return true;\\n    }\\n\\n    function changePrice(address token, int newPrice) external {\\n        prices[token] = newPrice;\\n    }\\n\\n    function getLatestAnswer(address token) external view returns(int256) {\\n        // mimic eip4626\\n        // (bool success, bytes memory result) = token.call(abi.encodeWithSignature(\\\"asset()\\\"));\\n        // if(success && result.length > 0) {\\n        //     // get the underlying token value (if ERC4626)\\n        //     // NB: Share token to underlying ratio might not be 1:1\\n        //     token = abi.decode(result, (address));\\n        // }\\n        require(prices[token] != 0, \\\"SimpleOracle: unsupported token\\\");\\n        return prices[token];\\n    }\\n\\n    function healthcheck() external pure returns (LoanLib.STATUS status) {\\n        return LoanLib.STATUS.ACTIVE;\\n    }\\n\\n    function loan() external pure returns (address) {\\n        return address(0);\\n    }\\n\\n}\\n\",\"keccak256\":\"0x8dfa819f66e545594c692dc6469eb65cbe3f7fcfb9d6a56514b44e8bee8cfadf\"},\"contracts/utils/LoanLib.sol\":{\"content\":\"pragma solidity 0.8.9;\\nimport { ILoan } from \\\"../interfaces/ILoan.sol\\\";\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\n/**\\n  * @title Debt DAO P2P Loan Library\\n  * @author Kiba Gateaux\\n  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans\\n */\\nlibrary LoanLib {\\n    event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n    enum STATUS {\\n        // \\u00bfhoo dis\\n        // Loan has been deployed but terms and conditions are still being signed off by parties\\n        UNINITIALIZED,\\n        INITIALIZED,\\n\\n        // ITS ALLLIIIIVVEEE\\n        // Loan is operational and actively monitoring status\\n        ACTIVE,\\n        UNDERCOLLATERALIZED,\\n        LIQUIDATABLE, // [#X\\n        DELINQUENT,\\n\\n        // Loan is in distress and paused\\n        LIQUIDATING,\\n        OVERDRAWN,\\n        DEFAULT,\\n        ARBITRATION,\\n\\n        // L\\u00f6n izz ded\\n        // Loan is no longer active, successfully repaid or insolvent\\n        REPAID,\\n        INSOLVENT\\n    }\\n\\n    function updateStatus(STATUS status, STATUS target) external returns(STATUS) {\\n        if (status == target) return status;  // check if it needs updating\\n        status = target;            // set storage in Line contract\\n        emit UpdateLoanStatus(uint256(status));\\n        return status;\\n    }\\n}\\n\",\"keccak256\":\"0xf245bd57fcc50793a607c24d652535b99a7bff5e39e77ef7a8c9d7743d3100ef\"}},\"version\":1}",
+  "bytecode": "0x608060405234801561001057600080fd5b506040516106793803806106798339818101604052810190610032919061012c565b64174876e8006000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550642e90edd0006000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550505061016c565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006100f9826100ce565b9050919050565b610109816100ee565b811461011457600080fd5b50565b60008151905061012681610100565b92915050565b60008060408385031215610143576101426100c9565b5b600061015185828601610117565b925050602061016285828601610117565b9150509250929050565b6104fe8061017b6000396000f3fe608060405234801561001057600080fd5b50600436106100575760003560e01c80634f42fc021461005c5780636849a3ba1461007a578063b8745802146100aa578063d285b7b4146100c6578063e1c7392a146100e4575b600080fd5b610064610102565b60405161007191906102a0565b60405180910390f35b610094600480360381019061008f919061031e565b61010b565b6040516100a19190610364565b60405180910390f35b6100c460048036038101906100bf91906103ab565b6101d4565b005b6100ce61021b565b6040516100db91906103fa565b60405180910390f35b6100ec610220565b6040516100f99190610430565b60405180910390f35b60006002905090565b6000806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054141561018e576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610185906104a8565b60405180910390fd5b6000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055505050565b600090565b60006001905090565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600c811061026957610268610229565b5b50565b600081905061027a82610258565b919050565b600061028a8261026c565b9050919050565b61029a8161027f565b82525050565b60006020820190506102b56000830184610291565b92915050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006102eb826102c0565b9050919050565b6102fb816102e0565b811461030657600080fd5b50565b600081359050610318816102f2565b92915050565b600060208284031215610334576103336102bb565b5b600061034284828501610309565b91505092915050565b6000819050919050565b61035e8161034b565b82525050565b60006020820190506103796000830184610355565b92915050565b6103888161034b565b811461039357600080fd5b50565b6000813590506103a58161037f565b92915050565b600080604083850312156103c2576103c16102bb565b5b60006103d085828601610309565b92505060206103e185828601610396565b9150509250929050565b6103f4816102e0565b82525050565b600060208201905061040f60008301846103eb565b92915050565b60008115159050919050565b61042a81610415565b82525050565b60006020820190506104456000830184610421565b92915050565b600082825260208201905092915050565b7f53696d706c654f7261636c653a20756e737570706f7274656420746f6b656e00600082015250565b6000610492601f8361044b565b915061049d8261045c565b602082019050919050565b600060208201905081810360008301526104c181610485565b905091905056fea2646970667358221220e1b39fd7c4bf3802f53d1f6a4bd749d751db4f8dbb454ed467ccb9eff4f16daf64736f6c63430008090033",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100575760003560e01c80634f42fc021461005c5780636849a3ba1461007a578063b8745802146100aa578063d285b7b4146100c6578063e1c7392a146100e4575b600080fd5b610064610102565b60405161007191906102a0565b60405180910390f35b610094600480360381019061008f919061031e565b61010b565b6040516100a19190610364565b60405180910390f35b6100c460048036038101906100bf91906103ab565b6101d4565b005b6100ce61021b565b6040516100db91906103fa565b60405180910390f35b6100ec610220565b6040516100f99190610430565b60405180910390f35b60006002905090565b6000806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054141561018e576040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610185906104a8565b60405180910390fd5b6000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020549050919050565b806000808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020819055505050565b600090565b60006001905090565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600c811061026957610268610229565b5b50565b600081905061027a82610258565b919050565b600061028a8261026c565b9050919050565b61029a8161027f565b82525050565b60006020820190506102b56000830184610291565b92915050565b600080fd5b600073ffffffffffffffffffffffffffffffffffffffff82169050919050565b60006102eb826102c0565b9050919050565b6102fb816102e0565b811461030657600080fd5b50565b600081359050610318816102f2565b92915050565b600060208284031215610334576103336102bb565b5b600061034284828501610309565b91505092915050565b6000819050919050565b61035e8161034b565b82525050565b60006020820190506103796000830184610355565b92915050565b6103888161034b565b811461039357600080fd5b50565b6000813590506103a58161037f565b92915050565b600080604083850312156103c2576103c16102bb565b5b60006103d085828601610309565b92505060206103e185828601610396565b9150509250929050565b6103f4816102e0565b82525050565b600060208201905061040f60008301846103eb565b92915050565b60008115159050919050565b61042a81610415565b82525050565b60006020820190506104456000830184610421565b92915050565b600082825260208201905092915050565b7f53696d706c654f7261636c653a20756e737570706f7274656420746f6b656e00600082015250565b6000610492601f8361044b565b915061049d8261045c565b602082019050919050565b600060208201905081810360008301526104c181610485565b905091905056fea2646970667358221220e1b39fd7c4bf3802f53d1f6a4bd749d751db4f8dbb454ed467ccb9eff4f16daf64736f6c63430008090033",
+  "devdoc": {
+    "kind": "dev",
+    "methods": {},
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {
+      "getLatestAnswer(address)": {
+        "notice": "current price for token asset. denominated in USD "
+      }
+    },
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [
+      {
+        "astId": 2601,
+        "contract": "contracts/mock/SimpleOracle.sol:SimpleOracle",
+        "label": "prices",
+        "offset": 0,
+        "slot": "0",
+        "type": "t_mapping(t_address,t_int256)"
+      }
+    ],
+    "types": {
+      "t_address": {
+        "encoding": "inplace",
+        "label": "address",
+        "numberOfBytes": "20"
+      },
+      "t_int256": {
+        "encoding": "inplace",
+        "label": "int256",
+        "numberOfBytes": "32"
+      },
+      "t_mapping(t_address,t_int256)": {
+        "encoding": "mapping",
+        "key": "t_address",
+        "label": "mapping(address => int256)",
+        "numberOfBytes": "32",
+        "value": "t_int256"
+      }
+    }
+  }
+}
