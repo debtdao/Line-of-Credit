@@ -32,7 +32,8 @@ library SpigotedLoanLib {
             (bool success, ) = swapTarget.call{value: tokensClaimed}(zeroExTradeData);
             if(!success) { revert TradeFailed(); }
         } else {
-            IERC20(claimToken).approve(swapTarget, existingClaimTokens + tokensClaimed);
+            // approve exact amount so other tokens in contract get used e.g. lender funds
+            IERC20(claimToken).approve(swapTarget, unused + tokensClaimed);
             (bool success, ) = swapTarget.call(zeroExTradeData);
             if(!success) { revert TradeFailed(); }
         }
@@ -52,13 +53,17 @@ library SpigotedLoanLib {
             tokensBought
         );
 
-        // TODO update with work from branch halborn-fixes
-        // update totalUnused if we didnt sell all claimed tokens in trade
-        // returns negative if extra tokens used. Positive if tokens to add to totalUnused
-        uint256 unusedClaim = IERC20(claimToken).balanceOf(address(this)) - existingClaimTokens;
-        totalUnused= unusedClaim > 0
-          ? unused +  uint256(unusedClaim)
-          : unused -  uint256(unusedClaim);
+        uint256 remainingClaimTokens = IERC20(claimToken).balanceOf(address(this));
+        // use reserve revenue to repay debt
+        if(existingClaimTokens > remainingClaimTokens) {
+          uint256 diff = existingClaimTokens - remainingClaimTokens;
+          // used more tokens than we had in unused
+          if(diff > unused) revert TradeFailed(); 
+          else totalUnused = unused - diff;
+        } else {
+          // didnt sell all revenue in trade
+          totalUnused = unused + (remainingClaimTokens - existingClaimTokens);
+        }
 
     }
 }

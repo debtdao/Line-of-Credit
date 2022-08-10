@@ -31,5 +31,7 @@ interface ISpigotedLoan {
     bytes calldata zeroExTradeData
   ) external returns(uint256);
 
+  function useAndRepay(uint256 amount) external returns(bool);
+
   function sweep(address token) external returns(uint256);
 }

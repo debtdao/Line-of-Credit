@@ -27,7 +27,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
     InterestRateCredit public immutable interestRate;
 
-    uint256 private count; // amount of open positions
+    uint256 private count; // amount of open positions. ids.length includes null items
 
     bytes32[] public ids; // all active positions
 
@@ -137,26 +137,28 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if (len == 0) return (0, 0);
 
         bytes32 id;
-        address oracle_ = address(oracle);
+        address oracle_ = address(oracle);  // gas savings
         address interestRate_ = address(interestRate);
         
         for (uint256 i = 0; i < len;) {
             id = ids[i];
-            if(id == bytes32(0)) { // deleted element in array
-              unchecked { ++i; }
-              continue;
-            }
-            // credit = ;
+            // gas savings. capped to len. inc before early continue
+            unchecked { ++i; }
+
+            // null element in array
+            if(id == bytes32(0)) { continue; }
+
             (Credit memory c, uint256 _p, uint256 _i) = CreditLib.getOutstandingDebt(
               credits[id],
               id,
               oracle_,
               interestRate_
             );
+            // update aggregate usd value
             principal += _p;
             interest += _i;
+            // update position data
             credits[id] = c;
-            unchecked { ++i; }
         }
     }
 

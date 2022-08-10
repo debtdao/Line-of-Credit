@@ -81,17 +81,16 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         Credit memory credit = credits[id];
 
         require(msg.sender == borrower || msg.sender == arbiter);
-        credit =  CreditLib.accrue(credit, id, address(interestRate));
+        credit =  _accrue(credit, id);
 
         address targetToken = credit.token;
 
-        (uint256 tokensBought, uint256 totalUnused) = _claimAndTrade(
+        uint256 tokensBought = _claimAndTrade(
             claimToken,
             targetToken,
             zeroExTradeData
         );
 
-        unusedTokens[claimToken] = totalUnused;
 
         repaid = tokensBought + unusedTokens[targetToken];
         uint256 debt = credit.interestAccrued + credit.principal;
@@ -112,6 +111,19 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         emit RevenuePayment(claimToken, repaid);
     }
 
+    function useAndRepay(uint256 amount) external whileBorrowing returns(bool) {
+      require(msg.sender == borrower);
+      bytes32 id = ids[0];
+      Credit memory credit = credits[id];
+      require(amount <= unusedTokens[credit.token]);
+      unusedTokens[credit.token] -= amount;
+
+      credit = _accrue(credit, id);
+      credits[id] = _repay(credit, id, amount);
+
+      return true;
+    }
+
     /**
      * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
      * @dev ensures first token in repayment queue is being bought
@@ -128,14 +140,13 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         require(msg.sender == borrower || msg.sender == arbiter);
 
         address targetToken = credits[ids[0]].token;
-        (uint256 tokensBought, uint256 totalUnused) = _claimAndTrade(
+        uint256 tokensBought = _claimAndTrade(
           claimToken,
           targetToken,
           zeroExTradeData
         );
         // add bought tokens to unused balance
         unusedTokens[targetToken] += tokensBought;
-        unusedTokens[claimToken] += totalUnused;
         return tokensBought;
     }
 
@@ -146,9 +157,9 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     )
         internal
         whileBorrowing
-        returns (uint256 tokensBought, uint256 totalUnused)
+        returns (uint256)
     {
-      return SpigotedLoanLib.claimAndTrade(
+        (uint256 tokensBought, uint256 totalUnused) = SpigotedLoanLib.claimAndTrade(
             claimToken,
             targetToken,
             swapTarget,
@@ -156,6 +167,9 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
             unusedTokens[claimToken],
             zeroExTradeData
         );
+        // we dont use revenue after this so can store now
+        unusedTokens[claimToken] = totalUnused;
+        return tokensBought;
     }
 
     //  SPIGOT OWNER FUNCTIONS
@@ -232,8 +246,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         return false;
     }
 
-    /**
-
+  /**
    * @notice - sends unused tokens to borrower if repaid or arbiter if liquidatable
              -  doesnt send tokens out if loan is unpaid but healthy
    * @dev    - callable by anyone 

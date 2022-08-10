@@ -117,6 +117,218 @@ contract SpigotedLoanTest is DSTest {
       loan.claimAndTrade(address(revenueToken), tradeData);
     }
 
+
+    function test_can_use_claimed_revenue_to_trade() public {
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        1
+      );
+      
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
+      // dex balances
+      assertEq(creditToken.balanceOf((address(dex))), MAX_REVENUE - 1);
+      assertEq(revenueToken.balanceOf((address(dex))), MAX_REVENUE + claimable);
+      // loan balances
+      assertEq(creditToken.balanceOf((address(loan))), 1);
+      assertEq(revenueToken.balanceOf((address(loan))), MAX_REVENUE);
+      
+    }
+
+    function testFail_only_unused_revenue_tokens_to_trade() public {
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+      
+      // no extra tokens besides claimable
+      assertEq(loan.unused(address(revenueToken)), 0);
+      // Loan already has tokens minted to it that we can try and steal as borrower
+      assertEq(revenueToken.balanceOf(address(loan)), MAX_REVENUE);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable + 1, // try spendnig more tokens than claimed
+        1
+      );
+
+      // No unused tokens so can't get approved
+      // vm.expectRevert("ERC20: insufficient allowance");
+      loan.claimAndTrade(address(revenueToken), tradeData);
+    }
+
+    function testFail_only_unused_credit_tokens_to_trade() public {
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+      
+      // no extra tokens
+      assertEq(loan.unused(address(creditToken)), 0);
+      // Loan already has tokens minted to it that we can try and steal as borrower
+      assertEq(creditToken.balanceOf(address(loan)), lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        0 // no credit tokens bought at all
+      );
+
+      // No unused tokens so can't get approved
+      // vm.expectRevert("ERC20: insufficient allowance");
+      loan.claimAndRepay(address(creditToken), tradeData);
+      (,uint p,,,,,) = loan.credits(loan.ids(0));
+      
+      assertEq(p, lentAmount); // nothing repaid
+
+      // vm.expectRevert();
+      loan.useAndRepay(1);
+    }
+
+    function test_increase_unused_revenue(uint buyAmount, uint sellAmount) public {
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable - 1,
+        lentAmount / 2
+      );
+
+    // make unused tokens available
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
+      assertEq(loan.unused(address(revenueToken)), 1);
+      assertEq(revenueToken.balanceOf(address(loan)), 1);
+      assertEq(revenueToken.balanceOf(address(dex)), MAX_REVENUE + claimable - 1);
+    }
+
+    function test_decrease_unused_revenue(uint buyAmount, uint sellAmount) public {
+            if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable - 1,
+        lentAmount / 2
+      );
+
+      // make unused tokens available
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
+      assertEq(loan.unused(address(revenueToken)), 1);
+
+      revenueToken.mint(address(spigot), MAX_REVENUE);
+      spigot.claimRevenue(address(revenueContract), "");
+
+      bytes memory tradeData2 = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable + 1,
+        1
+      );
+
+      loan.claimAndTrade(address(revenueToken), tradeData2);
+      assertEq(loan.unused(address(revenueToken)), 0);
+    }
+
+    function test_increase_unused_debt(uint buyAmount, uint sellAmount) public {
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        lentAmount / 2
+      );
+
+      // make unused tokens available
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
+      assertEq(loan.unused(address(creditToken)), lentAmount / 2);
+    }
+
+    function test_decrease_unused_debt(uint buyAmount, uint sellAmount) public {
+      // effectively the same but want to denot that they can be two separate tests
+      return test_can_repay_with_unused_tokens(buyAmount, sellAmount);
+    }
+
+
+
+    function test_can_repay_with_unused_tokens(uint buyAmount, uint sellAmount) public {
+      // oracle prices not relevant to test
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      loan.borrow(loan.ids(0), lentAmount);
+
+      uint claimable = spigot.getEscrowBalance(address(revenueToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        lentAmount / 2
+      );
+
+      // make unused tokens available
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
+      assertEq(loan.unused(address(creditToken)), lentAmount / 2);
+
+      revenueToken.mint(address(spigot), MAX_REVENUE);
+      spigot.claimRevenue(address(revenueContract), "");
+
+      bytes memory repayData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        lentAmount / 2
+      );
+
+      loan.claimAndRepay(address(revenueToken), repayData);
+      (,uint p,,,,,) = loan.credits(loan.ids(0));
+
+      assertEq(p, 0);
+      assertEq(loan.unused(address(creditToken)), 0); // used first half to make up for second half missing
+    }
+
     // trades work
     function test_can_trade(uint buyAmount, uint sellAmount) public {
       // oracle prices not relevant to test
@@ -124,7 +336,7 @@ contract SpigotedLoanTest is DSTest {
       if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
       
       // need to have active position so we can buy asset
-      loan.borrow(loan.ids(0), buyAmount);
+      loan.borrow(loan.ids(0), lentAmount);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -137,17 +349,23 @@ contract SpigotedLoanTest is DSTest {
       uint claimable = spigot.getEscrowBalance(address(revenueToken));
 
       loan.claimAndTrade(address(revenueToken), tradeData);
+
+      if(claimable > sellAmount) {
+        // we properly test unused token logic elsewhere but still checking here
+        assertEq(claimable - sellAmount, loan.unused(address(revenueToken)));
+      }
       
       // dex balances
       assertEq(creditToken.balanceOf((address(dex))), MAX_REVENUE - buyAmount);
       assertEq(revenueToken.balanceOf((address(dex))), MAX_REVENUE + sellAmount);
       
-      // loan balances
-      assertEq(creditToken.balanceOf((address(loan))), lentAmount + buyAmount); // TODO cwalk help
+      // also check credit balances;
+      assertEq(creditToken.balanceOf((address(loan))), buyAmount);
       assertEq(revenueToken.balanceOf((address(loan))), MAX_REVENUE + claimable - sellAmount);
     }
 
-    function test_can_trade_and_repay(uint buyAmount, uint sellAmount) public {
+    function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
+      if(timespan > ttl) return;
       if(buyAmount == 0 || sellAmount == 0) return;
       if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
 
@@ -155,6 +373,10 @@ contract SpigotedLoanTest is DSTest {
       
       // no interest charged because no blocks processed
       uint256 interest = 0;
+
+      // vm.warp(timespan);
+      // loan.accrueInterest();
+      // (,,uint interest,,,,) = loan.credits(loan.ids(0)) ;
 
       // oracle prices not relevant to trading test
       bytes memory tradeData = abi.encodeWithSignature(
@@ -177,15 +399,13 @@ contract SpigotedLoanTest is DSTest {
 
       if(interest > buyAmount) {
         // only interest paid
-        assertEq(r, buyAmount); // paid what interest we could
+        assertEq(r, buyAmount);            // paid what interest we could
         assertEq(i, interest - buyAmount); // interest owed should be reduced by repay amount
-        assertEq(p, lentAmount); // no change in principal
-
+        assertEq(p, lentAmount);             // no change in principal
       } else {
-        assertEq(p, lentAmount - (buyAmount - interest));
-        // all interest repaid
-        assertEq(i, 0);
-        assertEq(r, interest);
+        assertEq(p, buyAmount > lentAmount + interest ? 0 : lentAmount - (buyAmount - interest));
+        assertEq(i, 0);                     // all interest repaid
+        assertEq(r, interest);              // all interest repaid
 
       }
       emit log_named_uint("----  BUY AMOUNT ----", buyAmount);
@@ -195,6 +415,8 @@ contract SpigotedLoanTest is DSTest {
       assertEq(loan.unused(address(creditToken)), unusedCreditToken);
       assertEq(loan.unused(address(revenueToken)), MAX_REVENUE + claimable - sellAmount);
     }
+
+
 
     // check unsused balances. Do so by changing minAmountOut in trade 0
 
