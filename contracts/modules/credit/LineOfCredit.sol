@@ -113,7 +113,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      *           Callable only by arbiter. 
      * @return bool - If borrower is insolvent or not
      */
-    function declareInsolvent() external returns(bool) {
+    function declareInsolvent() external whileBorrowing returns(bool) {
         if(arbiter != msg.sender) { revert CallerAccessDenied(); }
         if(LoanLib.STATUS.LIQUIDATABLE != _updateLoanStatus(_healthcheck())) {
             revert NotLiquidatable();

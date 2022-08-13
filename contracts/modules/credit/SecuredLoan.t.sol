@@ -56,6 +56,15 @@ contract LoanTest is Test {
         unsupportedToken.approve(address(loan), MAX_INT);
     }
 
+    function _addCredit(address token, uint256 amount) public {
+      hoax(borrower);
+      loan.addCredit(drawnRate, facilityRate, amount, token, lender);
+      vm.stopPrank();
+      hoax(lender);
+      loan.addCredit(drawnRate, facilityRate, amount, token, lender);
+      vm.stopPrank();
+    }
+
     function test_loan_is_active_on_deployment() public {
         assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
     }
@@ -470,15 +479,41 @@ contract LoanTest is Test {
         loan.close(id);
     }
 
+    function test_can_close_as_borrower() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        hoax(borrower);
+        loan.borrow(id, 0.1 ether);
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
+        loan.close(id);
+    }
+
+    function test_can_close_as_lender() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        hoax(borrower);
+        loan.borrow(id, 0.1 ether);
+        vm.stopPrank();
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
+        hoax(lender);
+        loan.close(id);
+    }
+
     // Liquidate  / Liquidatable
+
+    function test_must_be_in_debt_to_liquidate() public {
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        loan.liquidate(1 ether, address(supportedToken2));
+    }
 
 
     function test_health_becomes_liquidatable_if_cratio_below_min() public {
         assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
+        loan.borrow(loan.ids(0), 1 ether);
         oracle.changePrice(address(supportedToken2), 1);
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
     }
@@ -486,32 +521,36 @@ contract LoanTest is Test {
 
     function test_health_becomes_liquidatable_if_debt_past_deadline() public {
         assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
-        emit log_named_uint("deadline", block.timestamp + ttl);
         // add line otherwise no debt == passed
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
 
         vm.warp(ttl+1);
-        emit log_named_uint("overdue", block.timestamp - ttl);
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
     }
 
     function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
         hoax(arbiter);
         vm.warp(ttl+1);
-        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
         loan.liquidate(1 ether, address(supportedToken2));
     }
 
     function test_can_liquidate_if_debt_when_deadline_passes() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
 
         vm.warp(ttl+1);
         loan.liquidate(0.9 ether, address(supportedToken2));
     }
 
     function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
+
         vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
         loan.liquidate(1 ether, address(supportedToken2));
     }
@@ -547,6 +586,10 @@ contract LoanTest is Test {
     }
 
     function test_cannot_liquidate_as_anon() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
+
         hoax(address(0xdead));
         vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
         loan.liquidate(1 ether, address(supportedToken2));
@@ -615,10 +658,16 @@ contract LoanTest is Test {
 
 
 // declareInsolvent
+    function test_must_be_in_debt_to_go_insolvent() public {
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        loan.declareInsolvent();
+    }
 
     function test_only_arbiter_can_delcare_insolvency() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
         hoax(address(0xdebf));
         vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
         loan.declareInsolvent();
@@ -627,7 +676,7 @@ contract LoanTest is Test {
     function test_cant_delcare_insolvency_if_not_liquidatable() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
+        loan.borrow(loan.ids(0), 1 ether);
 
         hoax(arbiter);
         vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
@@ -639,7 +688,7 @@ contract LoanTest is Test {
     function test_cannot_insolve_until_liquidate_all_escrowed_tokens() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
+        loan.borrow(loan.ids(0), 1 ether);
 
         vm.warp(ttl+1);
         hoax(arbiter);
@@ -657,7 +706,7 @@ contract LoanTest is Test {
     function test_cannot_insolve_until_liquidate_spigot() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
+        loan.borrow(loan.ids(0), 1 ether);
 
         vm.warp(ttl+1);
         hoax(arbiter);
@@ -673,7 +722,7 @@ contract LoanTest is Test {
     function test_can_delcare_insolvency_when_all_assets_liquidated() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
+        loan.borrow(loan.ids(0), 1 ether);
 
         vm.warp(ttl+1);
         hoax(arbiter);

@@ -245,7 +245,6 @@ contract SpigotedLoanTest is Test {
     // results change based on loan status (ACTIVE vs LIQUIDATABLE vs INSOLVENT)
     // Only checking that Loan functions dont fail. Check `Spigot.t.sol` for expected functionality
 
-
     // releaseSpigot()
 
     function test_release_spigot_while_active() public {
@@ -271,6 +270,7 @@ contract SpigotedLoanTest is Test {
     }
 
     // sweep()
+
 
     function test_cant_sweep_tokens_while_active() public {
       _borrow();
