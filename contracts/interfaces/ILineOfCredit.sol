@@ -32,6 +32,8 @@ interface ILineOfCredit is ILoan {
   error NoLiquidity();
   error PositionExists();
   error CloseFailedWithPrincipal();
+  error NotInsolvent(address module);
+  error NotLiquidatable();
 
   function updateOutstandingDebt() external returns(uint256, uint256);
 

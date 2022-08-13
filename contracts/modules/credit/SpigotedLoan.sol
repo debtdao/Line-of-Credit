@@ -54,6 +54,14 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         return unusedTokens[token];
     }
 
+    function _declareInsolvent() internal virtual override returns(bool) {
+      // Must have called releaseSpigot() and sold off protocol / revenue streams already
+      if(address(this) == spigot.owner()) { revert NotInsolvent(address(spigot)); }
+      // no additional logic in LineOfCredit to include
+      return true;
+    }
+
+
     /**
 
    * @notice - Claims revenue tokens from Spigot attached to borrowers revenue generating tokens
@@ -267,7 +275,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         if (s == LoanLib.STATUS.REPAID) {
             return _sweep(borrower, token);
         }
-        if (s == LoanLib.STATUS.INSOLVENT) {
+        if (s == LoanLib.STATUS.LIQUIDATABLE) {
             return _sweep(arbiter, token);
         }
 

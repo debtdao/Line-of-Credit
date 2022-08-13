@@ -63,6 +63,7 @@ interface ILoan {
   function accrueInterest() external returns(bool);
   function updateOutstandingDebt() external returns(uint256, uint256);
   function healthcheck() external returns(LoanLib.STATUS);
+  function declareInsolvent() external returns(bool);
 
   function borrower() external returns(address);
   function arbiter() external returns(address);

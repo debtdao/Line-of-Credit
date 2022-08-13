@@ -612,4 +612,75 @@ contract LoanTest is Test {
     }
 
 
+// declareInsolvent
+
+    function test_only_arbiter_can_delcare_insolvency() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(address(0xdebf));
+        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+        loan.declareInsolvent();
+    }
+
+    function test_cant_delcare_insolvency_if_not_liquidatable() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+
+        hoax(arbiter);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
+        loan.declareInsolvent();
+    }
+
+
+
+    function test_cannot_insolve_until_liquidate_all_escrowed_tokens() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+
+        // ensure spigot insolvency check passes
+        assertTrue(loan.releaseSpigot());
+        assertEq(0.9 ether, loan.liquidate(0.9 ether, address(supportedToken2)));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(ILineOfCredit.NotInsolvent.selector, loan.escrow())
+        );
+        loan.declareInsolvent();
+    }
+
+    function test_cannot_insolve_until_liquidate_spigot() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+        // ensure escrow insolvency check passes
+        assertEq(1 ether, loan.liquidate(1 ether, address(supportedToken2)));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(ILineOfCredit.NotInsolvent.selector, loan.spigot())
+        );
+        loan.declareInsolvent();
+    }
+
+    function test_can_delcare_insolvency_when_all_assets_liquidated() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+
+        assertTrue(loan.releaseSpigot());
+        assertEq(1 ether, loan.liquidate(1 ether, address(supportedToken2)));
+        // release spigot + liquidate
+        loan.declareInsolvent();
+        assertEq(uint(LoanLib.STATUS.INSOLVENT), uint(loan.loanStatus()));
+    }
+
 }

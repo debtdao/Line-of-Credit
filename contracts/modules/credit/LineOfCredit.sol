@@ -106,6 +106,35 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
+     * @notice - Allow arbiter to signify that borrower is incapable of repaying debt permanently
+     *           Recoverable funds for lender after declaring insolvency = deposit + interestRepaid - principal
+     * @dev    - Needed for onchain impairment accounting e.g. updating ERC4626 share price
+     *           MUST NOT have collateral left for call to succeed.
+     *           Callable only by arbiter. 
+     * @return bool - If borrower is insolvent or not
+     */
+    function declareInsolvent() external returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LoanLib.STATUS.LIQUIDATABLE != _updateLoanStatus(_healthcheck())) {
+            revert NotLiquidatable();
+        }
+
+      // TODO for cwalk. Should we ensure only insolvent once ttl is over? 
+      // Possible borrower fail anytime. no reson to prevent impairment until deadline
+
+        if(_declareInsolvent()) {
+            _updateLoanStatus(LoanLib.STATUS.INSOLVENT);
+            return true;
+        } else {
+          return false;
+        }
+    }
+
+    function _declareInsolvent() internal virtual returns(bool) {
+        return true;
+    }
+
+    /**
   * @notice - Returns total credit obligation of borrower.
               Aggregated across all lenders.
               Denominated in USD 1e8.

@@ -67,4 +67,18 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
       return EscrowedLoan._healthcheck();
     }
 
+
+    /// @notice all insolvency conditions must pass for call to succeed
+    function _declareInsolvent()
+      internal
+      virtual
+      override(EscrowedLoan, SpigotedLoan)
+      returns(bool)
+    {
+      return (
+        EscrowedLoan._declareInsolvent() &&
+        SpigotedLoan._declareInsolvent()
+      );
+    }
+
 }
