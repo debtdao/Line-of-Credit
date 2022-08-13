@@ -57,14 +57,16 @@ interface ILoan {
   // External Functions  
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
 
-  function depositAndRepay(uint256 amount) external returns(bool);
-  function depositAndClose() external returns(bool);
+  function depositAndRepay(uint256 amount) external payable returns(bool);
+  function depositAndClose() external payable returns(bool);
 
   function accrueInterest() external returns(bool);
   function updateOutstandingDebt() external returns(uint256, uint256);
   function healthcheck() external returns(LoanLib.STATUS);
+  function declareInsolvent() external returns(bool);
 
   function borrower() external returns(address);
   function arbiter() external returns(address);
+  function loanStatus() external returns(LoanLib.STATUS);
   function oracle() external returns(IOracle);
 }

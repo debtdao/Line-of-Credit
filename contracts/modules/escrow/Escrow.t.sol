@@ -1,14 +1,14 @@
 pragma solidity 0.8.9;
 
 import { Escrow } from "./Escrow.sol";
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
+import { Test } from "forge-std/Test.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { RevenueToken4626 } from "../../mock/RevenueToken4626.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
 import { MockLoan } from "../../mock/MockLoan.sol";
-
-contract EscrowTest is DSTest {
+import { IEscrow } from "../../interfaces/IEscrow.sol";
+contract EscrowTest is Test {
 
     Escrow escrow;
     RevenueToken supportedToken1;
@@ -21,26 +21,32 @@ contract EscrowTest is DSTest {
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint minCollateralRatio = 1 ether; // 100%
 
-    address borrower;
+    address borrower = address(this);
     address arbiter = address(1);
 
     function setUp() public {
-        borrower = address(this);
         // deploy tokens and add oracle prices for valid collateral
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
         token4626 = new RevenueToken4626(address(supportedToken1));
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        loan = new MockLoan(1);
+        loan = new MockLoan(1, arbiter);
         // deploy and save escrow
-        _createEscrow(minCollateralRatio, address(oracle), address(loan), borrower);
+        address _escrow = _createEscrow(minCollateralRatio, address(oracle), address(loan), borrower);
         // add escrow to mock loan
-        loan.setEscrow(address(escrow));
+        loan.setEscrow(_escrow);
+
         // allow tokens to be deposited as collateral
-        escrow.enableCollateral(address(supportedToken1));
-        escrow.enableCollateral(address(supportedToken2));
+        _enableCollateral(address(supportedToken2));
+        _enableCollateral(address(supportedToken1));
         _mintAndApprove();
+    }
+
+    function _enableCollateral(address token) internal {
+        startHoax(arbiter); // only arbiter can enable
+        escrow.enableCollateral(address(token));
+        vm.stopPrank(); // revert to old
     }
 
     function _mintAndApprove() internal {
@@ -70,17 +76,17 @@ contract EscrowTest is DSTest {
 
         token.mint(address(this), mintAmount);
         oracle.changePrice(address(token), 1 ether); // need oracle price to enable
-        escrow.enableCollateral(address(token));
+        _enableCollateral(address(token));
     }
 
     function testFail_enable_invalid_collateral_as_arbiter() public {
         RevenueToken token = new RevenueToken();
         token.mint(address(this), mintAmount);
-        escrow.enableCollateral(address(token));
+        _enableCollateral(address(token));
     }
 
     function testFail_enable_collateral_as_anon() public {
-        loan.setArbiter(address(0xdebf));
+        hoax(address(0xf1c0));
         escrow.enableCollateral(address(supportedToken1));
     }
 
@@ -91,7 +97,7 @@ contract EscrowTest is DSTest {
     }
     function test_can_get_correct_collateral_value_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(mintAmount, address(token4626));
         uint collateralValue = escrow.getCollateralValue();
         assertEq(collateralValue, (1000 * 1e8) * (mintAmount / 1 ether), "collateral value should equal the mint amount * price");
@@ -109,7 +115,7 @@ contract EscrowTest is DSTest {
     function test_can_add_collateral_eip4626() public {
         uint borrowerBalance = token4626.balanceOf(borrower);
         token4626.setAssetAddress(address(supportedToken2));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));
         escrow.addCollateral(mintAmount, address(token4626));
         assertEq(borrowerBalance, token4626.balanceOf(borrower) + mintAmount, "borrower balance should have been reduced by mintAmount");
     }
@@ -117,7 +123,7 @@ contract EscrowTest is DSTest {
     function test_can_remove_collateral_eip4626() public {
         uint borrowerBalance = token4626.balanceOf(borrower);
         token4626.setAssetAddress(address(supportedToken2));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));
         escrow.addCollateral(mintAmount, address(token4626));
         escrow.releaseCollateral(1 ether, address(token4626), borrower);
         assertEq(1 ether, token4626.balanceOf(borrower), "should have returned collateral");
@@ -151,7 +157,7 @@ contract EscrowTest is DSTest {
 
     function test_cratio_adjusts_when_collateral_price_changes_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(1000);
         uint escrowRatio = escrow.getCollateralRatio();
@@ -165,21 +171,25 @@ contract EscrowTest is DSTest {
         escrow.addCollateral(0.9 ether, address(supportedToken2));
         loan.setDebtValue(2000 ether);
         assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
+        startHoax(arbiter);
         loan.liquidate(0, 1 ether, address(supportedToken1), arbiter);
         loan.liquidate(0, 0.9 ether, address(supportedToken2), arbiter);
+        vm.stopPrank();
         assertEq(supportedToken1.balanceOf(arbiter), 1 ether, "arbiter should have received token 1");
         assertEq(supportedToken2.balanceOf(arbiter), 0.9 ether, "arbiter should have received token 2");
     }
 
     function test_can_liquidate_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         token4626.setAssetMultiplier(5);
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
         assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
+        startHoax(arbiter);
         loan.liquidate(0, 1 ether, address(token4626), arbiter);
+        vm.stopPrank();
         assertEq(token4626.balanceOf(arbiter), 1 ether, "arbiter should have received 1e18 worth of the 4626 token");
     }
 
@@ -208,9 +218,8 @@ contract EscrowTest is DSTest {
 
     function test_cratio_values_with_eip4626() public {
         token4626.setAssetAddress(address(supportedToken2));
-        escrow.enableCollateral(address(token4626));
         token4626.setAssetMultiplier(2); // share token should be worth double the underlying (which is now supportedToken2)
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626)); // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(4000 * 1e8); // 1e18 of supportedToken2 * 2 == 4000 * 1e8 (4000 USD)
         assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be 100%");
@@ -222,29 +231,55 @@ contract EscrowTest is DSTest {
         assertEq(escrow.getCollateralRatio(), 0.65 ether, "cratio should be 65%");
     }
 
-    function testFail_cannot_remove_collateral_when_under_collateralized() public {
+    function test_can_remove_all_collateral_when_loan_repaid() public {
+        uint balance = supportedToken1.balanceOf(address(this));
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        uint balance2 = supportedToken1.balanceOf(address(this));
+        assertEq(balance - 1 ether, balance2);
+
+        loan.setStatus(LoanLib.STATUS.REPAID);
+        escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
+
+        uint balance3 = supportedToken1.balanceOf(address(this));
+        assertEq(balance, balance3);
+        assertEq(balance2 + 1 ether, balance3);
+    }
+
+    function test_cannot_remove_collateral_as_anon() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         loan.setDebtValue(2000 ether);
+        hoax(address(0xdebf));
+        vm.expectRevert(IEscrow.CallerAccessDenied.selector);
         escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
     }
 
-    function testFail_cannot_remove_collateral_when_under_collateralized_eip4626() public {
+    function test_cannot_remove_collateral_when_under_collateralized() public {
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        loan.setDebtValue(2000 ether);
+        vm.expectRevert(IEscrow.UnderCollateralized.selector);
+        escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
+    }
+
+    function test_cannot_remove_collateral_when_under_collateralized_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
         loan.setDebtValue(2000 ether);
+        vm.expectRevert(IEscrow.UnderCollateralized.selector);
         escrow.releaseCollateral(1 ether, address(token4626), borrower);
     }
 
-    function testFail_cannot_liquidate_when_loan_healthy() public {
+    function test_can_liquidate_when_cratio_healthy() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
+        hoax(arbiter);
         loan.liquidate(0, 1 ether, address(supportedToken1), arbiter);
     }
 
-    function testFail_cannot_liquidate_when_loan_healthy_eip4626() public {
+    function test_can_liquidate_when_loan_healthy_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
+        hoax(arbiter);
         loan.liquidate(0, 1 ether, address(token4626), arbiter);
     }
 
@@ -254,7 +289,7 @@ contract EscrowTest is DSTest {
 
     function testFail_cannot_add_collateral_if_unsupported_by_oracle_eip4626() public {
         token4626.setAssetAddress(address(unsupportedToken));
-        escrow.enableCollateral(address(token4626));
+        _enableCollateral(address(token4626));
         escrow.addCollateral(1000, address(token4626));
     }
 }

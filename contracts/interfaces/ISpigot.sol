@@ -1,3 +1,5 @@
+pragma solidity ^0.8.9;
+
 interface ISpigot {
 
     struct Setting {
@@ -36,8 +38,13 @@ interface ISpigot {
 
     error NoRevenue();
 
+    error UnclaimedRevenue();
+
     error CallerAccessDenied();
     
     error BadSetting();
+
+    function isWhitelisted(bytes4 func) external view returns(bool);
+    function getEscrowed(address token) external view returns(uint256);
 
 }

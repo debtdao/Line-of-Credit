@@ -1,9 +1,11 @@
 pragma solidity 0.8.9;
 
-import { DSTest } from "../../lib/ds-test/src/test.sol";
+import "forge-std/Test.sol";
+
+
 import { LoanLib } from "./LoanLib.sol";
 
-contract LoanLibTest is DSTest {
+contract LoanLibTest is Test {
 
     address lender = address(0);
     address loan = address(1);
@@ -35,26 +37,28 @@ contract LoanLibTest is DSTest {
         assert(newIds[0] == id);
     }
 
-    function testFail_cannot_remove_non_existent_position() public {
+    function test_remove_non_existent_position() public {
         bytes32 id = LoanLib.computePositionId(loan, lender, token);
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = id;
         assert(ids.length == 1);
+        vm.expectRevert(stdError.indexOOBError);
         LoanLib.removePosition(ids, bytes32(0));
     }
 
-    function prove_can_properly_sort_queue(uint256 amount) public {
-        if(amount == 0) { return; }
 
-        bytes32[] memory ids = new bytes32[](amount);
-        if(amount == 1) {
+    function test_can_properly_step_queue(uint256 length) public {
+        if(length == 0 || length > 200) { return; } // ensure array is within reasonable bounds
+
+        bytes32[] memory ids = new bytes32[](length);
+        if(length == 1) {
             ids[0] = bytes32(0);
             bytes32[] memory newIds = LoanLib.stepQ(ids);
             assertEq(newIds[0], ids[0]);
             return;
         }
 
-        if(amount == 2) {
+        if(length == 2) {
             ids[0] = bytes32(0);
             ids[1] = bytes32(uint(1));
 
@@ -64,15 +68,17 @@ contract LoanLibTest is DSTest {
             return;
         }
 
-        for(uint256 i = 0; i < amount; i++) {
+        for(uint256 i = 0; i < length; i++) {
           ids[i] == bytes32(i);
         }
         bytes32[] memory newIds = LoanLib.stepQ(ids);
-
-        assertEq(newIds.length, amount);
-        assertEq(ids[amount - 1], bytes32(0)); // first -> last
-        assertEq(ids[0], bytes32(uint(1))); // second -> first
-        assertEq(ids[amount - 2], bytes32(amount -1)); // last -> second last
+        
+        assertEq(newIds.length, length);
+        
+        for(uint256 i = 0; i < length; i++) {
+          if(i == 0) assertEq(ids[i], newIds[length - 1]); // first -> last
+          else assertEq(ids[i], newIds[i - 1]);    // all others move one index down
+        }
     }
 
     function test_calculates_right_price_w_decimals(int256 price, uint256 amount) public {

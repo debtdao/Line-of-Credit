@@ -37,24 +37,25 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
    * @dev - only called by neutral arbiter party/contract
    * @dev - `loanStatus` must be LIQUIDATABLE
    * @dev - callable by `arbiter`
-   * @param positionId -the debt position to pay down debt on
    * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
    * @param targetToken - token in escrow that will be sold of to repay position
    */
 
   function liquidate(
-    bytes32 positionId,
     uint256 amount,
     address targetToken
   )
     external
+    whileBorrowing
     returns(uint256)
   {
-    require(msg.sender == arbiter);
-    require(_updateLoanStatus(_healthcheck()) == LoanLib.STATUS.LIQUIDATABLE);
+    if(msg.sender != arbiter) { revert CallerAccessDenied(); }
+    if(_updateLoanStatus(_healthcheck()) != LoanLib.STATUS.LIQUIDATABLE) {
+      revert NotLiquidatable();
+    }
 
     // send tokens to arbiter for OTC sales
-    return _liquidate(positionId, amount, targetToken, msg.sender);
+    return _liquidate(ids[0], amount, targetToken, msg.sender);
   }
   
     /** @notice checks internal accounting logic for status and if ok, runs modules checks */
@@ -65,6 +66,20 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
       }
 
       return EscrowedLoan._healthcheck();
+    }
+
+
+    /// @notice all insolvency conditions must pass for call to succeed
+    function _canDeclareInsolvent()
+      internal
+      virtual
+      override(EscrowedLoan, SpigotedLoan)
+      returns(bool)
+    {
+      return (
+        EscrowedLoan._canDeclareInsolvent() &&
+        SpigotedLoan._canDeclareInsolvent()
+      );
     }
 
 }

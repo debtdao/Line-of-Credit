@@ -1,5 +1,6 @@
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -106,6 +107,32 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
+     * @notice - Allow arbiter to signify that borrower is incapable of repaying debt permanently
+     *           Recoverable funds for lender after declaring insolvency = deposit + interestRepaid - principal
+     * @dev    - Needed for onchain impairment accounting e.g. updating ERC4626 share price
+     *           MUST NOT have collateral left for call to succeed.
+     *           Callable only by arbiter. 
+     * @return bool - If borrower is insolvent or not
+     */
+    function declareInsolvent() external whileBorrowing returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LoanLib.STATUS.LIQUIDATABLE != _updateLoanStatus(_healthcheck())) {
+            revert NotLiquidatable();
+        }
+
+        if(_canDeclareInsolvent()) {
+            _updateLoanStatus(LoanLib.STATUS.INSOLVENT);
+            return true;
+        } else {
+          return false;
+        }
+    }
+
+    function _canDeclareInsolvent() internal virtual returns(bool) {
+        return true;
+    }
+
+    /**
   * @notice - Returns total credit obligation of borrower.
               Aggregated across all lenders.
               Denominated in USD 1e8.
@@ -176,12 +203,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         address lender
     )
         external
+        payable
         override
         whileActive
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        IERC20(token).safeTransferFrom(lender, address(this), amount);
+        LoanLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);
 
@@ -230,18 +258,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 amount
     )
       external
+      payable
       override
       whileActive
       mutualConsentById(borrower, id)
       returns (bool)
     {
         _accrueInterest(id);
+        LoanLib.receiveTokenOrETH(credits[id].token, credits[id].lender, amount);
 
-        IERC20(credits[id].token).safeTransferFrom(
-          credits[id].lender,
-          address(this),
-          amount
-        );
         credits[id].deposit += amount;
         
         emit IncreaseCredit(id, amount);
@@ -259,6 +284,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     */
     function depositAndClose()
         external
+        payable
         override
         whileBorrowing
         onlyBorrower
@@ -270,7 +296,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 totalOwed = credits[id].principal + credits[id].interestAccrued;
 
         // borrower deposits remaining balance not already repaid and held in contract
-        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), totalOwed);
+        LoanLib.receiveTokenOrETH(credits[id].token, msg.sender, totalOwed);
+
         // clear the credit
         _repay(id, totalOwed);
 
@@ -286,6 +313,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function depositAndRepay(uint256 amount)
         external
+        payable
         override
         whileBorrowing
         returns (bool)
@@ -295,7 +323,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         require(amount <= credits[id].principal + credits[id].interestAccrued);
 
-        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), amount);
+        LoanLib.receiveTokenOrETH(credits[id].token, msg.sender, amount);
 
         _repay(id, amount);
         return true;
@@ -332,7 +360,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             revert NotActive();
         }
 
-        IERC20(credit.token).safeTransfer(borrower, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
         emit Borrow(id, amount);
 
@@ -379,7 +407,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = credit;
 
-        IERC20(credit.token).safeTransfer(credit.lender, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+
 
         return true;
     }
@@ -391,9 +420,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - callable by `borrower`
      * @param id -the credit position to close
      */
-    function close(bytes32 id) external override returns (bool) {
-      if(msg.sender != credits[id].lender && msg.sender != borrower) {
+    function close(bytes32 id) external payable override returns (bool) {
+        address b = borrower;         // gas savings
+        if(msg.sender != credits[id].lender && msg.sender != b) {
           revert CallerAccessDenied();
+        }
+
+        // ensure all money owed is accounted for
+        _accrueInterest(id);
+        uint256 facilityFee = credits[id].interestAccrued;
+        if(facilityFee > 0) {
+          // only allow repaying interest since they are skipping repayment queue.
+          // If principal still owed, _close() MUST fail
+          LoanLib.receiveTokenOrETH(credits[id].token, b, facilityFee);
+
+          _repay(id, facilityFee);
         }
 
         _close(id);
@@ -427,11 +468,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         int price = IOracle(oracle).getLatestAnswer(token);
         if(price <= 0 ) { revert NoTokenPrice(); }
-
-        (bool passed, bytes memory result) = token.call(
-            abi.encodeWithSignature("decimals()")
-        );
-        uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
+        
+        uint8 decimals;
+        if(token == Denominations.ETH) {
+            decimals = 18;
+        } else {
+            (bool passed, bytes memory result) = token.call(
+                abi.encodeWithSignature("decimals()")
+            );
+            decimals = !passed ? 18 : abi.decode(result, (uint8));
+        }
         
         credits[id] = Credit({
             lender: lender,
@@ -524,7 +570,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // return the lender's deposit
         if (credit.deposit > 0) {
-            IERC20(credit.token).safeTransfer(
+            LoanLib.sendOutTokenOrETH(
+                credit.token,
                 credit.lender,
                 credit.deposit + credit.interestRepaid
             );
@@ -552,22 +599,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @return
      */
     function _sortIntoQ(bytes32 p) internal returns (bool) {
-        uint256 len = ids.length;
-        uint256 _i = 0; // index that p should be moved to
-
-        for (uint256 i = 0; i < len; i++) {
-            bytes32 id = ids[i];
+        uint256 lastSpot = ids.length - 1;
+        uint256 nextQSpot = lastSpot;
+        bytes32 id;
+        for (uint256 i = 0; i <= lastSpot; i++) {
+            id = ids[i];
             if (p != id) {
-                if (credits[id].principal > 0) continue; // `id` should be placed before `p`
-                _i = i; // index of first undrawn LoC found
+                if (
+                  nextQSpot != lastSpot ||  // position already found. skip to find `p` asap
+                  credits[id].principal > 0 //`id` should be placed before `p` 
+                ) continue;
+                nextQSpot = i;              // index of first undrawn line found
             } else {
-                if (_i == 0) return true; // `p` in earliest possible index
+                if(nextQSpot == lastSpot) return true; // nothing to update
                 // swap positions
-                ids[i] = ids[_i];
-                ids[_i] = p;
+                ids[i] = ids[nextQSpot];    // id put into old `p` position
+                ids[nextQSpot] = p;       // p put at target index
+                return true; 
             }
         }
-
-        return true;
     }
 }

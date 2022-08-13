@@ -32,6 +32,8 @@ interface ILineOfCredit is ILoan {
   error NoLiquidity();
   error PositionExists();
   error CloseFailedWithPrincipal();
+  error NotInsolvent(address module);
+  error NotLiquidatable();
 
   function updateOutstandingDebt() external returns(uint256, uint256);
 
@@ -41,7 +43,7 @@ interface ILineOfCredit is ILoan {
     uint256 amount,
     address token,
     address lender
-  ) external returns(bytes32);
+  ) external payable returns(bytes32);
 
   function setRates(
     bytes32 id,
@@ -52,8 +54,8 @@ interface ILineOfCredit is ILoan {
   function increaseCredit(
     bytes32 id,
     uint256 amount
-  ) external returns(bool);
+  ) external payable returns(bool);
 
   function borrow(bytes32 id, uint256 amount) external returns(bool);
-  function close(bytes32 id) external returns(bool);
+  function close(bytes32 id) external payable returns(bool);
 }
