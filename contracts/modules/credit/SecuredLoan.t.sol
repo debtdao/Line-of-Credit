@@ -1,5 +1,6 @@
 pragma solidity 0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import { Escrow } from "../escrow/Escrow.sol";
 import "forge-std/Test.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
@@ -45,6 +46,7 @@ contract LoanTest is Test {
     }
 
     function _mintAndApprove() internal {
+        deal(lender, mintAmount);
         supportedToken1.mint(borrower, mintAmount);
         supportedToken1.approve(address(escrow), MAX_INT);
         supportedToken1.approve(address(loan), MAX_INT);
@@ -80,6 +82,17 @@ contract LoanTest is Test {
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
     }
 
+    function test_can_add_credit_position_ETH() public {
+        assertEq(address(loan).balance, 0, "Loan balance should be 0");
+        assertEq(address(this).balance, mintAmount, "Contract should have initial mint balance");
+        loan.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        loan.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        bytes32 id = loan.ids(0);
+        assert(id != bytes32(0));
+        assertEq(address(loan).balance, 1 ether, "Loan balance should be 1e18");
+        assertEq(address(this).balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+    }
+
     function test_can_borrow() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -93,6 +106,26 @@ contract LoanTest is Test {
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         (uint p,) = loan.updateOutstandingDebt();
         assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+    }
+
+    function test_can_borrow_ETH() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        loan.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        bytes32 id = loan.ids(0);
+        assert(id != bytes32(0));
+        assertEq(address(loan).balance, 1 ether, "Loan balance should be 1e18");
+        assertEq(address(this).balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+
+        loan.borrow(id, 0.01 ether);
+
+        assertEq(address(loan).balance, 0.99 ether, "Loan balance should be 0");
+        assertEq(address(this).balance, mintAmount - 0.99 ether, "Contract should have initial mint balance");
+
+        int prc = oracle.getLatestAnswer(Denominations.ETH);
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
+        (uint p,) = loan.updateOutstandingDebt();
+        assertEq(p, tokenPriceOneUnit / 100, "Principal should be set as one full unit price in USD");
+
     }
 
     function test_can_manually_close_if_no_outstanding_credit() public {
@@ -738,4 +771,5 @@ contract LoanTest is Test {
         assertEq(uint(LoanLib.STATUS.INSOLVENT), uint(loan.loanStatus()));
     }
 
+    receive() external payable {}
 }

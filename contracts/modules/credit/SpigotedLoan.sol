@@ -1,5 +1,6 @@
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LoanLib} from "../../utils/LoanLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
@@ -140,36 +141,38 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         unusedTokens[targetToken] += tokensBought;
     }
 
+    /**
+     * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
+     * @dev MUST trade all available claim tokens to target
+     * @dev    priviliged internal function
+     * @param claimToken - the token escrowed in spigot to sell in trade
+     * @param targetToken - the token borrow owed debt in and needs to buy. Always `credits[ids[0]].token`
+     * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for target
+     * returns - amount of target tokens bought
+     */
+
     function _claimAndTrade(
         address claimToken,
         address targetToken,
         bytes calldata zeroExTradeData
     ) internal returns (uint256 tokensBought) {
-        uint256 existingClaimTokens = IERC20(claimToken).balanceOf(
-            address(this)
-        );
-        uint256 existingTargetTokens = IERC20(targetToken).balanceOf(
-            address(this)
-        );
+        uint256 existingClaimTokens = LoanLib.getBalance(claimToken);
+        uint256 existingTargetTokens = LoanLib.getBalance(targetToken);
 
         uint256 tokensClaimed = spigot.claimEscrow(claimToken);
+        uint256 usable = tokensClaimed + unusedTokens[claimToken];
 
-        if (claimToken == address(0)) {
+        if (claimToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: tokensClaimed}(
-                zeroExTradeData
-            );
+            (bool success, ) = swapTarget.call{value: usable}(zeroExTradeData);
             if(!success) { revert TradeFailed(); }
         } else {
-            IERC20(claimToken).approve(
-                swapTarget,
-                existingClaimTokens + tokensClaimed
-            );
+            IERC20(claimToken).approve(swapTarget, usable);
             (bool success, ) = swapTarget.call(zeroExTradeData);
             if(!success) { revert TradeFailed(); }
         }
 
-        uint256 targetTokens = IERC20(targetToken).balanceOf(address(this));
+        uint256 targetTokens = LoanLib.getBalance(targetToken);
 
         // ideally we could use oracle to calculate # of tokens to receive
         // but claimToken might not have oracle. targetToken must have oracle
@@ -186,9 +189,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
         // update unused if we didnt sell all claimed tokens in trade
         // also underflow revert protection here
-        unusedTokens[claimToken] +=
-            IERC20(claimToken).balanceOf(address(this)) -
-            existingClaimTokens;
+        unusedTokens[claimToken] += LoanLib.getBalance(claimToken) - existingClaimTokens;
     }
 
     //  SPIGOT OWNER FUNCTIONS
@@ -293,14 +294,10 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
     function _sweep(address to, address token) internal returns (uint256 x) {
         x = unusedTokens[token];
-        if (token == address(0)) {
-            payable(to).transfer(x);
-        } else {
-            IERC20(token).safeTransfer(to, x);
-        }
+        LoanLib.sendOutTokenOrETH(token, to, x);
         delete unusedTokens[token];
     }
 
-    // allow trading in ETH
+    // allow claiming/trading in ETH
     receive() external payable {}
 }

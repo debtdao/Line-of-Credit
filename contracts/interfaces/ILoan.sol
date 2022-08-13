@@ -57,8 +57,8 @@ interface ILoan {
   // External Functions  
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
 
-  function depositAndRepay(uint256 amount) external returns(bool);
-  function depositAndClose() external returns(bool);
+  function depositAndRepay(uint256 amount) external payable returns(bool);
+  function depositAndClose() external payable returns(bool);
 
   function accrueInterest() external returns(bool);
   function updateOutstandingDebt() external returns(uint256, uint256);

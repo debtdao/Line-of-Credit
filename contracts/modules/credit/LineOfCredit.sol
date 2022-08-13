@@ -1,5 +1,6 @@
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -202,12 +203,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         address lender
     )
         external
+        payable
         override
         whileActive
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        IERC20(token).safeTransferFrom(lender, address(this), amount);
+        LoanLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);
 
@@ -256,18 +258,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 amount
     )
       external
+      payable
       override
       whileActive
       mutualConsentById(borrower, id)
       returns (bool)
     {
         _accrueInterest(id);
+        LoanLib.receiveTokenOrETH(credits[id].token, credits[id].lender, amount);
 
-        IERC20(credits[id].token).safeTransferFrom(
-          credits[id].lender,
-          address(this),
-          amount
-        );
         credits[id].deposit += amount;
         
         emit IncreaseCredit(id, amount);
@@ -285,6 +284,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     */
     function depositAndClose()
         external
+        payable
         override
         whileBorrowing
         onlyBorrower
@@ -296,7 +296,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 totalOwed = credits[id].principal + credits[id].interestAccrued;
 
         // borrower deposits remaining balance not already repaid and held in contract
-        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), totalOwed);
+        LoanLib.receiveTokenOrETH(credits[id].token, msg.sender, totalOwed);
+
         // clear the credit
         _repay(id, totalOwed);
 
@@ -312,6 +313,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function depositAndRepay(uint256 amount)
         external
+        payable
         override
         whileBorrowing
         returns (bool)
@@ -321,7 +323,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         require(amount <= credits[id].principal + credits[id].interestAccrued);
 
-        IERC20(credits[id].token).safeTransferFrom(msg.sender, address(this), amount);
+        LoanLib.receiveTokenOrETH(credits[id].token, msg.sender, amount);
 
         _repay(id, amount);
         return true;
@@ -358,7 +360,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             revert NotActive();
         }
 
-        IERC20(credit.token).safeTransfer(borrower, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
         emit Borrow(id, amount);
 
@@ -405,7 +407,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = credit;
 
-        IERC20(credit.token).safeTransfer(credit.lender, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+
 
         return true;
     }
@@ -417,7 +420,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - callable by `borrower`
      * @param id -the credit position to close
      */
-    function close(bytes32 id) external override returns (bool) {
+    function close(bytes32 id) external payable override returns (bool) {
         address b = borrower;         // gas savings
         if(msg.sender != credits[id].lender && msg.sender != b) {
           revert CallerAccessDenied();
@@ -429,7 +432,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(facilityFee > 0) {
           // only allow repaying interest since they are skipping repayment queue.
           // If principal still owed, _close() MUST fail
-          IERC20( credits[id].token).safeTransferFrom(b, address(this), facilityFee);
+          LoanLib.receiveTokenOrETH(credits[id].token, b, facilityFee);
+
           _repay(id, facilityFee);
         }
 
@@ -464,11 +468,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         int price = IOracle(oracle).getLatestAnswer(token);
         if(price <= 0 ) { revert NoTokenPrice(); }
-
-        (bool passed, bytes memory result) = token.call(
-            abi.encodeWithSignature("decimals()")
-        );
-        uint8 decimals = !passed ? 18 : abi.decode(result, (uint8));
+        
+        uint8 decimals;
+        if(token == Denominations.ETH) {
+            decimals = 18;
+        } else {
+            (bool passed, bytes memory result) = token.call(
+                abi.encodeWithSignature("decimals()")
+            );
+            decimals = !passed ? 18 : abi.decode(result, (uint8));
+        }
         
         credits[id] = Credit({
             lender: lender,
@@ -561,7 +570,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // return the lender's deposit
         if (credit.deposit > 0) {
-            IERC20(credit.token).safeTransfer(
+            LoanLib.sendOutTokenOrETH(
+                credit.token,
                 credit.lender,
                 credit.deposit + credit.interestRepaid
             );

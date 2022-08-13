@@ -1,6 +1,7 @@
 
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import "forge-std/Test.sol";
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleOracle } from "../../mock/SimpleOracle.sol";
@@ -27,7 +28,6 @@ contract SpigotedLoanTest is Test {
     RevenueToken revenueToken;
 
     // Named vars for common inputs
-    address constant eth = address(0);
     address constant revenueContract = address(0xdebf);
     uint lentAmount = 1 ether;
     
@@ -41,8 +41,8 @@ contract SpigotedLoanTest is Test {
 
     // Loan access control vars
     address private arbiter = address(this);
-    address private borrower = address(1);
-    address private lender = address(2);
+    address private borrower = address(10);
+    address private lender = address(20);
     SimpleOracle private oracle;
 
     function setUp() public {
@@ -56,40 +56,54 @@ contract SpigotedLoanTest is Test {
 
         _mintAndApprove();
         
-        _createCredit();
+        _createCredit(address(revenueToken), address(creditToken), revenueContract);
         // revenue go brrrrrrr
         spigot.claimRevenue(address(revenueContract), "");
     }
 
-    function _createCredit() public returns(bytes32 id) {
+    function _createCredit(address revenueT, address creditT, address revenueC) public returns(bytes32 id) {
+
       ISpigot.Setting memory setting = ISpigot.Setting({
-        token: address(revenueToken),
+        token: revenueT,
         ownerSplit: ownerSplit,
         claimFunction: bytes4(0),
         transferOwnerFunction: bytes4("1234")
       });
 
+      oracle.changePrice(creditT, int(1 ether)); // whitelist token
+
       startHoax(borrower);
-      creditToken.approve(address(loan), MAX_INT);
-      loan.addCredit(drawnRate, facilityRate, lentAmount, address(creditToken), lender);
-      loan.addSpigot(revenueContract, setting);
+      loan.addCredit(drawnRate, facilityRate, lentAmount, creditT, lender);
+      loan.addSpigot(revenueC, setting);
       vm.stopPrank();
       
       startHoax(lender);
-      creditToken.approve(address(loan), MAX_INT);
-      id = loan.addCredit(drawnRate, facilityRate, lentAmount, address(creditToken), lender);
+      if(creditT != Denominations.ETH) {
+        deal(creditT, lender, MAX_REVENUE);
+        RevenueToken(creditT).approve(address(loan), MAX_INT);
+        id = loan.addCredit(drawnRate, facilityRate, lentAmount, creditT, lender);
+      } else {
+        id = loan.addCredit{value: lentAmount}(drawnRate, facilityRate, lentAmount, creditT, lender);
+      }
       vm.stopPrank();
 
-      loan.addSpigot(revenueContract, setting);
+      // as arbiter
+      hoax(arbiter);
+      loan.addSpigot(revenueC, setting);
+      vm.stopPrank();
     }
 
-    function _borrow() public {
+    function _borrow(bytes32 id, uint amount) public {
       vm.startPrank(borrower);
-      loan.borrow(loan.ids(0), lentAmount);
+      loan.borrow(id, amount);
       vm.stopPrank();
     }
 
     function _mintAndApprove() public {
+      // ETH
+      deal(address(dex), MAX_REVENUE);
+      deal(address(borrower), MAX_REVENUE);
+      deal(address(lender), MAX_REVENUE);
       
       // seed dex with tokens to buy
       creditToken.mint(address(dex), MAX_REVENUE);
@@ -179,12 +193,61 @@ contract SpigotedLoanTest is Test {
       loan.claimAndRepay(address(revenueToken), tradeData);
     }
 
+    function test_can_trade_and_repay_ETH_revenue(uint ethRevenue) public {
+      if(ethRevenue <= 100 || ethRevenue > MAX_REVENUE) return; // min/max amount of revenue spigot accepts
+      _mintAndApprove(); // create more tokens since we are adding another position
+      address revenueC = address(0xbeef);
+      address creditT = address(new RevenueToken());
+      bytes32 id = _createCredit(Denominations.ETH, creditT, revenueC);
+      deal(address(spigot), ethRevenue);
+      deal(creditT, address(dex), MAX_REVENUE);
+
+      spigot.claimRevenue(revenueC, "");
+
+      _borrow(id, lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        Denominations.ETH,
+        creditT,
+        (ethRevenue * ownerSplit) / 100,
+        lentAmount
+      );
+
+      uint claimable = spigot.getEscrowed(Denominations.ETH);
+
+      loan.claimAndTrade(Denominations.ETH, tradeData);
+
+      assertEq(loan.unused(creditT), lentAmount);
+    }
+
+    function test_can_trade_for_ETH_debt() public {
+      deal(address(lender), lentAmount + 1 ether);
+      deal(address(revenueToken), MAX_REVENUE);
+      address revenueC = address(0xbeef); // need new spigot for testing
+      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      _borrow(id, lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        Denominations.ETH,
+        1 gwei,
+        lentAmount
+      );
+
+      uint claimable = spigot.getEscrowed(address(revenueToken));
+
+      loan.claimAndTrade(address(revenueToken), tradeData);
+      assertEq(loan.unused(Denominations.ETH), lentAmount);
+    }
+
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount) public {
       if(buyAmount == 0 || sellAmount == 0) return;
       if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
-      
+      bytes32 id = loan.ids(0);
       vm.startPrank(borrower);
-      loan.borrow(loan.ids(0), lentAmount);
+      loan.borrow(id, lentAmount);
       
       // no interest charged because no blocks processed
       uint256 interest = 0;
@@ -204,7 +267,7 @@ contract SpigotedLoanTest is Test {
       vm.stopPrank();
 
       // principal, interest, repaid
-      (,uint p, uint i, uint r,,,) = loan.credits(loan.ids(0));
+      (,uint p, uint i, uint r,,,) = loan.credits(id);
 
       // outstanding credit = initial principal + accrued interest - tokens repaid
       assertEq(p + i, lentAmount + interest - buyAmount);
@@ -233,7 +296,7 @@ contract SpigotedLoanTest is Test {
     // write tests for unused tokens
 
     function test_anyone_can_deposit_and_repay() public {
-      _borrow();
+      _borrow(loan.ids(0), lentAmount);
 
       creditToken.mint(address(0xdebf), lentAmount);
       hoax(address(0xdebf));
@@ -272,10 +335,11 @@ contract SpigotedLoanTest is Test {
     // sweep()
 
 
+
     function test_cant_sweep_tokens_while_active() public {
-      _borrow();
+      _borrow(loan.ids(0), lentAmount);
       hoax(borrower);
-      uint claimed = MAX_REVENUE / ownerSplit; // expected claim amountd tokens for test
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amountd tokens for test
       // create unused tokens      
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -290,8 +354,8 @@ contract SpigotedLoanTest is Test {
     }
 
     function test_cant_sweep_tokens_when_repaid_as_anon() public {
-      _borrow();
-      uint claimed = MAX_REVENUE / ownerSplit; // expected claim amountd tokens for test
+      _borrow(loan.ids(0), lentAmount);
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amountd tokens for test
       // create unused tokens      
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -307,21 +371,21 @@ contract SpigotedLoanTest is Test {
       hoax(borrower);
       loan.close(id);
       assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID));
-      
+
       hoax(address(0xdebf));
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
     }
 
     function test_sweep_to_borrower_when_repaid() public {
-      _borrow();
+      _borrow(loan.ids(0), lentAmount);
 
-      uint claimed = MAX_REVENUE / ownerSplit; // expected claim amount
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
         address(creditToken),
-        claimed - 1,
+        claimed - 10,
         lentAmount
       );
 
@@ -340,14 +404,14 @@ contract SpigotedLoanTest is Test {
       hoax(borrower);
       uint swept = loan.sweep(address(borrower), address(revenueToken));
 
-      assertEq(unused, 1);     // all unused sent to arbi
+      assertEq(unused, 10);     // all unused sent to arbi
       assertEq(swept, unused); // all unused sent to arbi
-      assertEq(swept, 1);      // untraded revenue
+      assertEq(swept, 10);      // untraded revenue
       assertEq(swept, revenueToken.balanceOf(address(borrower)) - balance); // arbi balance updates properly
     }
 
     function test_cant_sweep_tokens_when_liquidate_as_anon() public {
-      _borrow();
+      _borrow(loan.ids(0), lentAmount);
       vm.warp(ttl+1);
       hoax(address(0xdebf));
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
@@ -357,9 +421,9 @@ contract SpigotedLoanTest is Test {
 
 
     function test_sweep_to_arbiter_when_liquidated() public {
-      _borrow();
+      _borrow(loan.ids(0), lentAmount);
 
-      uint claimed = MAX_REVENUE / ownerSplit; // expected claim amount 
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount 
 
       hoax(borrower);
       bytes memory tradeData = abi.encodeWithSignature(

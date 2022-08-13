@@ -5,6 +5,8 @@ import { Spigot } from "./Spigot.sol";
 
 import { RevenueToken } from "../../mock/RevenueToken.sol";
 import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+
 import { ISpigot } from '../../interfaces/ISpigot.sol';
 
 contract SpigotTest is Test {
@@ -15,7 +17,6 @@ contract SpigotTest is Test {
     ISpigot.Setting private settings;
 
     // Named vars for common inputs
-    address constant eth = address(0);
     uint256 constant MAX_REVENUE = type(uint).max / 100;
     // function signatures for mock revenue contract to pass as params to spigot
     bytes4 constant opsFunc = SimpleRevenueContract.doAnOperationsThing.selector;
@@ -89,7 +90,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_PushPaymentNoETHRevenue() public {
-        _initSpigot(eth, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
+        _initSpigot(Denominations.ETH, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData;
         vm.expectRevert(ISpigot.NoRevenue.selector);
@@ -97,7 +98,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_PullPaymentNoETHRevenue() public {
-        _initSpigot(eth, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
+        _initSpigot(Denominations.ETH, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         vm.expectRevert(ISpigot.NoRevenue.selector);
@@ -149,7 +150,7 @@ contract SpigotTest is Test {
         );
 
         assertEq(
-            _token == eth ?
+            _token == Denominations.ETH ?
                 address(spigot).balance :
                 RevenueToken(token).balanceOf(address(spigot)),
             escrowed + overflow, // revenue over max stays in contract unnaccounted
@@ -157,7 +158,7 @@ contract SpigotTest is Test {
         );
 
         assertEq(
-            _token == eth ?
+            _token == Denominations.ETH ?
                 address(treasury).balance :
                 RevenueToken(token).balanceOf(treasury),
             maxRevenue - escrowed,
@@ -196,7 +197,7 @@ contract SpigotTest is Test {
      */
     function test_claimRevenue_pushPaymentETH(uint96 totalRevenue) public {
         if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
-        _initSpigot(eth, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
+        _initSpigot(Denominations.ETH, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         payable(address(spigot)).transfer(totalRevenue);
         assertEq(totalRevenue, address(spigot).balance); // ensure spigot received revenue
@@ -204,22 +205,22 @@ contract SpigotTest is Test {
         bytes memory claimData;
         uint256 revenueClaimed = spigot.claimRevenue(revenueContract, claimData); 
         assertEq(totalRevenue, revenueClaimed, 'Improper revenue amount claimed');
-        emit log_named_uint("escrowdAmount", spigot.getEscrowed(eth));
+        emit log_named_uint("escrowdAmount", spigot.getEscrowed(Denominations.ETH));
 
         
-        assertSpigotSplits(eth, totalRevenue);
+        assertSpigotSplits(Denominations.ETH, totalRevenue);
     }
 
     function test_claimRevenue_pullPaymentETH(uint96 totalRevenue) public {
         if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
-        _initSpigot(eth, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
+        _initSpigot(Denominations.ETH, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         payable(revenueContract).transfer(totalRevenue);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         assertEq(totalRevenue, spigot.claimRevenue(revenueContract, claimData), 'invalid revenue amount claimed');
 
-        assertSpigotSplits(eth, totalRevenue);
+        assertSpigotSplits(Denominations.ETH, totalRevenue);
     }
 
     
@@ -401,15 +402,22 @@ contract SpigotTest is Test {
         assertTrue(spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
     }
 
-    function test_operate_ClaimRevenueFunction() public {
+    function test_operate_ClaimRevenueBadFunction() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
         
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         vm.expectRevert(ISpigot.BadFunction.selector);
         spigot.operate(revenueContract, claimData);
     }
-    
 
+    function test_operate_TransferOwnerBadFunction() public {
+        _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
+        
+        bytes memory transferData = abi.encodeWithSelector(transferOwnerFunc, address(operator));
+        vm.expectRevert(ISpigot.BadFunction.selector);
+        spigot.operate(revenueContract, transferData);
+    }
+    
     function test_operate_AsNonOperator() public {
         hoax(address(0xdebf));
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);

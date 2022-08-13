@@ -3,8 +3,10 @@ pragma solidity 0.8.9;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { LoanLib } from  "../../utils/LoanLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
+
 /**
  * @title Spigot
  * @author Kiba Gateaux
@@ -13,6 +15,7 @@ import {ISpigot} from "../../interfaces/ISpigot.sol";
  */
 contract Spigot is ISpigot, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
     // Constants 
 
     // Maximum numerator for Setting.ownerSplit param
@@ -60,7 +63,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
       // if excess revenue sitting in Spigot after MAX_REVENUE cut,
       // prevent actions until all revenue claimed and escrow updated
       // only protects push payments not pull payments.
-      if(IERC20(token).balanceOf(address(this)) > escrowed[token]) {
+      if( LoanLib.getBalance(token) > escrowed[token]) {
         revert UnclaimedRevenue();
       }
       _;
@@ -94,7 +97,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         
         // send non-escrowed tokens to Treasury if non-zero
         if(claimed > escrowedAmount) {
-            require(_sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
+            require(LoanLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
         }
 
         emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
@@ -107,7 +110,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         internal
         returns (uint256 claimed)
     {
-        uint256 existingBalance = _getBalance(token);
+        uint256 existingBalance = LoanLib.getBalance(token);
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
@@ -118,7 +121,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
             (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
             if(!claimSuccess) { revert ClaimFailed(); }
             // claimed = total balance - existing balance
-            claimed = _getBalance(token) - existingBalance;
+            claimed = LoanLib.getBalance(token) - existingBalance;
         }
 
         if(claimed == 0) { revert NoRevenue(); }
@@ -149,7 +152,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
         if(claimed == 0) { revert ClaimFailed(); }
 
-        require(_sendOutTokenOrETH(token, owner, claimed));
+        LoanLib.sendOutTokenOrETH(token, owner, claimed);
 
         escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
@@ -217,10 +220,14 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param data - tx data, including function signature, to call contracts with
      */
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
+        bytes4 func = bytes4(data);
         // extract function signature from tx data and check whitelist
-        if(!whitelistedFunctions[bytes4(data)]) { revert BadFunction(); }
+        if(!whitelistedFunctions[func]) { revert BadFunction(); }
         // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
-        if(settings[revenueContract].claimFunction == bytes4(data)) { revert BadFunction(); }
+        if(
+          func == settings[revenueContract].claimFunction ||
+          func == settings[revenueContract].transferOwnerFunction
+        ) { revert BadFunction(); }
 
         (bool success, bytes memory opData) = revenueContract.call(data);
         if(!success) { revert BadFunction(); }
@@ -259,6 +266,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         // must set transfer func
         if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
         if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
+        if(setting.token == address(0)) {  revert BadSetting(); }
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -283,7 +291,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         address token = settings[revenueContract].token;
         uint256 claimable = escrowed[token];
         if(claimable > 0) {
-            require(_sendOutTokenOrETH(token, owner, claimable));
+            require(LoanLib.sendOutTokenOrETH(token, owner, claimable));
             emit ClaimEscrow(token, claimable, owner);
         }
         
@@ -377,34 +385,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
-    /**
-
-     * @notice - Send ETH or ERC20 token from this contract to an external contract
-     * @param token - address of token to send out. address(0) for raw ETH
-     * @param receiver - address to send tokens to
-     * @param amount - amount of tokens to send
-     */
-    function _sendOutTokenOrETH(address token, address receiver, uint256 amount) internal returns (bool) {
-        if(token!= address(0)) { // ERC20
-            IERC20(token).safeTransfer(receiver, amount);
-        } else { // ETH
-            (bool success, bytes memory data) = payable(receiver).call{value: amount}("");
-            require(success);
-        }
-        return true;
-    }
-
-    /**
-
-     * @notice - Helper function to get current balance of this contract for ERC20 or ETH
-     * @param token - address of token to check. address(0) for raw ETH
-     */
-    function _getBalance(address token) internal view returns (uint256) {
-        return token != address(0) ?
-            IERC20(token).balanceOf(address(this)) :
-            address(this).balance;
-    }
-
+ 
     // GETTERS
 
     function getSetting(address revenueContract)
