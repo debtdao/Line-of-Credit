@@ -70,15 +70,15 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
 
 
     /// @notice all insolvency conditions must pass for call to succeed
-    function _declareInsolvent()
+    function _canDeclareInsolvent()
       internal
       virtual
       override(EscrowedLoan, SpigotedLoan)
       returns(bool)
     {
       return (
-        EscrowedLoan._declareInsolvent() &&
-        SpigotedLoan._declareInsolvent()
+        EscrowedLoan._canDeclareInsolvent() &&
+        SpigotedLoan._canDeclareInsolvent()
       );
     }
 

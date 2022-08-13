@@ -54,9 +54,13 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         return unusedTokens[token];
     }
 
-    function _declareInsolvent() internal virtual override returns(bool) {
+    function _canDeclareInsolvent() internal virtual override returns(bool) {
       // Must have called releaseSpigot() and sold off protocol / revenue streams already
-      if(address(this) == spigot.owner()) { revert NotInsolvent(address(spigot)); }
+      address owner_ = spigot.owner();
+      if(
+        address(this) == owner_ ||
+        arbiter == owner_
+      ) { revert NotInsolvent(address(spigot)); }
       // no additional logic in LineOfCredit to include
       return true;
     }
@@ -256,8 +260,10 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         }
 
         if (s == LoanLib.STATUS.LIQUIDATABLE) {
-            if(!spigot.updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
-            return true;
+          address a = arbiter; // gas savings
+          if (msg.sender != a) { revert CallerAccessDenied(); } 
+          if(!spigot.updateOwner(a)) { revert ReleaseSpigotFailed(); }
+          return true;
         }
 
         return false;
@@ -270,13 +276,16 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @dev    - callable by anyone 
    * @param token - token to take out
   */
-    function sweep(address token) external returns (uint256) {
+    function sweep(address to, address token) external returns (uint256) {
         LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
         if (s == LoanLib.STATUS.REPAID) {
-            return _sweep(borrower, token);
+          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+            return _sweep(to, token);
         }
+
         if (s == LoanLib.STATUS.LIQUIDATABLE) {
-            return _sweep(arbiter, token);
+          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+          return _sweep(to, token);
         }
 
         return 0;

@@ -119,10 +119,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             revert NotLiquidatable();
         }
 
-      // TODO for cwalk. Should we ensure only insolvent once ttl is over? 
-      // Possible borrower fail anytime. no reson to prevent impairment until deadline
-
-        if(_declareInsolvent()) {
+        if(_canDeclareInsolvent()) {
             _updateLoanStatus(LoanLib.STATUS.INSOLVENT);
             return true;
         } else {
@@ -130,7 +127,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         }
     }
 
-    function _declareInsolvent() internal virtual returns(bool) {
+    function _canDeclareInsolvent() internal virtual returns(bool) {
         return true;
     }
 

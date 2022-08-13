@@ -286,7 +286,31 @@ contract SpigotedLoanTest is Test {
       );
       loan.claimAndRepay(address(revenueToken), tradeData);
       vm.stopPrank();
-      assertEq(0, loan.sweep(address(creditToken))); // no tokens transfered
+      assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
+    }
+
+    function test_cant_sweep_tokens_when_repaid_as_anon() public {
+      _borrow();
+      uint claimed = MAX_REVENUE / ownerSplit; // expected claim amountd tokens for test
+      // create unused tokens      
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimed - 1,
+        lentAmount
+      );
+      
+      hoax(borrower);
+      loan.claimAndRepay(address(revenueToken), tradeData);
+      bytes32 id = loan.ids(0);
+      hoax(borrower);
+      loan.close(id);
+      assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID));
+      
+      hoax(address(0xdebf));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
     }
 
     function test_sweep_to_borrower_when_repaid() public {
@@ -300,14 +324,12 @@ contract SpigotedLoanTest is Test {
         claimed - 1,
         lentAmount
       );
-      
+
       loan.claimAndRepay(address(revenueToken), tradeData);
       
       bytes32 id = loan.ids(0);
       hoax(borrower);
       loan.close(id);
-
-      vm.stopPrank();
 
       // initial mint + spigot revenue to borrower (- unused?)
       uint balance = revenueToken.balanceOf(address(borrower));
@@ -315,13 +337,24 @@ contract SpigotedLoanTest is Test {
 
 
       uint unused = loan.unused(address(revenueToken)); 
-      uint swept = loan.sweep(address(revenueToken));
+      hoax(borrower);
+      uint swept = loan.sweep(address(borrower), address(revenueToken));
 
       assertEq(unused, 1);     // all unused sent to arbi
       assertEq(swept, unused); // all unused sent to arbi
       assertEq(swept, 1);      // untraded revenue
       assertEq(swept, revenueToken.balanceOf(address(borrower)) - balance); // arbi balance updates properly
     }
+
+    function test_cant_sweep_tokens_when_liquidate_as_anon() public {
+      _borrow();
+      vm.warp(ttl+1);
+      hoax(address(0xdebf));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
+    }
+
+
 
     function test_sweep_to_arbiter_when_liquidated() public {
       _borrow();
@@ -346,7 +379,7 @@ contract SpigotedLoanTest is Test {
 
       vm.warp(ttl+1);          // set to liquidatable
       
-      uint swept = loan.sweep(address(revenueToken));
+      uint swept = loan.sweep(address(this), address(revenueToken));
       assertEq(swept, unused); // all unused sent to arbiter
       assertEq(swept, 1);      // untraded revenue
       assertEq(swept, revenueToken.balanceOf(address(arbiter)) - balance); // arbiter balance updates properly

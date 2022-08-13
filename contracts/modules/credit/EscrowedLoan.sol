@@ -62,7 +62,7 @@ abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
    *(@dev priviliegad internal function.
    * @return if loan is insolvent or not
   */
-  function _declareInsolvent() internal virtual returns(bool) {
+  function _canDeclareInsolvent() internal virtual returns(bool) {
     if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
     return true;
   }

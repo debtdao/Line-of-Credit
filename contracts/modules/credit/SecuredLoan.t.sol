@@ -695,6 +695,9 @@ contract LoanTest is Test {
 
         // ensure spigot insolvency check passes
         assertTrue(loan.releaseSpigot());
+        // "sell" spigot off
+        loan.spigot().updateOwner(address(0xf1c0));
+
         assertEq(0.9 ether, loan.liquidate(0.9 ether, address(supportedToken2)));
 
         vm.expectRevert(
@@ -728,6 +731,7 @@ contract LoanTest is Test {
         hoax(arbiter);
 
         assertTrue(loan.releaseSpigot());
+        assertTrue(loan.spigot().updateOwner(address(0xf1c0)));
         assertEq(1 ether, loan.liquidate(1 ether, address(supportedToken2)));
         // release spigot + liquidate
         loan.declareInsolvent();
