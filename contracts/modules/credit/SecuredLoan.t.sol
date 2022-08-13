@@ -38,8 +38,8 @@ contract LoanTest is Test {
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
         loan = new SecuredLoan(address(oracle), arbiter, borrower, address(0), 1 ether, ttl, 0);
         escrow = loan.escrow();
-        escrow.enableCollateral( address(supportedToken1));
-        escrow.enableCollateral( address(supportedToken2));
+        escrow.enableCollateral(address(supportedToken1));
+        escrow.enableCollateral(address(supportedToken2));
         _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));
     }
@@ -499,8 +499,8 @@ contract LoanTest is Test {
     function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
         hoax(arbiter);
         vm.warp(ttl+1);
-        vm.expectRevert();
-        loan.liquidate(0, 1 ether, address(supportedToken2));
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
     }
 
     function test_can_liquidate_if_debt_when_deadline_passes() public {
@@ -508,12 +508,12 @@ contract LoanTest is Test {
         bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
 
         vm.warp(ttl+1);
-        loan.liquidate(id, 0.9 ether, address(supportedToken2));
+        loan.liquidate(0.9 ether, address(supportedToken2));
     }
 
     function test_cannot_liquidate_escrow_if_cratio_above_min() public {
-        vm.expectRevert(); // no error/message
-        loan.liquidate(0, 1 ether, address(supportedToken2));
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
     }
 
     function test_health_is_not_liquidatable_if_cratio_above_min() public {
@@ -531,7 +531,7 @@ contract LoanTest is Test {
         (uint p, uint i) = loan.updateOutstandingDebt();
         assertGt(p, 0);
         oracle.changePrice(address(supportedToken2), 1);
-        loan.liquidate(id, 1 ether, address(supportedToken2));
+        loan.liquidate(1 ether, address(supportedToken2));
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
         assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
     }
@@ -548,14 +548,16 @@ contract LoanTest is Test {
 
     function test_cannot_liquidate_as_anon() public {
         hoax(address(0xdead));
-        vm.expectRevert(); // no error/message
-        loan.liquidate(0, 1 ether, address(supportedToken2));
+        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
     }
 
     function test_cannot_liquidate_as_borrower() public {
+        // TODO update stakeholders to be different addresses
         // hoax(borrower);
-        // vm.expectRevert(); // no error/message
-        // loan.liquidate(0, 1 ether, address(supportedToken2));
+        // vm.warp(ttl+1);
+        // vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
+        // loan.liquidate(1 ether, address(supportedToken2));
     }
 
 
