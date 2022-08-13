@@ -1,14 +1,18 @@
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LoanLib} from "../../utils/LoanLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {SpigotController} from "../spigot/Spigot.sol";
+import {Spigot} from "../spigot/Spigot.sol";
 import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
-    SpigotController public immutable spigot;
+    using SafeERC20 for IERC20;
+
+    Spigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
     address public immutable swapTarget;
@@ -40,7 +44,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        spigot = new SpigotController(address(this), borrower, borrower);
+        spigot = new Spigot(address(this), borrower, borrower);
 
         defaultRevenueSplit = defaultRevenueSplit_;
 
@@ -51,32 +55,17 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         return unusedTokens[token];
     }
 
-    /**
-     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
-     * @dev    - callable `arbiter` + `borrower`
-     * @param revenueContract - spigot to update
-     */
-    function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(
-            revenueContract
-        );
-
-        require(transferFunc != bytes4(0), "SpgtLoan: no spigot");
-
-        if (
-            loanStatus == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit
-        ) {
-            // if loan is healthy set split to default take rate
-            spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (
-            loanStatus == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT
-        ) {
-            // if loan is in distress take all revenue to repay loan
-            spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
-        }
-
-        return true;
+    function _canDeclareInsolvent() internal virtual override returns(bool) {
+      // Must have called releaseSpigot() and sold off protocol / revenue streams already
+      address owner_ = spigot.owner();
+      if(
+        address(this) == owner_ ||
+        arbiter == owner_
+      ) { revert NotInsolvent(address(spigot)); }
+      // no additional logic in LineOfCredit to include
+      return true;
     }
+
 
     /**
 
@@ -152,36 +141,38 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         unusedTokens[targetToken] += tokensBought;
     }
 
+    /**
+     * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
+     * @dev MUST trade all available claim tokens to target
+     * @dev    priviliged internal function
+     * @param claimToken - the token escrowed in spigot to sell in trade
+     * @param targetToken - the token borrow owed debt in and needs to buy. Always `credits[ids[0]].token`
+     * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for target
+     * returns - amount of target tokens bought
+     */
+
     function _claimAndTrade(
         address claimToken,
         address targetToken,
         bytes calldata zeroExTradeData
     ) internal returns (uint256 tokensBought) {
-        uint256 existingClaimTokens = IERC20(claimToken).balanceOf(
-            address(this)
-        );
-        uint256 existingTargetTokens = IERC20(targetToken).balanceOf(
-            address(this)
-        );
+        uint256 existingClaimTokens = LoanLib.getBalance(claimToken);
+        uint256 existingTargetTokens = LoanLib.getBalance(targetToken);
 
         uint256 tokensClaimed = spigot.claimEscrow(claimToken);
+        uint256 usable = tokensClaimed + unusedTokens[claimToken];
 
-        if (claimToken == address(0)) {
+        if (claimToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: tokensClaimed}(
-                zeroExTradeData
-            );
-            require(success, "SpigotCnsm: trade failed");
+            (bool success, ) = swapTarget.call{value: usable}(zeroExTradeData);
+            if(!success) { revert TradeFailed(); }
         } else {
-            IERC20(claimToken).approve(
-                swapTarget,
-                existingClaimTokens + tokensClaimed
-            );
+            IERC20(claimToken).approve(swapTarget, usable);
             (bool success, ) = swapTarget.call(zeroExTradeData);
-            require(success, "SpigotCnsm: trade failed");
+            if(!success) { revert TradeFailed(); }
         }
 
-        uint256 targetTokens = IERC20(targetToken).balanceOf(address(this));
+        uint256 targetTokens = LoanLib.getBalance(targetToken);
 
         // ideally we could use oracle to calculate # of tokens to receive
         // but claimToken might not have oracle. targetToken must have oracle
@@ -198,28 +189,53 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
         // update unused if we didnt sell all claimed tokens in trade
         // also underflow revert protection here
-        unusedTokens[claimToken] +=
-            IERC20(claimToken).balanceOf(address(this)) -
-            existingClaimTokens;
+        unusedTokens[claimToken] += LoanLib.getBalance(claimToken) - existingClaimTokens;
     }
 
     //  SPIGOT OWNER FUNCTIONS
 
     /**
+     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
+     * @dev    - callable `arbiter` + `borrower`
+     * @param revenueContract - spigot to update
+     * @return whether or not split was updated
+     */
+    function updateOwnerSplit(address revenueContract) external returns (bool) {
+        (, uint8 split, , bytes4 transferFunc) = spigot.getSetting(revenueContract);
+
+        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
+
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if(s == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
+            // if loan is healthy set split to default take rate
+            return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
+        } else if (s == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
+            // if loan is in distress take all revenue to repay loan
+            return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
+        }
+
+        return false;
+    }
+
+    /**
      * @notice - allow Loan to add new revenue streams to reapy credit
-     * @dev    - see SpigotController.addSpigot()
+     * @dev    - see Spigot.addSpigot()
      * @dev    - callable `arbiter` + `borrower`
      */
     function addSpigot(
         address revenueContract,
-        SpigotController.SpigotSettings calldata setting
-    ) external mutualConsent(arbiter, borrower) returns (bool) {
+        Spigot.Setting calldata setting
+    )
+        external
+        mutualConsent(arbiter, borrower)
+        returns (bool)
+    {
         return spigot.addSpigot(revenueContract, setting);
     }
 
     /**
      * @notice - allow borrower to call functions on their protocol to maintain it and keep earning revenue
-     * @dev    - see SpigotController.updateWhitelistedFunction()
+     * @dev    - see Spigot.updateWhitelistedFunction()
      * @dev    - callable `arbiter`
      */
     function updateWhitelist(bytes4 func, bool allowed)
@@ -235,22 +251,20 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
              -  doesnt transfer out if loan is unpaid and/or healthy
    * @dev    - callable by anyone 
+   * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
-        if (loanStatus == LoanLib.STATUS.REPAID) {
-            require(
-                spigot.updateOwner(borrower),
-                "SpigotCnsmr: cant release spigot"
-            );
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if (s == LoanLib.STATUS.REPAID) {
+            if(!spigot.updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
             return true;
         }
 
-        if (loanStatus == LoanLib.STATUS.LIQUIDATABLE) {
-            require(
-                spigot.updateOwner(arbiter),
-                "SpigotCnsmr: cant release spigot"
-            );
-            return true;
+        if (s == LoanLib.STATUS.LIQUIDATABLE) {
+          address a = arbiter; // gas savings
+          if (msg.sender != a) { revert CallerAccessDenied(); } 
+          if(!spigot.updateOwner(a)) { revert ReleaseSpigotFailed(); }
+          return true;
         }
 
         return false;
@@ -263,12 +277,16 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @dev    - callable by anyone 
    * @param token - token to take out
   */
-    function sweep(address token) external returns (uint256) {
-        if (loanStatus == LoanLib.STATUS.REPAID) {
-            return _sweep(borrower, token);
+    function sweep(address to, address token) external returns (uint256) {
+        LoanLib.STATUS s = _updateLoanStatus(_healthcheck());
+        if (s == LoanLib.STATUS.REPAID) {
+          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+            return _sweep(to, token);
         }
-        if (loanStatus == LoanLib.STATUS.INSOLVENT) {
-            return _sweep(arbiter, token);
+
+        if (s == LoanLib.STATUS.LIQUIDATABLE) {
+          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+          return _sweep(to, token);
         }
 
         return 0;
@@ -276,14 +294,10 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
 
     function _sweep(address to, address token) internal returns (uint256 x) {
         x = unusedTokens[token];
-        if (token == address(0)) {
-            payable(to).transfer(x);
-        } else {
-            require(IERC20(token).transfer(to, x));
-        }
+        LoanLib.sendOutTokenOrETH(token, to, x);
         delete unusedTokens[token];
     }
 
-    // allow trading in ETH
+    // allow claiming/trading in ETH
     receive() external payable {}
 }

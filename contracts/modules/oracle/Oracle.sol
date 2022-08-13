@@ -2,18 +2,17 @@
 pragma solidity ^0.8.9;
 
 import "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import "../../interfaces/IOracle.sol";
 
 contract Oracle is IOracle {
-    FeedRegistryInterface internal registry;
-    address public USD = 0x0000000000000000000000000000000000000348;
-
+    FeedRegistryInterface internal registry; 
     constructor(address _registry) {
         registry = FeedRegistryInterface(_registry);
     }
 
     /**
-     * Returns the latest price in USD
+     * Returns the latest price in USD to 8 decimals
      */
     function getLatestAnswer(address token) external returns (int) {
         (
@@ -22,7 +21,7 @@ contract Oracle is IOracle {
             /* uint80 startedAt */,
             /* uint80 timeStamp */,
             /* uint80 answeredInRound */
-        ) = registry.latestRoundData(token, USD); // ALL PRICES WILL HAVE 8 DECIMAL PADDING
+        ) = registry.latestRoundData(token, Denominations.USD);
         
         return price;
     }

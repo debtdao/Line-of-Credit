@@ -17,7 +17,7 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "dapp test",
+    "test": "forge test",
     "docs": "hardhat docgen"
   }
 }

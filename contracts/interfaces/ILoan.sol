@@ -20,14 +20,14 @@ interface ILoan {
     address indexed lender,
     address indexed token,
     uint256 indexed deposit,
-    uint256 initialPrincipal
+    bytes32 positionId
   );
 
    event IncreaseCredit (
     bytes32 indexed id,
-    uint256 indexed deposit,
-    uint256 indexed initialPrincipal
+    uint256 indexed deposit
   );
+
   // can reference only id once AddCredit is emitted because it will be stored in subgraph
   // initialPrinicipal tells us if its a Revolver or Term
 
@@ -39,33 +39,34 @@ interface ILoan {
   event CloseCreditPosition(bytes32 indexed id);
   // lender officially repaid in full. if Credit then facility has also been closed.
 
-  event InterestAccrued(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
+  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
   // interest added to borrowers outstanding balance
 
 
   // Borrower Events
 
-  event Borrow(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
+  event Borrow(bytes32 indexed id, uint256 indexed amount);
   // receive full loan or drawdown on credit
 
-  event RepayInterest(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
+  event RepayInterest(bytes32 indexed id, uint256 indexed amount);
 
-  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
+  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
 
-  event Default(bytes32 indexed id, uint256 indexed amount, uint256 indexed value);
+  event Default(bytes32 indexed id);
 
   // External Functions  
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
-  function withdrawInterest(bytes32 id) external returns (uint256);
 
-  function depositAndRepay(uint256 amount) external returns(bool);
-  function depositAndClose() external returns(bool);
+  function depositAndRepay(uint256 amount) external payable returns(bool);
+  function depositAndClose() external payable returns(bool);
 
-  function accrueInterest() external returns(uint256 valueAccrued);
-  function getOutstandingDebt() external returns(uint256 totalCredit);
+  function accrueInterest() external returns(bool);
+  function updateOutstandingDebt() external returns(uint256, uint256);
   function healthcheck() external returns(LoanLib.STATUS);
+  function declareInsolvent() external returns(bool);
 
   function borrower() external returns(address);
   function arbiter() external returns(address);
+  function loanStatus() external returns(LoanLib.STATUS);
   function oracle() external returns(IOracle);
 }

@@ -12,9 +12,19 @@ interface IEscrow {
 
     event RemoveCollateral(address indexed token, uint indexed amount);
 
-    event EnableCollateral(address indexed token, int indexed price);
+    event EnableCollateral(address indexed token);
     
     event Liquidate(address indexed token, uint indexed amount);
+
+    error InvalidCollateral();
+
+    error CallerAccessDenied();
+
+    error UnderCollateralized();
+
+    error NotLiquidatable();
+
+    function isLiquidatable() external returns(bool);
 
     function getCollateralRatio() external returns(uint);
 

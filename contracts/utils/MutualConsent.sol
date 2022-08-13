@@ -14,6 +14,8 @@ abstract contract MutualConsent {
     // Mapping of upgradable units and if consent has been initialized by other party
     mapping(bytes32 => bool) public mutualConsents;
 
+    error Unauthorized();
+
     /* ============ Events ============ */
 
     event MutualConsentRegistered(
@@ -27,10 +29,14 @@ abstract contract MutualConsent {
     *         - signers can be anyone. only two signers per contract or dynamic signers per tx.
     */
     modifier mutualConsent(address _signerOne, address _signerTwo) {
-        require(
-            msg.sender == _signerOne || msg.sender == _signerTwo,
-            "Must be authorized address"
-        );
+      if(_mutualConsent(_signerOne, _signerTwo))  {
+        // Run whatever code needed 2/2 consent
+        _;
+      }
+    }
+
+    function _mutualConsent(address _signerOne, address _signerTwo) internal returns(bool) {
+        if(msg.sender != _signerOne && msg.sender != _signerTwo) { revert Unauthorized(); }
 
         address nonCaller = _getNonCaller(_signerOne, _signerTwo);
 
@@ -45,15 +51,13 @@ abstract contract MutualConsent {
 
             emit MutualConsentRegistered(newHash);
 
-            return;
+            return false;
         }
 
         delete mutualConsents[expectedHash];
 
-        // Run the rest of the consents
-        _;
+        return true;
     }
-
 
 
     /* ============ Internal Functions ============ */

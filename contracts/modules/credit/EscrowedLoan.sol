@@ -3,8 +3,9 @@ pragma solidity 0.8.9;
 import { Escrow } from "../escrow/Escrow.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { IEscrowedLoan } from "../../interfaces/IEscrowedLoan.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 
-abstract contract EscrowedLoan is IEscrowedLoan {
+abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
   // contract holding all collateral for borrower
   Escrow immutable public escrow;
 
@@ -23,7 +24,7 @@ abstract contract EscrowedLoan is IEscrowedLoan {
 
   /** @dev see BaseLoan._healthcheck */
   function _healthcheck() virtual internal returns(LoanLib.STATUS) {
-    if(escrow.getCollateralRatio() < escrow.minimumCollateralRatio()) {
+    if(escrow.isLiquidatable()) {
       return LoanLib.STATUS.LIQUIDATABLE;
     }
 
@@ -39,7 +40,6 @@ abstract contract EscrowedLoan is IEscrowedLoan {
    * @param to - the liquidator to send tokens to. could be OTC address or smart contract
    * @return amount - the total amount of `targetToken` sold to repay credit
    *  
-   
   */
   function _liquidate(
     bytes32 positionId,
@@ -55,6 +55,16 @@ abstract contract EscrowedLoan is IEscrowedLoan {
     emit Liquidate(positionId, amount, targetToken);
 
     return amount;
+  }
+
+  /**
+   * @notice require all collateral sold off before declaring insolvent
+   *(@dev priviliegad internal function.
+   * @return if loan is insolvent or not
+  */
+  function _canDeclareInsolvent() internal virtual returns(bool) {
+    if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
+    return true;
   }
 }
 
