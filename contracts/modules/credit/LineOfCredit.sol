@@ -1,5 +1,6 @@
 pragma solidity ^0.8.9;
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -62,12 +63,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
     function init() external virtual returns(LoanLib.STATUS) {
       require(loanStatus == LoanLib.STATUS.UNINITIALIZED);
-      return _init();
+      return _updateStatus(_init());
     }
 
     function _init() internal virtual returns(LoanLib.STATUS) {
        // If no modules then loan is immediately active
-      return _updateStatus(LoanLib.STATUS.ACTIVE);
+      return LoanLib.STATUS.ACTIVE;
     }
 
     ///////////////
@@ -98,14 +99,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     function healthcheck() external returns (LoanLib.STATUS) {
-        return LoanLib.updateStatus(loanStatus, _healthcheck());
+        // can only check if loan has been initialized
+        require(uint(loanStatus) >= uint( LoanLib.STATUS.ACTIVE));
+        return _updateStatus(_healthcheck());
     }
 
     function _healthcheck() internal virtual returns (LoanLib.STATUS) {
         // if loan is in a final end state then do not run _healthcheck()
+        LoanLib.STATUS s = loanStatus;
         if (
-            loanStatus == LoanLib.STATUS.REPAID ||
-            loanStatus == LoanLib.STATUS.INSOLVENT
+            s == LoanLib.STATUS.REPAID ||               // end state - good
+            s == LoanLib.STATUS.INSOLVENT               // end state - bad
         ) {
             return loanStatus;
         }
@@ -117,6 +121,33 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         }
 
         return LoanLib.STATUS.ACTIVE;
+    }
+
+    /**
+     * @notice - Allow arbiter to signify that borrower is incapable of repaying debt permanently
+     *           Recoverable funds for lender after declaring insolvency = deposit + interestRepaid - principal
+     * @dev    - Needed for onchain impairment accounting e.g. updating ERC4626 share price
+     *           MUST NOT have collateral left for call to succeed.
+     *           Callable only by arbiter. 
+     * @return bool - If borrower is insolvent or not
+     */
+    function declareInsolvent() external whileBorrowing returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LoanLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
+            revert NotLiquidatable();
+        }
+
+        if(_canDeclareInsolvent()) {
+            _updateStatus(LoanLib.STATUS.INSOLVENT);
+            return true;
+        } else {
+          return false;
+        }
+    }
+
+    function _canDeclareInsolvent() internal virtual returns(bool) {
+        // logic updated in Spigoted and Escrowed lines
+        return true;
     }
 
     /**
@@ -142,6 +173,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         
         for (uint256 i = 0; i < len;) {
             id = ids[i];
+
             // gas savings. capped to len. inc before early continue
             unchecked { ++i; }
 
@@ -202,12 +234,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         address lender
     )
         external
+        payable
         override
         whileActive
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        IERC20(token).safeTransferFrom(lender, address(this), amount);
+        LoanLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);
 
@@ -254,6 +287,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     */
     function increaseCredit(bytes32 id, uint256 amount)
       external
+      payable
       override
       whileActive
       mutualConsentById(borrower, id)
@@ -261,12 +295,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         Credit memory credit = credits[id];
         credit = _accrue(credit, id);
-        
-        credit.deposit += amount;
 
+        credit.deposit += amount;
+        
         credits[id] = credit;
 
-        IERC20(credit.token).safeTransferFrom(credit.lender, address(this), amount);
+        LoanLib.receiveTokenOrETH(credit.token, credit.lender, amount);
 
         emit IncreaseCredit(id, amount);
 
@@ -283,6 +317,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     */
     function depositAndClose()
         external
+        payable
         override
         whileBorrowing
         onlyBorrower
@@ -294,13 +329,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         uint256 totalOwed = credit.principal + credit.interestAccrued;
 
-
         // borrower deposits remaining balance not already repaid and held in contract
-        IERC20(credit.token).safeTransferFrom(msg.sender, address(this), totalOwed);
+        LoanLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
 
         // clear the debt then close and delete position
         _close(_repay(credit, id, totalOwed), id);
-
 
         return true;
     }
@@ -313,6 +346,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function depositAndRepay(uint256 amount)
         external
+        payable
         override
         whileBorrowing
         returns (bool)
@@ -325,7 +359,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = _repay(credit, id, amount);
 
-        IERC20(credit.token).safeTransferFrom(msg.sender, address(this), amount);
+        LoanLib.receiveTokenOrETH(credit.token, msg.sender, amount);
 
         return true;
     }
@@ -351,19 +385,19 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         Credit memory credit = credits[id];
         credit = _accrue(credit, id);
 
-        if(amount > credit.deposit - credit.principal) { revert NoLiquidity(id) ; }
+        if(amount > credit.deposit - credit.principal) { revert NoLiquidity() ; }
 
         credit.principal += amount;
 
         credits[id] = credit; // save new debt before healthcheck
 
-        if(LoanLib.updateStatus(loanStatus, _healthcheck()) != LoanLib.STATUS.ACTIVE) { 
+        if(_updateStatus(_healthcheck()) != LoanLib.STATUS.ACTIVE) { 
             revert NotActive();
         }
 
         credits[id] = credit;
 
-        IERC20(credit.token).safeTransfer(borrower, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
         emit Borrow(id, amount);
 
@@ -388,11 +422,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         if(msg.sender != credit.lender) { revert CallerAccessDenied(); }
 
-        credit = _accrue(credit, id);
+        // accrue interest and withdraw amount
+        credits[id] = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        credits[id] = CreditLib.withdraw(credit, id, amount);
-
-        IERC20(credit.token).safeTransfer(credit.lender, amount);
+        LoanLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
         return true;
     }
@@ -404,10 +437,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - callable by `borrower`
      * @param id -the credit position to close
      */
-    function close(bytes32 id) external override returns (bool) {
-      Credit memory credit = credits[id];
-      address b = borrower; // gas savings
-      if(msg.sender != credit.lender && msg.sender != b) {
+    function close(bytes32 id) external payable override returns (bool) {
+        Credit memory credit = credits[id];
+        address b = borrower; // gas savings
+        if(msg.sender != credit.lender && msg.sender != b) {
           revert CallerAccessDenied();
         }
 
@@ -417,7 +450,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(facilityFee > 0) {
           // only allow repaying interest since they are skipping repayment queue.
           // If principal still owed, _close() MUST fail
-          IERC20( credit.token).safeTransferFrom(b, address(this), facilityFee);
+          LoanLib.receiveTokenOrETH(credit.token, b, facilityFee);
+
           credit = _repay(credit, id, facilityFee);
         }
 
@@ -431,7 +465,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     //////////////////////
 
     function _updateStatus(LoanLib.STATUS status_) internal returns(LoanLib.STATUS) {
-      return loanStatus = LoanLib.updateStatus(loanStatus, status_);
+      if(loanStatus == status_) return status_;
+      emit UpdateStatus(uint256(status_));
+      return (loanStatus = status_);
     }
 
     function _createCredit(
@@ -442,12 +478,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         internal
         returns (bytes32 id)
     {
-        id = CreditLib.computePositionId(address(this), lender, token);
+        id = CreditLib.computeId(address(this), lender, token);
         // MUST not double add position. otherwise we can not _close()
         if(credits[id].lender != address(0)) { revert PositionExists(); }
 
-        // save credit info
         credits[id] = CreditLib.create(id, amount, lender, token, address(oracle));
+
         ids.push(id); // add lender to end of repayment queue
         
         unchecked { ++count; }
@@ -483,8 +519,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
 
         // return the lender's deposit
-        if (credit.deposit > 0) {
-            IERC20(credit.token).safeTransfer(
+        if (credit.deposit + credit.interestRepaid > 0) {
+            LoanLib.sendOutTokenOrETH(
+                credit.token,
                 credit.lender,
                 credit.deposit + credit.interestRepaid
             );
@@ -494,7 +531,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // remove from active list
         ids.removePosition(id);
-        --count;
+        unchecked { --count; }
 
         // brick loan contract if all positions closed
         if (count == 0) { _updateStatus(LoanLib.STATUS.REPAID); }

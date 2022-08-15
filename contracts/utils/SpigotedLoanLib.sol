@@ -1,9 +1,17 @@
 import { ISpigot } from "../interfaces/ISpigot.sol";
 import { ISpigotedLoan } from "../interfaces/ISpigotedLoan.sol";
+import { LoanLib } from "../utils/LoanLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+
 library SpigotedLoanLib {
+    error BadTradingPair();
+
     error TradeFailed();
+
+    error UsedExcessTokens(address token, uint256 amountAvailable);
+
     event TradeSpigotRevenue(
         address indexed revenueToken,
         uint256 revenueTokenAmount,
@@ -11,59 +19,112 @@ library SpigotedLoanLib {
         uint256 indexed debtTokensBought
     );
 
+
+    /**
+     * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
+     * @dev MUST trade all available claim tokens to target
+     * @dev    priviliged internal function
+     * @param claimToken - the token escrowed in spigot to sell in trade
+     * @param targetToken - the token borrow owed debt in and needs to buy. Always `credits[ids[0]].token`
+     * @param swapTarget  - 0x exchange router address to call for trades
+     * @param spigot      - spigot to claim from. Must be owned by adddress(this)
+     * @param unused      - current amount of unused claimTokens
+     * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for target
+     * @return (uint, uint) - (amount of target tokens bought, total unused claim tokens after trade)
+     */
     function claimAndTrade(
         address claimToken,
         address targetToken,
-        address swapTarget,
+        address payable swapTarget,
         address spigot,
         uint256 unused,
         bytes calldata zeroExTradeData
-    ) 
-        external
-        returns(uint256 tokensBought, uint256 totalUnused)
+    )
+        external 
+        returns(uint256, uint256)
     {
-        uint256 existingClaimTokens = IERC20(claimToken).balanceOf(address(this));
-        uint256 existingTargetTokens = IERC20(targetToken).balanceOf(address(this));
+        // can not trade into same token. causes double count for unused tokens
+        if(claimToken == targetToken) { revert BadTradingPair(); }
+        // snapshot token balances now to diff after trade executes
+        uint256 oldClaimTokens = LoanLib.getBalance(claimToken);
+        uint256 oldTargetTokens = LoanLib.getBalance(targetToken);
+        
+        // has to be called after we get balance
+        uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
-        uint256 tokensClaimed = ISpigot(spigot).claimEscrow(claimToken);
 
-        if (claimToken == address(0)) {
-            // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: tokensClaimed}(zeroExTradeData);
-            if(!success) { revert TradeFailed(); }
-        } else {
-            // approve exact amount so other tokens in contract get used e.g. lender funds
-            IERC20(claimToken).approve(swapTarget, unused + tokensClaimed);
-            (bool success, ) = swapTarget.call(zeroExTradeData);
-            if(!success) { revert TradeFailed(); }
-        }
+        trade(
+            claimed + unused,
+            claimToken,
+            targetToken,
+            swapTarget,
+            zeroExTradeData
+        );
+        
+        // trade is complete and we know how many tokens bought
+        // could return here and complete unused computation elsewhere to avoid stack2deep
 
-        uint256 targetTokens = IERC20(targetToken).balanceOf(address(this));
-
-        // ideally we could use oracle to calculate # of tokens to receive
-        // but claimToken might not have oracle. targetToken must have oracle
-
+        
         // underflow revert ensures we have more tokens than we started with
-        tokensBought = targetTokens - existingTargetTokens;
+        uint256 tokensBought = LoanLib.getBalance(targetToken) - oldTargetTokens;
+        if(tokensBought == 0) { revert TradeFailed(); } // ensure tokens 
+        uint256 newClaimTokens = LoanLib.getBalance(claimToken);
+        // ideally we could use oracle to calculate # of tokens to receive
+        // but sellToken might not have oracle. buyToken must have oracle
+        
 
+        // cant declare variable bc stack too deep. Rearch function calls
+        // uint256 tokensBought = oldTargetTokens - newTargetTokens;
+        
         emit TradeSpigotRevenue(
             claimToken,
-            tokensClaimed,
+            claimed,
             targetToken,
             tokensBought
         );
 
-        uint256 remainingClaimTokens = IERC20(claimToken).balanceOf(address(this));
-        // use reserve revenue to repay debt
-        if(existingClaimTokens > remainingClaimTokens) {
-          uint256 diff = existingClaimTokens - remainingClaimTokens;
-          // used more tokens than we had in unused
-          if(diff > unused) revert TradeFailed(); 
-          else totalUnused = unused - diff;
+        // used reserve revenue to repay debt
+        if(oldClaimTokens > newClaimTokens) {
+          uint256 diff = oldClaimTokens - newClaimTokens;
+
+          // used more tokens than we had in revenue reserves.
+          // prevent borrower from pulling idle lender funds to repay other lenders
+          if(diff > unused) revert UsedExcessTokens(claimToken,  unused); 
+          // reduce reserves by consumed amount
+          else return (
+            tokensBought,
+            unused - diff
+          );
+        } else { unchecked {
+          // excess revenue in trade. store in reserves
+          return (
+            tokensBought,
+            unused + (newClaimTokens - oldClaimTokens)
+          );
+        } }
+    }
+
+    function trade(
+        uint256 amount,
+        address sellToken,
+        address buyToken,
+        address payable swapTarget,
+        bytes calldata zeroExTradeData
+    ) 
+        public
+        returns(bool)
+    {
+        if (sellToken == Denominations.ETH) {
+            // if claiming/trading eth send as msg.value to dex
+            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData);
+            if(!success) { revert TradeFailed(); }
         } else {
-          // didnt sell all revenue in trade
-          totalUnused = unused + (remainingClaimTokens - existingClaimTokens);
+            IERC20(sellToken).approve(swapTarget, amount);
+            (bool success, ) = swapTarget.call(zeroExTradeData);
+            if(!success) { revert TradeFailed(); }
         }
 
+
+        return true;
     }
 }

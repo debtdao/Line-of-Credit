@@ -1,4 +1,8 @@
 pragma solidity 0.8.9;
+
+interface IEscrowState {
+  
+}
 interface IEscrow {
     struct Deposit {
         uint amount;
@@ -11,7 +15,7 @@ interface IEscrow {
 
     event RemoveCollateral(address indexed token, uint indexed amount);
 
-    event EnableCollateral(address indexed token, int indexed price);
+    event EnableCollateral(address indexed token);
     
     event Liquidate(address indexed token, uint indexed amount);
 
@@ -23,14 +27,15 @@ interface IEscrow {
 
     error NotLiquidatable();
 
-    // State Var Getters
+    // State var etters. 
 
     function loan() external returns(address);
+
+    function oracle() external returns(address);
 
     function borrower() external returns(address);
 
     function minimumCollateralRatio() external returns(uint256);
-
 
     // Functions 
 

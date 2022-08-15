@@ -4,6 +4,7 @@ import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
 import { SpigotedLoan } from "./SpigotedLoan.sol";
 import { LineOfCredit } from "./LineOfCredit.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 
 contract SecuredLoan is SpigotedLoan, EscrowedLoan {
 
@@ -11,7 +12,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
         address oracle_,
         address arbiter_,
         address borrower_,
-        address swapTarget_,
+        address payable swapTarget_,
         address spigot_,
         address escrow_,
         uint ttl_,
@@ -27,11 +28,6 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
     ) EscrowedLoan(escrow_) {
 
     }
-
-
-  function init() external override(LineOfCredit) virtual returns(LoanLib.STATUS) {
-    return _updateStatus(_init());
-  }
 
   function _init() internal override(SpigotedLoan, EscrowedLoan) virtual returns(LoanLib.STATUS) {
      LoanLib.STATUS s =  LoanLib.STATUS.ACTIVE;
@@ -50,26 +46,25 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
    * @dev - only called by neutral arbiter party/contract
    * @dev - `loanStatus` must be LIQUIDATABLE
    * @dev - callable by `arbiter`
-   * @param positionId -the debt position to pay down debt on
    * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
    * @param targetToken - token in escrow that will be sold of to repay position
    */
 
   function liquidate(
-    bytes32 positionId,
     uint256 amount,
     address targetToken
   )
     external
+    whileBorrowing
     returns(uint256)
   {
-    require(msg.sender == arbiter);
-
-    LoanLib.STATUS status = _updateStatus(_healthcheck());
-    require(status == LoanLib.STATUS.LIQUIDATABLE);
+    if(msg.sender != arbiter) { revert CallerAccessDenied(); }
+    if(_updateStatus(_healthcheck()) != LoanLib.STATUS.LIQUIDATABLE) {
+      revert NotLiquidatable();
+    }
 
     // send tokens to arbiter for OTC sales
-    return _liquidate(positionId, amount, targetToken, msg.sender);
+    return _liquidate(ids[0], amount, targetToken, msg.sender);
   }
 
   
@@ -81,6 +76,20 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
       }
 
       return EscrowedLoan._healthcheck();
+    }
+
+
+    /// @notice all insolvency conditions must pass for call to succeed
+    function _canDeclareInsolvent()
+      internal
+      virtual
+      override(EscrowedLoan, SpigotedLoan)
+      returns(bool)
+    {
+      return (
+        EscrowedLoan._canDeclareInsolvent() &&
+        SpigotedLoan._canDeclareInsolvent()
+      );
     }
 
 }

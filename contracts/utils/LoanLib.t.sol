@@ -1,10 +1,14 @@
 pragma solidity 0.8.9;
 
-import { DSTest } from "../../lib/ds-test/src/test.sol";
-import { CreditListLib } from "./CreditListLib.sol";
-import { CreditLib } from "./CreditLib.sol";
 
-contract LoanLibTest is DSTest {
+import "forge-std/Test.sol";
+
+import { LoanLib } from "./LoanLib.sol";
+import { CreditLib } from "./CreditLib.sol";
+import { CreditListLib } from "./CreditListLib.sol";
+
+
+contract LoanLibTest is Test {
     using CreditListLib for bytes32[];
     bytes32[] private ids;
 
@@ -13,22 +17,22 @@ contract LoanLibTest is DSTest {
     address token = address(2);
 
     function test_computes_the_same_position_id() public view {
-        bytes32 id = CreditLib.computePositionId(loan, lender, token);
-        bytes32 id2 = CreditLib.computePositionId(loan, lender, token);
+        bytes32 id = CreditLib.computeId(loan, lender, token);
+        bytes32 id2 = CreditLib.computeId(loan, lender, token);
         assert(id == id2);
     }
 
     function test_computes_a_different_position_id() public view {
-        bytes32 id = CreditLib.computePositionId(loan, lender, token);
-        bytes32 id2 = CreditLib.computePositionId(loan, address(this), token);
+        bytes32 id = CreditLib.computeId(loan, lender, token);
+        bytes32 id2 = CreditLib.computeId(loan, address(this), token);
         assert(id != id2);
-        bytes32 idSameInputsDifferentOrder = CreditLib.computePositionId(lender, loan, token);
+        bytes32 idSameInputsDifferentOrder = CreditLib.computeId(lender, loan, token);
         assert(idSameInputsDifferentOrder != id);
     }
 
     function test_can_remove_position() public {
-        bytes32 id = CreditLib.computePositionId(loan, lender, token);
-        bytes32 id2 = CreditLib.computePositionId(loan, address(this), token);
+        bytes32 id = CreditLib.computeId(loan, lender, token);
+        bytes32 id2 = CreditLib.computeId(loan, address(this), token);
         ids.push(id);
         ids.push(id2);
         
@@ -40,11 +44,14 @@ contract LoanLibTest is DSTest {
         assert(ids[1] == bytes32(0)); // ensure deleted
     }
 
-    function testFail_cannot_remove_non_existent_position() public {
-        bytes32 id = CreditLib.computePositionId(loan, lender, token);
-        ids[0] = id;
+
+    function test_cannot_remove_non_existent_position() public {
+        bytes32 id = CreditLib.computeId(loan, lender, token);
+        ids.push(id);
         assert(ids.length == 1);
         ids.removePosition(bytes32(0));
+        assert(ids.length == 1);
+        assertEq(ids[0], id);
     }
 
 
