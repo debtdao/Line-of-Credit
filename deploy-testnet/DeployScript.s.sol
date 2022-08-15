@@ -29,7 +29,7 @@ contract DeployScript is Script {
     address arbiter;
     address lender;
 
-    function setUp() external {
+    function run() external {
         
         vm.startBroadcast();
 
@@ -40,7 +40,7 @@ contract DeployScript is Script {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
 
-        Spigot spigot = new Spigot(address(this), borrower, borrower);
+       /*  Spigot spigot = new Spigot(address(this), borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
         escrow = new Escrow(minCollateralRatio, address(oracle),address(this), borrower);
 
@@ -62,7 +62,7 @@ contract DeployScript is Script {
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
         _mintAndApprove();
-        escrow.addCollateral(1 ether, address(supportedToken2));
+        escrow.addCollateral(1 ether, address(supportedToken2)); */
 
         vm.stopBroadcast();
     }

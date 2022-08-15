@@ -5,7 +5,7 @@ import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
 
 contract SmallDeploy is Script {
     RevenueToken token;
-    function setUp() external{
+    function run() external{
         vm.startBroadcast();
 
         token = new RevenueToken();
