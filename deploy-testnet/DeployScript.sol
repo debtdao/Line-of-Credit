@@ -1,6 +1,6 @@
 pragma solidity ^0.8.9;
 
-import "../lib/forge-std/src/Script.sol";
+import {Script} from "../lib/forge-std/src/Script.sol";
 import {CreditLib } from "../contracts/utils/CreditLib.sol";
 import {CreditListLib } from "../contracts/utils/CreditListLib.sol";
 import {LoanLib } from "../contracts/utils/LoanLib.sol";
@@ -12,7 +12,7 @@ import {Spigot} from  "../contracts/modules/spigot/Spigot.sol";
 import {Escrow} from "../contracts/modules/escrow/Escrow.sol";
 
 
-contract MyScript is Script {
+contract DeployScript is Script {
     Escrow escrow;
     RevenueToken supportedToken1;
     RevenueToken supportedToken2;
