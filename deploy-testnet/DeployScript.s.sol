@@ -11,6 +11,8 @@ import {SecuredLoan} from "../contracts/modules/credit/SecuredLoan.sol";
 import {Spigot} from  "../contracts/modules/spigot/Spigot.sol";
 import {Escrow} from "../contracts/modules/escrow/Escrow.sol";
 
+import "hardhat/console.sol";
+
 
 contract DeployScript is Script {
     Escrow escrow;
@@ -32,17 +34,16 @@ contract DeployScript is Script {
     function run() external {
         
         vm.startBroadcast();
-
-        borrower = address(this);
-        lender = address(this);
-        arbiter = address(this);
+        borrower = msg.sender;
+        lender = msg.sender;
+        arbiter = msg.sender;
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
 
-       /*  Spigot spigot = new Spigot(address(this), borrower, borrower);
+        Spigot spigot = new Spigot(msg.sender, borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        escrow = new Escrow(minCollateralRatio, address(oracle),address(this), borrower);
+        escrow = new Escrow(minCollateralRatio, address(oracle),msg.sender, borrower);
 
         loan = new SecuredLoan(
             address(oracle),
@@ -55,14 +56,19 @@ contract DeployScript is Script {
             0
         );
         
+        console.log("sender", msg.sender);
+        console.log("spigot owner", spigot.owner());
+        console.log("loan address", address(loan));
+ 
         escrow.updateLoan(address(loan));
         spigot.updateOwner(address(loan));
+   
         loan.init();
 
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
         _mintAndApprove();
-        escrow.addCollateral(1 ether, address(supportedToken2)); */
+        escrow.addCollateral(1 ether, address(supportedToken2));
 
         vm.stopBroadcast();
     }
