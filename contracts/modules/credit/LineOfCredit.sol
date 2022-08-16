@@ -104,6 +104,14 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return _updateStatus(_healthcheck());
     }
 
+    /** 
+     * @notice - getter for amount of active ids + total ids in list
+     * @return - (uint, uint) - active positions, total length
+    */
+    function counts() external view returns (uint256, uint256) {
+        return (count, ids.length);
+    }
+
     function _healthcheck() internal virtual returns (LoanLib.STATUS) {
         // if loan is in a final end state then do not run _healthcheck()
         LoanLib.STATUS s = loanStatus;

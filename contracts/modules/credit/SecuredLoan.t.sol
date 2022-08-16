@@ -125,6 +125,16 @@ contract LoanTest is Test {
         assertEq(uint(l.init()), uint(LoanLib.STATUS.UNINITIALIZED));
     }
 
+    function invariant_position_count_equals_non_null_ids() public {
+        (uint c, uint l) = loan.counts();
+        uint count = 0;
+        for(uint i = 0; i < l;) {
+          if(loan.ids(i) != bytes32(0)) { unchecked { ++count; } }
+          unchecked { ++i; }
+        }
+        assertEq(c, count);
+    }
+
     function test_loan_is_uninitilized_if_escrow_not_owned() public {
         address mock = address(new MockLoan(0, address(this)));
         Spigot s = new Spigot(address(this), borrower, borrower);

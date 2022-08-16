@@ -113,4 +113,5 @@ interface ILineOfCredit {
   function borrower() external returns(address);
   function arbiter() external returns(address);
   function oracle() external returns(IOracle);
+  function counts() external view returns (uint256, uint256);
 }
