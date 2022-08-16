@@ -62,6 +62,11 @@ abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
     if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
     return true;
   }
+
+  function _rollover(address newLoan) internal virtual returns(bool) {
+    require(escrow.updateLoan(newLoan));
+    return true;
+  }
 }
 
 

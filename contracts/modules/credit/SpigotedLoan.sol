@@ -200,6 +200,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         return tokensBought;
     }
 
+
     //  SPIGOT OWNER FUNCTIONS
 
     /**

@@ -1,3 +1,5 @@
+pragma solidity 0.8.9;
+
 import { ISpigot } from "../interfaces/ISpigot.sol";
 import { ISpigotedLoan } from "../interfaces/ISpigotedLoan.sol";
 import { LoanLib } from "../utils/LoanLib.sol";
@@ -52,18 +54,12 @@ library SpigotedLoanLib {
         // has to be called after we get balance
         uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
-
         trade(
             claimed + unused,
             claimToken,
-            targetToken,
             swapTarget,
             zeroExTradeData
         );
-        
-        // trade is complete and we know how many tokens bought
-        // could return here and complete unused computation elsewhere to avoid stack2deep
-
         
         // underflow revert ensures we have more tokens than we started with
         uint256 tokensBought = LoanLib.getBalance(targetToken) - oldTargetTokens;
@@ -71,10 +67,7 @@ library SpigotedLoanLib {
         uint256 newClaimTokens = LoanLib.getBalance(claimToken);
         // ideally we could use oracle to calculate # of tokens to receive
         // but sellToken might not have oracle. buyToken must have oracle
-        
 
-        // cant declare variable bc stack too deep. Rearch function calls
-        // uint256 tokensBought = oldTargetTokens - newTargetTokens;
         
         emit TradeSpigotRevenue(
             claimToken,
@@ -107,7 +100,6 @@ library SpigotedLoanLib {
     function trade(
         uint256 amount,
         address sellToken,
-        address buyToken,
         address payable swapTarget,
         bytes calldata zeroExTradeData
     ) 
@@ -124,7 +116,16 @@ library SpigotedLoanLib {
             if(!success) { revert TradeFailed(); }
         }
 
-
         return true;
     }
+
+
+    /**
+     * @notice cleanup function when borrower this line ends 
+     */
+    function rollover(address spigot, address newLoan) external returns(bool) {
+      require(ISpigot(spigot).updateOwner(newLoan));
+      return true;
+    }
+
 }

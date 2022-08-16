@@ -62,7 +62,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     function init() external virtual returns(LoanLib.STATUS) {
-      require(loanStatus == LoanLib.STATUS.UNINITIALIZED);
+      if(loanStatus != LoanLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
       return _updateStatus(_init());
     }
 

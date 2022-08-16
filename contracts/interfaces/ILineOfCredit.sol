@@ -79,6 +79,7 @@ interface ILineOfCredit {
   error CloseFailedWithPrincipal();
   error NotInsolvent(address module);
   error NotLiquidatable();
+  error AlreadyInitialized();
 
   function init() external returns(LoanLib.STATUS);
 

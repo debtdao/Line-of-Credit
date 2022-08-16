@@ -117,6 +117,7 @@ contract Escrow is IEscrow {
         for (uint256 i = 0; i < length; i++) {
             address token = _collateralTokens[i];
             d = deposited[token];
+             // new var so we don't override original deposit amount for 4626 tokens
             uint256 deposit = d.amount;
             if (deposit != 0) {
                 if (d.isERC4626) {
@@ -132,7 +133,7 @@ contract Escrow is IEscrow {
                 }
 
                 collateralValue += CreditLib.calculateValue(
-                  IOracle(oracle).getLatestAnswer(d.asset),
+                  o.getLatestAnswer(d.asset),
                   deposit,
                   d.assetDecimals
                 );

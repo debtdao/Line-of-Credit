@@ -7,6 +7,7 @@ import { Spigot } from "../spigot/Spigot.sol";
 import { Escrow } from "../escrow/Escrow.sol";
 import { SecuredLoan } from "./SecuredLoan.sol";
 import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
+import { ISecuredLoan } from "../../interfaces/ISecuredLoan.sol";
 
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { MutualConsent } from "../../utils/MutualConsent.sol";
@@ -885,5 +886,99 @@ contract LoanTest is Test {
         assertEq(uint(LoanLib.STATUS.INSOLVENT), uint(loan.loanStatus()));
     }
 
+
+    // Rollover()
+
+    function test_cant_rollover_if_not_repaid() public {
+      // ACTIVE w/o debt
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      // ACTIVE w/ debt
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      oracle.changePrice(address(supportedToken2), 1);
+      assertEq(uint(loan.loanStatus()), LoanLib.STATUS.LIQUIDATABLE);
+
+      // LIQUIDATABLE w/ debt
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      loan.depositAndClose();
+      
+      // REPAID (test passes if next error)
+      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      loan.rollover(address(loan));
+    }
+
+    function test_cant_rollover_if_newLoan_already_initialized() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+      
+      // create and init new loan with new modules
+      Spigot s = new Spigot(address(this), borrower, borrower);
+      Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
+      SecuredLoan l = new SecuredLoan(
+        address(oracle),
+        arbiter,
+        borrower,
+        payable(address(0)),
+        address(s),
+        address(e),
+        150 days,
+        0
+      );
+
+      e.updateLoan(address(l));
+      s.updateOwner(address(l));
+      l.init();
+
+      // giving our modules should fail because taken already
+      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      loan.rollover(address(l));
+    }
+
+    function test_cant_rollover_if_newLoan_not_loan() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+
+      vm.expectRevert(); // evm revert, .init() does not exist on address(this)
+      loan.rollover(address(this));
+    }
+
+
+   function test_cant_rollover_if_not_borrower() public {
+      hoax(address(0xdeaf));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      loan.rollover(address(this));
+    }
+
+    function test_rollover_gives_modules_to_new_loan() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+
+      SecuredLoan l = new SecuredLoan(
+        address(oracle),
+        arbiter,
+        borrower,
+        payable(address(0)),
+        address(spigot),
+        address(escrow),
+        150 days,
+        0
+      );
+
+      loan.rollover(address(l));
+
+      assertEq(address(l.spigot()) , address(spigot));
+      assertEq(address(l.escrow()) , address(escrow));
+    }
     receive() external payable {}
 }

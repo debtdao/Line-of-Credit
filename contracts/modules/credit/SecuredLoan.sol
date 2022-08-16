@@ -3,10 +3,12 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { LoanLib } from "../../utils/LoanLib.sol";
 import { EscrowedLoan } from "./EscrowedLoan.sol";
 import { SpigotedLoan } from "./SpigotedLoan.sol";
+import { SpigotedLoanLib } from "../../utils/SpigotedLoanLib.sol";
 import { LineOfCredit } from "./LineOfCredit.sol";
 import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
+import { ISecuredLoan } from "../../interfaces/ISecuredLoan.sol";
 
-contract SecuredLoan is SpigotedLoan, EscrowedLoan {
+contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
 
     constructor(
         address oracle_,
@@ -37,6 +39,26 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan {
     }
     
     return s;
+  }
+
+  function rollover(address newLoan)
+    external
+    onlyBorrower
+    override
+    returns(bool)
+  {
+    // only borrower can call. No debt so arbiter shouldn't control
+    if(msg.sender != borrower) { revert CallerAccessDenied(); }
+    // require all debt successfully paid already
+    if(loanStatus != LoanLib.STATUS.REPAID) { revert DebtOwed(); }
+    // require new loan isn't activated yet
+    if(ILineOfCredit(newLoan).init() != LoanLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
+    // we dont check borrower is same on both loans because borrower might want new address managing new loan
+
+    return (
+      EscrowedLoan._rollover(newLoan) &&
+      SpigotedLoanLib.rollover(address(spigot), newLoan)
+    );
   }
 
 
