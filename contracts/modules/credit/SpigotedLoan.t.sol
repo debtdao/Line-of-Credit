@@ -196,6 +196,14 @@ contract SpigotedLoanTest is Test {
       loan.claimAndTrade(address(revenueToken), tradeData);
     }
 
+
+    // need to emit event to test if is emitted in function call
+    event TradeSpigotRevenue(
+        address indexed revenueToken,
+        uint256 revenueTokenAmount,
+        address indexed debtToken,
+        uint256 indexed debtTokensBought
+    );
     function test_does_not_trade_if_rev_credit_same_token() public {
       address revenueC = address(0xbeef);
       // reverse rev/credit so we can test each way
@@ -218,10 +226,23 @@ contract SpigotedLoanTest is Test {
         creditT,
         creditT,
         claimable,
-        16 ether
+        15 ether
       );
+
       hoax(borrower);
-      loan.claimAndTrade(creditT, tradeData);
+
+      // wierd setup bc  only way to tell if we didnt trade from outside is events/calls
+      // but claimEscrow is called in both branches so can only test for DEX interacvtions
+      
+      // we say we expect a trade event (A)
+      // then say we expect our expectation to fail (B) 
+      // when tokens aren't traded (C)
+      vm.expectRevert("Log != expected log");  // (B)
+      try loan.claimAndTrade(creditT, tradeData) /* (C) */returns(uint256) {
+        // say that we expect the tokens to be traded
+        vm.expectEmit(true, true, true, true); // (A)
+        emit TradeSpigotRevenue(creditT, claimable, creditT, 15 ether);
+      } catch { }
     }
 
     function test_no_unused_credit_tokens_to_trade() public {
@@ -236,9 +257,9 @@ contract SpigotedLoanTest is Test {
       // }
       
       // no extra tokens
-      assertEq(loan.unused(address(creditToken)), lentAmount);
+      assertEq(loan.unused(address(creditToken)), 0);
       // Loan already has tokens minted to it that we can try and steal as borrower
-      assertEq(creditToken.balanceOf(address(loan)), lentAmount);
+      assertEq(creditToken.balanceOf(address(loan)), 0);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
