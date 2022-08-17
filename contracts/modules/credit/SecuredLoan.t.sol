@@ -1,16 +1,25 @@
 pragma solidity 0.8.9;
 
-import { Escrow } from "../escrow/Escrow.sol";
-import { Spigot } from "../spigot/Spigot.sol";
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
-import { LoanLib } from "../../utils/LoanLib.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
-import { SecuredLoan } from "./SecuredLoan.sol";
+import "forge-std/Test.sol";
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
-contract LoanTest is DSTest {
+import { Spigot } from "../spigot/Spigot.sol";
+import { Escrow } from "../escrow/Escrow.sol";
+import { SecuredLoan } from "./SecuredLoan.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
+import { ISecuredLoan } from "../../interfaces/ISecuredLoan.sol";
+
+import { LoanLib } from "../../utils/LoanLib.sol";
+import { MutualConsent } from "../../utils/MutualConsent.sol";
+
+import { MockLoan } from "../../mock/MockLoan.sol";
+import { SimpleOracle } from "../../mock/SimpleOracle.sol";
+import { RevenueToken } from "../../mock/RevenueToken.sol";
+
+contract LoanTest is Test {
 
     Escrow escrow;
+    Spigot spigot;
     RevenueToken supportedToken1;
     RevenueToken supportedToken2;
     RevenueToken unsupportedToken;
@@ -21,6 +30,7 @@ contract LoanTest is DSTest {
     uint minCollateralRatio = 1 ether; // 100%
     uint128 drawnRate = 100;
     uint128 facilityRate = 1;
+    uint ttl = 150 days;
 
     address borrower;
     address arbiter;
@@ -34,15 +44,16 @@ contract LoanTest is DSTest {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
 
-        Spigot spigot = new Spigot(address(this), borrower, borrower);
+        spigot = new Spigot(address(this), borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        escrow = new Escrow(minCollateralRatio, address(oracle),address(this), borrower);
+
+        escrow = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
 
         loan = new SecuredLoan(
           address(oracle),
           arbiter,
           borrower,
-          address(0),
+          payable(address(0)),
           address(spigot),
           address(escrow),
           150 days,
@@ -51,15 +62,17 @@ contract LoanTest is DSTest {
         
         escrow.updateLoan(address(loan));
         spigot.updateOwner(address(loan));
-        loan.init();
+        
+        assertEq(uint(loan.init()), uint(LoanLib.STATUS.ACTIVE));
 
+        _mintAndApprove();
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
-        _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));
     }
 
     function _mintAndApprove() internal {
+        deal(lender, mintAmount);
         supportedToken1.mint(borrower, mintAmount);
         supportedToken1.approve(address(escrow), MAX_INT);
         supportedToken1.approve(address(loan), MAX_INT);
@@ -73,6 +86,15 @@ contract LoanTest is DSTest {
         unsupportedToken.approve(address(loan), MAX_INT);
     }
 
+    function _addCredit(address token, uint256 amount) public {
+        hoax(borrower);
+        loan.addCredit(drawnRate, facilityRate, amount, token, lender);
+        vm.stopPrank();
+        hoax(lender);
+        loan.addCredit(drawnRate, facilityRate, amount, token, lender);
+        vm.stopPrank();
+    }
+
     function test_can_liquidate_escrow_if_cratio_below_min() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -83,23 +105,86 @@ contract LoanTest is DSTest {
         (uint p,) = loan.updateOutstandingDebt();
         assertGt(p, 0);
         oracle.changePrice(address(supportedToken2), 1);
-        loan.liquidate(id, 1 ether, address(supportedToken2));
+        loan.liquidate(1 ether, address(supportedToken2));
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
         assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
     }
 
-    function test_health_becomes_liquidatable_if_cratio_below_min() public {
-        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    function test_loan_is_uninitilized_on_deployment() public {
+        Spigot s = new Spigot(address(this), borrower, borrower);
+        Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
+        SecuredLoan l = new SecuredLoan(
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(s),
+            address(e),
+            150 days,
+            0
+        );
+        assertEq(uint(l.init()), uint(LoanLib.STATUS.UNINITIALIZED));
     }
 
-    function test_loan_is_active_on_deployment() public {
-        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
+    function invariant_position_count_equals_non_null_ids() public {
+        (uint c, uint l) = loan.counts();
+        uint count = 0;
+        for(uint i = 0; i < l;) {
+          if(loan.ids(i) != bytes32(0)) { unchecked { ++count; } }
+          unchecked { ++i; }
+        }
+        assertEq(c, count);
+    }
+
+    function test_loan_is_uninitilized_if_escrow_not_owned() public {
+        address mock = address(new MockLoan(0, address(this)));
+        Spigot s = new Spigot(address(this), borrower, borrower);
+        Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
+        SecuredLoan l = new SecuredLoan(
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(s),
+            address(e),
+            150 days,
+            0
+        );
+
+        // configure other modules
+        s.updateOwner(address(l));
+        
+        assertEq(uint(l.init()), uint(LoanLib.STATUS.UNINITIALIZED));
+    }
+
+    function test_loan_is_uninitilized_if_spigot_not_owned() public {
+        Spigot s = new Spigot(address(this), borrower, borrower);
+        Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
+        SecuredLoan l = new SecuredLoan(
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(s),
+            address(e),
+            150 days,
+            0
+        );
+
+        // configure other modules
+        e.updateLoan(address(l));
+        
+        assertEq(uint(l.init()), uint(LoanLib.STATUS.UNINITIALIZED));
+    }
+
+
+    function test_loan_cant_init_after_init() public {
+        vm.expectRevert();
+        loan.init();
+    }
+
+    function test_loan_is_active_after_initializing() public {
+        assertEq(uint(loan.healthcheck()), uint(LoanLib.STATUS.ACTIVE));
     }
 
     function test_can_add_credit_position() public {
@@ -111,6 +196,17 @@ contract LoanTest is DSTest {
         assert(id != bytes32(0));
         assertEq(supportedToken1.balanceOf(address(loan)), 1 ether, "Loan balance should be 1e18");
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+    }
+
+    function test_can_add_credit_position_ETH() public {
+        assertEq(address(loan).balance, 0, "Loan balance should be 0");
+        assertEq(address(this).balance, mintAmount, "Contract should have initial mint balance");
+        loan.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        loan.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        bytes32 id = loan.ids(0);
+        assert(id != bytes32(0));
+        assertEq(address(loan).balance, 1 ether, "Loan balance should be 1e18");
+        assertEq(address(this).balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
     }
 
     function test_can_borrow() public {
@@ -126,6 +222,26 @@ contract LoanTest is DSTest {
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         (uint p,) = loan.updateOutstandingDebt();
         assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+    }
+
+    function test_can_borrow_ETH() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        loan.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        bytes32 id = loan.ids(0);
+        assert(id != bytes32(0));
+        assertEq(address(loan).balance, 1 ether, "Loan balance should be 1e18");
+        assertEq(address(this).balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+
+        loan.borrow(id, 0.01 ether);
+
+        assertEq(address(loan).balance, 0.99 ether, "Loan balance should be 0");
+        assertEq(address(this).balance, mintAmount - 0.99 ether, "Contract should have initial mint balance");
+
+        int prc = oracle.getLatestAnswer(Denominations.ETH);
+        uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
+        (uint p,) = loan.updateOutstandingDebt();
+        assertEq(p, tokenPriceOneUnit / 100, "Principal should be set as one full unit price in USD");
+
     }
 
     function test_can_manually_close_if_no_outstanding_credit() public {
@@ -424,53 +540,50 @@ contract LoanTest is DSTest {
         assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID), "Loan not repaid");
     }
 
-    function test_loan_status_changes_to_liquidatable() public {
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id = loan.ids(0);
-        loan.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
-    }
-
-    function test_cannot_open_credit_position_if_only_one_party_agrees() public {
+    function test_cannot_open_credit_position_without_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         assertEq(supportedToken1.balanceOf(address(loan)), 0, "Loan balance should be 0");
+        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "borrower balance should be original");
     }
 
-    function testFail_cannot_open_credit_position_if_only_one_party_agrees() public {
+    function test_cannot_borrow_from_nonexistant_position() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        loan.ids(0);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
+        loan.borrow(bytes32(uint(12743134)), 1 ether);
     }
 
-    function testFail_cannot_borrow_from_credit_position_if_under_collateralised() public {
+    function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
         loan.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
+        vm.expectRevert(ILineOfCredit.NotActive.selector); 
         loan.borrow(id, 100 ether);
     }
 
-    function testFail_cannot_withdraw_if_all_loaned_out() public {
+    function test_cannot_withdraw_if_all_loaned_out() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         loan.withdraw(id, 0.1 ether);
     }
 
-    function testFail_cannot_borrow_more_than_position() public {
+    function test_cannot_borrow_more_than_position() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         loan.borrow(id, 100 ether);
     }
 
-    function testFail_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
+    function test_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
+        vm.expectRevert('SimpleOracle: unsupported token' ); 
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
     }
 
-    function testFail_cannot_borrow_if_not_active() public {
+    function test_cannot_borrow_if_not_active() public {
         assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
         loan.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
@@ -478,33 +591,166 @@ contract LoanTest is DSTest {
         loan.borrow(id, 0.1 ether);
         oracle.changePrice(address(supportedToken2), 1);
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+        vm.expectRevert(ILineOfCredit.NotActive.selector); 
         loan.borrow(id, 0.9 ether);
     }
 
-    function testFail_cannot_borrow_against_closed_position() public {
+    function test_cannot_borrow_against_closed_position() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        
+        loan.depositAndClose();
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector);
+        loan.borrow(id, 1 ether);
+    }
+
+    function test_cannot_borrow_against_repaid_line() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 1 ether);
         loan.depositAndClose();
+        vm.expectRevert(ILineOfCredit.NotActive.selector);
         loan.borrow(id, 1 ether);
     }
 
-    function testFail_cannot_manually_close_if_credit_outstanding() public {
+    function test_cannot_manually_close_if_debt_outstanding() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = loan.ids(0);
         loan.borrow(id, 0.1 ether);
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
         loan.close(id);
     }
 
-    function testFail_cannot_liquidate_escrow_if_cratio_above_min() public {
-        loan.liquidate(0, 1 ether, address(supportedToken1));
+    function test_can_close_as_borrower() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        hoax(borrower);
+        loan.borrow(id, 0.1 ether);
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
+        loan.close(id);
     }
 
-    function testFail_health_is_not_liquidatable_if_cratio_above_min() public {
+    function test_can_close_as_lender() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        hoax(borrower);
+        loan.borrow(id, 0.1 ether);
+        vm.stopPrank();
+        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector); 
+        hoax(lender);
+        loan.close(id);
+    }
+
+    // Liquidate  / Liquidatable
+
+    function test_must_be_in_debt_to_liquidate() public {
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        loan.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_health_becomes_liquidatable_if_cratio_below_min() public {
+        assertEq(uint(loan.healthcheck()), uint(LoanLib.STATUS.ACTIVE));
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        oracle.changePrice(address(supportedToken2), 1);
+        assertEq(uint(loan.healthcheck()), uint(LoanLib.STATUS.LIQUIDATABLE));
+    }
+
+    function test_health_becomes_liquidatable_if_debt_past_deadline() public {
+        assert(loan.healthcheck() == LoanLib.STATUS.ACTIVE);
+        // add line otherwise no debt == passed
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        vm.warp(ttl+1);
         assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
     }
+
+    function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
+        hoax(arbiter);
+        vm.warp(ttl+1);
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_can_liquidate_if_debt_when_deadline_passes() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
+
+        vm.warp(ttl+1);
+        loan.liquidate(0.9 ether, address(supportedToken2));
+    }
+
+    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
+
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_health_is_not_liquidatable_if_cratio_above_min() public {
+        assertTrue(loan.healthcheck() != LoanLib.STATUS.LIQUIDATABLE);
+    }
+
+
+    function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
+        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        (uint p, uint i) = loan.updateOutstandingDebt();
+        assertGt(p, 0);
+        oracle.changePrice(address(supportedToken2), 1);
+        loan.liquidate(1 ether, address(supportedToken2));
+        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
+        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
+    }
+
+
+    function test_health_becomes_liquidatable_when_cratio_below_min() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        loan.borrow(id, 1 ether);
+        oracle.changePrice(address(supportedToken2), 1);
+        assert(loan.healthcheck() == LoanLib.STATUS.LIQUIDATABLE);
+    }
+
+    function test_cannot_liquidate_as_anon() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(id, 1 ether);
+
+        hoax(address(0xdead));
+        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
+        loan.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_cannot_liquidate_as_borrower() public {
+        // TODO update stakeholders to be different addresses
+        // hoax(borrower);
+        // vm.warp(ttl+1);
+        // vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
+        // loan.liquidate(1 ether, address(supportedToken2));
+    }
+
 
     function test_increase_credit_limit_with_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -519,20 +765,18 @@ contract LoanTest is DSTest {
         assertEq(d2 - d, 1 ether);
     }
 
-    // function test_cannot_increase_credit_limit_without_consent() public {
-    //     // TODO need a way to fake `lender` so mutualConsentById will fail
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     bytes32 id = loan.ids(0);
-    //     (uint d,,,,,,) = loan.credits(id);
+    function test_cannot_increase_credit_limit_without_consent() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
+        (uint d,,,,,,) = loan.credits(id);
         
 
-    //     // try to mock lender address as someone else
-    //     loan.increaseCredit(id, 1 ether);
-    //     loan.increaseCredit(id, 1 ether);
-    //     (uint d2,,,,,,) = loan.credits(id); 
-    //     assertEq(d2, d);
-    // }
+        loan.increaseCredit(id, 1 ether);
+        hoax(address(0xdebf)); 
+        vm.expectRevert(MutualConsent.Unauthorized.selector);
+        loan.increaseCredit(id, 1 ether);
+    }
 
     function test_can_update_rates_with_consent() public {
         loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
@@ -549,20 +793,192 @@ contract LoanTest is DSTest {
         assertGt(drate, drawnRate);
     }
 
-    // function test_cannot_update_rates_without_consent() public {
-    //     // TODO need a way to fake `lender` so mutualConsentById will fail
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     bytes32 id = loan.ids(0);
+    function test_cannot_update_rates_without_consent() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = loan.ids(0);
       
-
-    //     // try to mock lender address as someone else
-    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
-    //     loan.setRates(id, uint128(1 ether), uint128(1 ether));
-    //     (uint128 drate, uint128 frate,) = loan.interestRate().rates(id);
-    //     assertEq(facilityRate, frate);
-    //     assertEq(drawnRate, drate);
-    // }
+        loan.setRates(id, uint128(1 ether), uint128(1 ether));
+        vm.expectRevert(MutualConsent.Unauthorized.selector);
+        hoax(address(0xdebf));
+        loan.setRates(id, uint128(1 ether), uint128(1 ether));
+    }
 
 
+// declareInsolvent
+    function test_must_be_in_debt_to_go_insolvent() public {
+        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        loan.declareInsolvent();
+    }
+
+    function test_only_arbiter_can_delcare_insolvency() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        hoax(address(0xdebf));
+        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+        loan.declareInsolvent();
+    }
+
+    function test_cant_delcare_insolvency_if_not_liquidatable() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        hoax(arbiter);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
+        loan.declareInsolvent();
+    }
+
+
+
+    function test_cannot_insolve_until_liquidate_all_escrowed_tokens() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+
+        // ensure spigot insolvency check passes
+        assertTrue(loan.releaseSpigot());
+        // "sell" spigot off
+        loan.spigot().updateOwner(address(0xf1c0));
+
+        assertEq(0.9 ether, loan.liquidate(0.9 ether, address(supportedToken2)));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(ILineOfCredit.NotInsolvent.selector, loan.escrow())
+        );
+        loan.declareInsolvent();
+    }
+
+    function test_cannot_insolve_until_liquidate_spigot() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+        // ensure escrow insolvency check passes
+        assertEq(1 ether, loan.liquidate(1 ether, address(supportedToken2)));
+
+        vm.expectRevert(
+          abi.encodeWithSelector(ILineOfCredit.NotInsolvent.selector, loan.spigot())
+        );
+        loan.declareInsolvent();
+    }
+
+    function test_can_delcare_insolvency_when_all_assets_liquidated() public {
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        loan.borrow(loan.ids(0), 1 ether);
+
+        vm.warp(ttl+1);
+        hoax(arbiter);
+
+        assertTrue(loan.releaseSpigot());
+        assertTrue(loan.spigot().updateOwner(address(0xf1c0)));
+        assertEq(1 ether, loan.liquidate(1 ether, address(supportedToken2)));
+        // release spigot + liquidate
+        loan.declareInsolvent();
+        assertEq(uint(LoanLib.STATUS.INSOLVENT), uint(loan.loanStatus()));
+    }
+
+
+    // Rollover()
+
+    function test_cant_rollover_if_not_repaid() public {
+      // ACTIVE w/o debt
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      // ACTIVE w/ debt
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      oracle.changePrice(address(supportedToken2), 1);
+      assertEq(uint(loan.loanStatus()), LoanLib.STATUS.LIQUIDATABLE);
+
+      // LIQUIDATABLE w/ debt
+      vm.expectRevert(ISecuredLoan.DebtOwed.selector);
+      loan.rollover(address(loan));
+
+      loan.depositAndClose();
+      
+      // REPAID (test passes if next error)
+      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      loan.rollover(address(loan));
+    }
+
+    function test_cant_rollover_if_newLoan_already_initialized() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+      
+      // create and init new loan with new modules
+      Spigot s = new Spigot(address(this), borrower, borrower);
+      Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
+      SecuredLoan l = new SecuredLoan(
+        address(oracle),
+        arbiter,
+        borrower,
+        payable(address(0)),
+        address(s),
+        address(e),
+        150 days,
+        0
+      );
+
+      e.updateLoan(address(l));
+      s.updateOwner(address(l));
+      l.init();
+
+      // giving our modules should fail because taken already
+      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      loan.rollover(address(l));
+    }
+
+    function test_cant_rollover_if_newLoan_not_loan() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+
+      vm.expectRevert(); // evm revert, .init() does not exist on address(this)
+      loan.rollover(address(this));
+    }
+
+
+   function test_cant_rollover_if_not_borrower() public {
+      hoax(address(0xdeaf));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      loan.rollover(address(this));
+    }
+
+    function test_rollover_gives_modules_to_new_loan() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      loan.borrow(loan.ids(0), 1 ether);
+      loan.depositAndClose();
+
+      SecuredLoan l = new SecuredLoan(
+        address(oracle),
+        arbiter,
+        borrower,
+        payable(address(0)),
+        address(spigot),
+        address(escrow),
+        150 days,
+        0
+      );
+
+      loan.rollover(address(l));
+
+      assertEq(address(l.spigot()) , address(spigot));
+      assertEq(address(l.escrow()) , address(escrow));
+    }
+    receive() external payable {}
 }

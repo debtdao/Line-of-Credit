@@ -14,6 +14,8 @@ abstract contract MutualConsent {
     // Mapping of upgradable units and if consent has been initialized by other party
     mapping(bytes32 => bool) public mutualConsents;
 
+    error Unauthorized();
+
     /* ============ Events ============ */
 
     event MutualConsentRegistered(
@@ -34,10 +36,7 @@ abstract contract MutualConsent {
     }
 
     function _mutualConsent(address _signerOne, address _signerTwo) internal returns(bool) {
-        require(
-            msg.sender == _signerOne || msg.sender == _signerTwo,
-            "Must be authorized address"
-        );
+        if(msg.sender != _signerOne && msg.sender != _signerTwo) { revert Unauthorized(); }
 
         address nonCaller = _getNonCaller(_signerOne, _signerTwo);
 

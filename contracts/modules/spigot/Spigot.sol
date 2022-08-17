@@ -1,10 +1,10 @@
 pragma solidity 0.8.9;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { LoanLib } from  "../../utils/LoanLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
+
 /**
  * @title Spigot
  * @author Kiba Gateaux
@@ -12,7 +12,7 @@ import {ISpigot} from "../../interfaces/ISpigot.sol";
  * @dev Should be deployed once per loan. Can attach multiple revenue contracts
  */
 contract Spigot is ISpigot, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+
     // Constants 
 
     // Maximum numerator for Setting.ownerSplit param
@@ -31,11 +31,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
     // Spigot variables
 
     // Total amount of tokens escrowed by spigot
-    mapping(address => uint256) escrowed; // token  -> amount escrowed
+    mapping(address => uint256) private escrowed; // token  -> amount escrowed
     //  allowed by operator on all revenue contracts
-    mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
+    mapping(bytes4 => bool) private whitelistedFunctions; // function -> allowed
     // Configurations for revenue contracts to split
-    mapping(address => Setting) settings; // revenue contract -> settings
+    mapping(address => Setting) private settings; // revenue contract -> settings
 
     /**
      *
@@ -56,7 +56,15 @@ contract Spigot is ISpigot, ReentrancyGuard {
         treasury = _treasury;
     }
 
-
+    modifier whileNoUnclaimedRevenue(address token) {
+      // if excess revenue sitting in Spigot after MAX_REVENUE cut,
+      // prevent actions until all revenue claimed and escrow updated
+      // only protects push payments not pull payments.
+      if( LoanLib.getBalance(token) > escrowed[token]) {
+        revert UnclaimedRevenue();
+      }
+      _;
+    }
 
     // ##########################
     // #####   Claimoooor   #####
@@ -86,7 +94,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         
         // send non-escrowed tokens to Treasury if non-zero
         if(claimed > escrowedAmount) {
-            require(_sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
+            require(LoanLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
         }
 
         emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
@@ -99,7 +107,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         internal
         returns (uint256 claimed)
     {
-        uint256 existingBalance = _getBalance(token);
+        uint256 existingBalance = LoanLib.getBalance(token);
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
@@ -110,7 +118,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
             (bool claimSuccess,) = revenueContract.call(data);
             if(!claimSuccess) { revert ClaimFailed(); }
             // claimed = total balance - existing balance
-            claimed = _getBalance(token) - existingBalance;
+            claimed = LoanLib.getBalance(token) - existingBalance;
         }
 
         if(claimed == 0) { revert NoRevenue(); }
@@ -129,15 +137,19 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @return claimed -  The amount of tokens claimed from revenue garnish by `owner`
 
     */
-    function claimEscrow(address token) external nonReentrant returns (uint256 claimed)  {
+    function claimEscrow(address token)
+        external
+        nonReentrant
+        whileNoUnclaimedRevenue(token)
+        returns (uint256 claimed) 
+    {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
-
-
+        
         claimed = escrowed[token];
 
         if(claimed == 0) { revert ClaimFailed(); }
 
-        require(_sendOutTokenOrETH(token, owner, claimed));
+        LoanLib.sendOutTokenOrETH(token, owner, claimed);
 
         escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
@@ -145,15 +157,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
         return claimed;
     }
-
-    /**
-     * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
-     * @param token Revenue token that is being garnished from spigots
-    */
-    function getEscrowBalance(address token) external view returns (uint256) {
-        return escrowed[token];
-    }
-
 
 
     // ##########################
@@ -180,14 +183,17 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param data - tx data, including function signature, to call contracts with
      */
     function _operate(address revenueContract, bytes calldata data) internal nonReentrant returns (bool) {
+        bytes4 func = bytes4(data);
         // extract function signature from tx data and check whitelist
-        require(whitelistedFunctions[bytes4(data)], "Spigot: Unauthorized action");
+        if(!whitelistedFunctions[func]) { revert BadFunction(); }
         // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
-        require(settings[revenueContract].claimFunction != bytes4(data), "Spigot: Unauthorized action");
+        if(
+          func == settings[revenueContract].claimFunction ||
+          func == settings[revenueContract].transferOwnerFunction
+        ) { revert BadFunction(); }
 
-        
         (bool success,) = revenueContract.call(data);
-        require(success, "Spigot: Operation failed");
+        if(!success) { revert BadFunction(); }
 
         return true;
     }
@@ -218,13 +224,12 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function _addSpigot(address revenueContract, Setting memory setting) internal returns (bool) {
         require(revenueContract != address(this));
         // spigot setting already exists
-        if(settings[revenueContract].transferOwnerFunction != bytes4(0))  {
-          revert BadSetting();
-        }
+        require(settings[revenueContract].transferOwnerFunction == bytes4(0));
         
         // must set transfer func
         if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
-        require(setting.ownerSplit <= MAX_SPLIT && setting.ownerSplit >= 0, "Spigot: Invalid split rate");
+        if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
+        if(setting.token == address(0)) {  revert BadSetting(); }
         
         settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
@@ -239,13 +244,17 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
      */
-    function removeSpigot(address revenueContract) external returns (bool) {
+    function removeSpigot(address revenueContract)
+        external
+        whileNoUnclaimedRevenue(settings[revenueContract].token)
+        returns (bool)
+    {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
         
         address token = settings[revenueContract].token;
         uint256 claimable = escrowed[token];
         if(claimable > 0) {
-            require(_sendOutTokenOrETH(token, owner, claimable));
+            require(LoanLib.sendOutTokenOrETH(token, owner, claimable));
             emit ClaimEscrow(token, claimable, owner);
         }
         
@@ -263,17 +272,21 @@ contract Spigot is ISpigot, ReentrancyGuard {
         return true;
     }
 
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool) {
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
+        external
+        whileNoUnclaimedRevenue(settings[revenueContract].token)
+        returns(bool)
+    {
       if(msg.sender != owner) { revert CallerAccessDenied(); }
-      require(ownerSplit >= 0 && ownerSplit <= MAX_SPLIT, 'Spigot: invalid owner split');
+      if(ownerSplit > MAX_SPLIT) { revert BadSetting(); }
 
       settings[revenueContract].ownerSplit = ownerSplit;
       emit UpdateOwnerSplit(revenueContract, ownerSplit);
       
       return true;
     }
-    /**
 
+    /**
      * @notice - Update Owner role of Spigot contract.
      *      New Owner receives revenue stream split and can control Spigot
      * @dev - callable by `owner`
@@ -336,39 +349,31 @@ contract Spigot is ISpigot, ReentrancyGuard {
         return true;
     }
 
-    /**
+    // ##########################
+    // #####   GETTOOOORS   #####
+    // ##########################
 
-     * @notice - Send ETH or ERC20 token from this contract to an external contract
-     * @param token - address of token to send out. address(0) for raw ETH
-     * @param receiver - address to send tokens to
-     * @param amount - amount of tokens to send
-     */
-    function _sendOutTokenOrETH(address token, address receiver, uint256 amount) internal returns (bool) {
-        if(token!= address(0)) { // ERC20
-            IERC20(token).safeTransfer(receiver, amount);
-        } else { // ETH
-            payable(receiver).transfer(amount);
-        }
-        return true;
+    /**
+     * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
+     * @param token Revenue token that is being garnished from spigots
+    */
+    function getEscrowed(address token) external view returns (uint256) {
+        return escrowed[token];
     }
 
     /**
+     * @notice - If a function is callable on revenue contracts
+     * @param func Function to check on whitelist 
+    */
 
-     * @notice - Helper function to get current balance of this contract for ERC20 or ETH
-     * @param token - address of token to check. address(0) for raw ETH
-     */
-    function _getBalance(address token) internal view returns (uint256) {
-        return token != address(0) ?
-            IERC20(token).balanceOf(address(this)) :
-            address(this).balance;
+    function isWhitelisted(bytes4 func) external view returns(bool) {
+      return whitelistedFunctions[func];
     }
-
-    // GETTERS
 
     function getSetting(address revenueContract)
         external view
         returns(address, uint8, bytes4, bytes4)
-    {   
+    {
         return (
             settings[revenueContract].token,
             settings[revenueContract].ownerSplit,

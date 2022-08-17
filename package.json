@@ -21,7 +21,7 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "forge test -vvv --coverage",
+    "test": "forge test -vvv",
     "docs": "hardhat docgen"
   }
 }

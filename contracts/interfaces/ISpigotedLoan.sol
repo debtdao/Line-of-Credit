@@ -14,24 +14,21 @@ interface ISpigotedLoan {
   error TradeFailed();
   error ReleaseSpigotFailed();
 
-  function unused(address token) external returns(uint256);
 
+  // Borrower functions
+  function useAndRepay(uint256 amount) external returns(bool);
+  function claimAndRepay(address token, bytes calldata zeroExTradeData) external returns(uint256);
+  function claimAndTrade(address token,  bytes calldata zeroExTradeData) external returns(uint256 tokensBought);
+  
+  // Manage Spigot functions
   function addSpigot(address revenueContract, ISpigot.Setting calldata setting) external returns(bool);
-  function updateOwnerSplit(address revenueContract) external returns(bool);
   function updateWhitelist(bytes4 func, bool allowed) external returns(bool);
+  function updateOwnerSplit(address revenueContract) external returns(bool);
   function releaseSpigot() external returns(bool);
 
-  function claimAndTrade(
-    address claimToken, 
-    bytes calldata zeroExTradeData
-  ) external returns(uint256 tokensBought);
 
-  function claimAndRepay(
-    address token,
-    bytes calldata zeroExTradeData
-  ) external returns(uint256);
+  function sweep(address to, address token) external returns(uint256);
 
-  function useAndRepay(uint256 amount) external returns(bool);
-
-  function sweep(address token) external returns(uint256);
+  // getters
+  function unused(address token) external returns(uint256);
 }
