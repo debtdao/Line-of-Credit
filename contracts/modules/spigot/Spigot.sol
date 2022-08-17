@@ -1,9 +1,7 @@
 pragma solidity 0.8.9;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { LoanLib } from  "../../utils/LoanLib.sol";
+import { LineLib } from  "../../utils/LineLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 
@@ -11,10 +9,9 @@ import {ISpigot} from "../../interfaces/ISpigot.sol";
  * @title Spigot
  * @author Kiba Gateaux
  * @notice Contract allowing Owner to secure revenue streams from a DAO and split payments between them
- * @dev Should be deployed once per loan. Can attach multiple revenue contracts
+ * @dev Should be deployed once per line. Can attach multiple revenue contracts
  */
 contract Spigot is ISpigot, ReentrancyGuard {
-    using SafeERC20 for IERC20;
 
     // Constants 
 
@@ -63,7 +60,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
       // if excess revenue sitting in Spigot after MAX_REVENUE cut,
       // prevent actions until all revenue claimed and escrow updated
       // only protects push payments not pull payments.
-      if( LoanLib.getBalance(token) > escrowed[token]) {
+      if( LineLib.getBalance(token) > escrowed[token]) {
         revert UnclaimedRevenue();
       }
       _;
@@ -97,7 +94,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         
         // send non-escrowed tokens to Treasury if non-zero
         if(claimed > escrowedAmount) {
-            require(LoanLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
+            require(LineLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
         }
 
         emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
@@ -110,7 +107,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         internal
         returns (uint256 claimed)
     {
-        uint256 existingBalance = LoanLib.getBalance(token);
+        uint256 existingBalance = LineLib.getBalance(token);
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
@@ -118,10 +115,10 @@ contract Spigot is ISpigot, ReentrancyGuard {
         } else {
             // pull payments
             if(bytes4(data) != settings[revenueContract].claimFunction) { revert BadFunction(); }
-            (bool claimSuccess, bytes memory claimData) = revenueContract.call(data);
+            (bool claimSuccess,) = revenueContract.call(data);
             if(!claimSuccess) { revert ClaimFailed(); }
             // claimed = total balance - existing balance
-            claimed = LoanLib.getBalance(token) - existingBalance;
+            claimed = LineLib.getBalance(token) - existingBalance;
         }
 
         if(claimed == 0) { revert NoRevenue(); }
@@ -152,7 +149,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
         if(claimed == 0) { revert ClaimFailed(); }
 
-        LoanLib.sendOutTokenOrETH(token, owner, claimed);
+        LineLib.sendOutTokenOrETH(token, owner, claimed);
 
         escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
@@ -160,25 +157,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
         return claimed;
     }
-
-    /**
-     * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
-     * @param token Revenue token that is being garnished from spigots
-    */
-    function getEscrowed(address token) external view returns (uint256) {
-        return escrowed[token];
-    }
-
-    /**
-     * @notice - If a function is callable on revenue contracts
-     * @param func Function to check on whitelist 
-    */
-
-    function isWhitelisted(bytes4 func) external view returns(bool) {
-      return whitelistedFunctions[func];
-    }
-
-
 
 
     // ##########################
@@ -200,21 +178,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
     }
 
     /**
-
-     * @notice - operate() on multiple contracts in one tx
-     * @dev - callable by `operator`
-     * @param contracts - smart contracts to call
-     * @param data- tx data, including function signature, to call contracts with
-     */
-    function doOperations(address[] calldata contracts, bytes[] calldata data) external returns (bool) {
-        if(msg.sender != operator) { revert CallerAccessDenied(); }
-        for(uint256 i = 0; i < data.length; i++) {
-            _operate(contracts[i], data[i]);
-        }
-        return true;
-    }
-
-    /**
      * @notice - Checks that operation is whitelisted by Spigot Owner and calls revenue contract with supplied data
      * @param revenueContract - smart contracts to call
      * @param data - tx data, including function signature, to call contracts with
@@ -229,7 +192,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
           func == settings[revenueContract].transferOwnerFunction
         ) { revert BadFunction(); }
 
-        (bool success, bytes memory opData) = revenueContract.call(data);
+        (bool success,) = revenueContract.call(data);
         if(!success) { revert BadFunction(); }
 
         return true;
@@ -291,11 +254,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
         address token = settings[revenueContract].token;
         uint256 claimable = escrowed[token];
         if(claimable > 0) {
-            require(LoanLib.sendOutTokenOrETH(token, owner, claimable));
+            require(LineLib.sendOutTokenOrETH(token, owner, claimable));
             emit ClaimEscrow(token, claimable, owner);
         }
         
-        (bool success, bytes memory callData) = revenueContract.call(
+        (bool success,) = revenueContract.call(
             abi.encodeWithSelector(
                 settings[revenueContract].transferOwnerFunction,
                 operator    // assume function only takes one param that is new owner address
@@ -385,8 +348,27 @@ contract Spigot is ISpigot, ReentrancyGuard {
         emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
- 
-    // GETTERS
+
+    // ##########################
+    // #####   GETTOOOORS   #####
+    // ##########################
+
+    /**
+     * @notice - Retrieve amount of tokens tokens escrowed waiting for claim
+     * @param token Revenue token that is being garnished from spigots
+    */
+    function getEscrowed(address token) external view returns (uint256) {
+        return escrowed[token];
+    }
+
+    /**
+     * @notice - If a function is callable on revenue contracts
+     * @param func Function to check on whitelist 
+    */
+
+    function isWhitelisted(bytes4 func) external view returns(bool) {
+      return whitelistedFunctions[func];
+    }
 
     function getSetting(address revenueContract)
         external view

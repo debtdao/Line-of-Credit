@@ -5,8 +5,9 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
-import {ILoan} from "../../interfaces/ILoan.sol";
-import {LoanLib} from "../../utils/LoanLib.sol";
+import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
+import {CreditLib} from "../../utils/CreditLib.sol";
+import {LineLib} from "../../utils/LineLib.sol";
 
 contract Escrow is IEscrow {
     using SafeERC20 for IERC20;
@@ -19,9 +20,9 @@ contract Escrow is IEscrow {
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
     // Stakeholders and contracts used in Escrow
-    address public immutable loan;
     address public immutable oracle;
     address public immutable borrower;
+    address public line;
 
     // tracking tokens that were deposited
     address[] private _collateralTokens;
@@ -35,26 +36,46 @@ contract Escrow is IEscrow {
     constructor(
         uint256 _minimumCollateralRatio,
         address _oracle,
-        address _loan,
+        address _line,
         address _borrower
-    ) public {
+    ) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
-        loan = _loan;
+        line = _line;
         borrower = _borrower;
     }
+
+    // function oracle() external override returns(address) {
+    //   return address(oracle);
+    // }
+    // function borrower() external override returns(address) {
+    //   return borrower;
+    // }
+    // function line() external override returns(address) {
+    //   return address(line);
+    // }
+
+    // function minimumCollateralRatio() external override returns(uint256) {
+    //   return minimumCollateralRatio;
+    // }
 
     function isLiquidatable() external returns(bool) {
       return _getLatestCollateralRatio() < minimumCollateralRatio;
     }
 
+    function updateLine(address _line) external returns(bool) {
+      require(msg.sender == line);
+      line = _line;
+      return true;
+    }
+
     /**
-     * @notice updates the cratio according to the collateral value vs loan value
-     * @dev calls accrue interest on the loan contract to update the latest interest payable
+     * @notice updates the cratio according to the collateral value vs line value
+     * @dev calls accrue interest on the line contract to update the latest interest payable
      * @return the updated collateral ratio in 18 decimals
      */
     function _getLatestCollateralRatio() internal returns (uint256) {
-        (uint256 principal, uint256 interest)  = ILoan(loan).updateOutstandingDebt();
+        (uint256 principal, uint256 interest) = ILineOfCredit(line).updateOutstandingDebt();
         uint256 debtValue =  principal + interest;
         uint256 collateralValue = _getCollateralValue();
         if (collateralValue == 0) return 0;
@@ -96,6 +117,7 @@ contract Escrow is IEscrow {
         for (uint256 i = 0; i < length; i++) {
             address token = _collateralTokens[i];
             d = deposited[token];
+             // new var so we don't override original deposit amount for 4626 tokens
             uint256 deposit = d.amount;
             if (deposit != 0) {
                 if (d.isERC4626) {
@@ -109,7 +131,12 @@ contract Escrow is IEscrow {
                     if (!success) continue;
                     deposit = abi.decode(assetAmount, (uint256));
                 }
-                collateralValue += LoanLib.getValuation(o, d.asset, deposit, d.assetDecimals);
+
+                collateralValue += CreditLib.calculateValue(
+                  o.getLatestAnswer(d.asset),
+                  deposit,
+                  d.assetDecimals
+                );
             }
         }
 
@@ -132,7 +159,7 @@ contract Escrow is IEscrow {
         require(amount > 0);
         if(!enabled[token])  { revert InvalidCollateral(); }
 
-        LoanLib.receiveTokenOrETH(token, msg.sender, amount);
+        LineLib.receiveTokenOrETH(token, msg.sender, amount);
 
         deposited[token].amount += amount;
 
@@ -142,14 +169,14 @@ contract Escrow is IEscrow {
     }
 
     /**
-     * @notice - allows  the loans arbiter to  enable thdeposits of an asset
+     * @notice - allows  the lines arbiter to  enable thdeposits of an asset
      *        - gives  better risk segmentation forlenders
      * @dev - whitelisting protects against malicious 4626 tokens and DoS attacks
      *       - only need to allow once. Can not disable collateral once enabled.
      * @param token - the token to all borrow to deposit as collateral
      */
     function enableCollateral(address token) external returns (bool) {
-        require(msg.sender == ILoan(loan).arbiter());
+        require(msg.sender == ILineOfCredit(line).arbiter());
 
         _enableToken(token);
 
@@ -220,13 +247,15 @@ contract Escrow is IEscrow {
         if(msg.sender != borrower) { revert CallerAccessDenied(); }
         if(deposited[token].amount < amount) { revert InvalidCollateral(); }
         deposited[token].amount -= amount;
-        IERC20(token).safeTransfer(to, amount);
+        
+        LineLib.sendOutTokenOrETH(token, to, amount);
+
         uint256 cratio = _getLatestCollateralRatio();
         // fail if reduces cratio below min 
         // but allow borrower to always withdraw if fully repaid
         if(
           cratio < minimumCollateralRatio &&         // if undercollateralized, revert;
-          ILoan(loan).loanStatus() != LoanLib.STATUS.REPAID // if repaid, skip;
+          ILineOfCredit(line).status() != LineLib.STATUS.REPAID // if repaid, skip;
         ) { revert UnderCollateralized(); }
         
         emit RemoveCollateral(token, amount);
@@ -254,9 +283,9 @@ contract Escrow is IEscrow {
 
     /**
      * @notice liquidates borrowers collateral by token and amount
-     *         loan can liquidate at anytime based off other covenants besides cratio
+     *         line can liquidate at anytime based off other covenants besides cratio
      * @dev requires that the cratio is at or below the liquidation threshold
-     * @dev callable by `loan`
+     * @dev callable by `line`
      * @param amount - the amount of tokens to liquidate
      * @param token - the address of the token to draw funds from
      * @param to - the address to receive the funds
@@ -268,12 +297,12 @@ contract Escrow is IEscrow {
         address to
     ) external returns (bool) {
         require(amount > 0);
-        if(msg.sender != loan) { revert CallerAccessDenied(); }
+        if(msg.sender != line) { revert CallerAccessDenied(); }
         if(deposited[token].amount < amount) { revert InvalidCollateral(); }
 
         deposited[token].amount -= amount;
         
-        IERC20(token).safeTransfer(to, amount);
+        LineLib.sendOutTokenOrETH(token, to, amount);
 
         emit Liquidate(token, amount);
 

@@ -1,0 +1,57 @@
+{
+  "address": "0x542709E4f57af41AA95B1e237Cbe4198b7548F6D",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "status",
+          "type": "uint256"
+        }
+      ],
+      "name": "UpdateLoanStatus",
+      "type": "event"
+    }
+  ],
+  "transactionHash": "0x277d6592ed9c8ac1cbdc725ec767f305531a6f970a4b83b454bc6463407474b1",
+  "receipt": {
+    "to": null,
+    "from": "0x41d28426925E8201b2A163C4bC1A45D9EAFb32f4",
+    "contractAddress": "0x542709E4f57af41AA95B1e237Cbe4198b7548F6D",
+    "transactionIndex": 9,
+    "gasUsed": "172988",
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x4753d01b2b0fdb51740bc9149a72cb322c8b493940612a16663bc61cc546e9b5",
+    "transactionHash": "0x277d6592ed9c8ac1cbdc725ec767f305531a6f970a4b83b454bc6463407474b1",
+    "logs": [],
+    "blockNumber": 7381134,
+    "cumulativeGasUsed": "5568579",
+    "status": 1,
+    "byzantium": true
+  },
+  "args": [],
+  "numDeployments": 1,
+  "solcInputHash": "2a60ac237244dc390ce3bdbc44555d3c",
+  "metadata": "{\"compiler\":{\"version\":\"0.8.9+commit.e5eed63a\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"status\",\"type\":\"uint256\"}],\"name\":\"UpdateLoanStatus\",\"type\":\"event\"}],\"devdoc\":{\"author\":\"Kiba Gateaux\",\"kind\":\"dev\",\"methods\":{},\"title\":\"Debt DAO P2P Loan Library\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{},\"notice\":\"Core logic and variables to be reused across all Debt DAO Marketplace loans\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/utils/LoanLib.sol\":\"LoanLib\"},\"evmVersion\":\"london\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\",\"useLiteralContent\":true},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/ILoan.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\nimport { LoanLib } from \\\"../utils/LoanLib.sol\\\";\\n\\ninterface ILoan {\\n\\n  // General Events\\n  event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n  event DeployLoan(\\n    address indexed oracle,\\n    address indexed arbiter,\\n    address indexed borrower\\n  );\\n\\n  // Lender Events\\n\\n  event AddCredit(\\n    address indexed lender,\\n    address indexed token,\\n    uint256 indexed deposit,\\n    bytes32 positionId\\n  );\\n\\n\\n   event IncreaseCredit (bytes32 indexed id, uint256 indexed deposit);\\n\\n  // can reference only id once AddCredit is emitted because it will be stored in subgraph\\n  // initialPrinicipal tells us if its a Revolver or Term\\n\\n  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);\\n  // lender removing funds from Loan  principal\\n  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);\\n  // lender taking interest earned out of contract\\n\\n  event CloseCreditPosition(bytes32 indexed id);\\n  // lender officially repaid in full. if Credit then facility has also been closed.\\n\\n  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);\\n  // interest added to borrowers outstanding balance\\n\\n\\n  // Borrower Events\\n\\n  event Borrow(bytes32 indexed id, uint256 indexed amount);\\n  // receive full loan or drawdown on credit\\n\\n  event RepayInterest(bytes32 indexed id, uint256 indexed amount);\\n\\n  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);\\n\\n  event Default(bytes32 indexed id);\\n}\\n\",\"keccak256\":\"0x63d7f761402d6d221e38e1d8fe3302e1a1f153ea7835f6ac96966f43fa6ee7be\"},\"contracts/interfaces/IOracle.sol\":{\"content\":\"pragma solidity 0.8.9;\\n\\ninterface IOracle {\\n    /** current price for token asset. denominated in USD */\\n    function getLatestAnswer(address token) external returns(int);\\n}\\n\",\"keccak256\":\"0xdefae1f6dd298ddfba2a88c77096e77e59ac0a567bc3c8e76ef5a3424e4b832f\"},\"contracts/utils/LoanLib.sol\":{\"content\":\"pragma solidity 0.8.9;\\nimport { ILoan } from \\\"../interfaces/ILoan.sol\\\";\\nimport { IOracle } from \\\"../interfaces/IOracle.sol\\\";\\n/**\\n  * @title Debt DAO P2P Loan Library\\n  * @author Kiba Gateaux\\n  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans\\n */\\nlibrary LoanLib {\\n    event UpdateLoanStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph\\n\\n    enum STATUS {\\n        // \\u00bfhoo dis\\n        // Loan has been deployed but terms and conditions are still being signed off by parties\\n        UNINITIALIZED,\\n        INITIALIZED,\\n\\n        // ITS ALLLIIIIVVEEE\\n        // Loan is operational and actively monitoring status\\n        ACTIVE,\\n        UNDERCOLLATERALIZED,\\n        LIQUIDATABLE, // [#X\\n        DELINQUENT,\\n\\n        // Loan is in distress and paused\\n        LIQUIDATING,\\n        OVERDRAWN,\\n        DEFAULT,\\n        ARBITRATION,\\n\\n        // L\\u00f6n izz ded\\n        // Loan is no longer active, successfully repaid or insolvent\\n        REPAID,\\n        INSOLVENT\\n    }\\n\\n    function updateStatus(STATUS status, STATUS target) external returns(STATUS) {\\n        if (status == target) return status;  // check if it needs updating\\n        status = target;            // set storage in Line contract\\n        emit UpdateLoanStatus(uint256(status));\\n        return status;\\n    }\\n}\\n\",\"keccak256\":\"0xf245bd57fcc50793a607c24d652535b99a7bff5e39e77ef7a8c9d7743d3100ef\"}},\"version\":1}",
+  "bytecode": "0x61022b610053600b82828239805160001a607314610046577f4e487b7100000000000000000000000000000000000000000000000000000000600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106100355760003560e01c8063f875c74d1461003a575b600080fd5b81801561004657600080fd5b50610061600480360381019061005c9190610123565b610077565b60405161006e91906101da565b60405180910390f35b600081600b81111561008c5761008b610163565b5b83600b81111561009f5761009e610163565b5b14156100ad578290506100f3565b81925082600b8111156100c3576100c2610163565b5b7f111617786a4a1f5fb27b9fde0dc3f64f94edda8039b1ced53fc47b602b80603260405160405180910390a28290505b92915050565b600080fd5b600c811061010b57600080fd5b50565b60008135905061011d816100fe565b92915050565b6000806040838503121561013a576101396100f9565b5b60006101488582860161010e565b92505060206101598582860161010e565b9150509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600c81106101a3576101a2610163565b5b50565b60008190506101b482610192565b919050565b60006101c4826101a6565b9050919050565b6101d4816101b9565b82525050565b60006020820190506101ef60008301846101cb565b9291505056fea26469706673582212206e7b133f9088dad2b29a12daf1f615a99a47634ee676d4dcd20eda83fd3fc41064736f6c63430008090033",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106100355760003560e01c8063f875c74d1461003a575b600080fd5b81801561004657600080fd5b50610061600480360381019061005c9190610123565b610077565b60405161006e91906101da565b60405180910390f35b600081600b81111561008c5761008b610163565b5b83600b81111561009f5761009e610163565b5b14156100ad578290506100f3565b81925082600b8111156100c3576100c2610163565b5b7f111617786a4a1f5fb27b9fde0dc3f64f94edda8039b1ced53fc47b602b80603260405160405180910390a28290505b92915050565b600080fd5b600c811061010b57600080fd5b50565b60008135905061011d816100fe565b92915050565b6000806040838503121561013a576101396100f9565b5b60006101488582860161010e565b92505060206101598582860161010e565b9150509250929050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b600c81106101a3576101a2610163565b5b50565b60008190506101b482610192565b919050565b60006101c4826101a6565b9050919050565b6101d4816101b9565b82525050565b60006020820190506101ef60008301846101cb565b9291505056fea26469706673582212206e7b133f9088dad2b29a12daf1f615a99a47634ee676d4dcd20eda83fd3fc41064736f6c63430008090033",
+  "devdoc": {
+    "author": "Kiba Gateaux",
+    "kind": "dev",
+    "methods": {},
+    "title": "Debt DAO P2P Loan Library",
+    "version": 1
+  },
+  "userdoc": {
+    "kind": "user",
+    "methods": {},
+    "notice": "Core logic and variables to be reused across all Debt DAO Marketplace loans",
+    "version": 1
+  },
+  "storageLayout": {
+    "storage": [],
+    "types": null
+  }
+}

@@ -7,22 +7,22 @@ contract InterestRateCredit is IInterestRateCredit {
     uint256 constant BASE_DENOMINATOR = 10000; // div 100 for %, div 100 for bps in numerator
     uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
 
-    address immutable loanContract;
+    address immutable lineContract;
     mapping(bytes32 => Rate) public rates; // id -> lending rates
 
     /**
      * @notice Interest contract for line of credit contracts
      */
     constructor() {
-        loanContract = msg.sender;
+        lineContract = msg.sender;
     }
 
     ///////////  MODIFIERS  ///////////
 
-    modifier onlyLoanContract() {
+    modifier onlyLineContract() {
         require(
-            msg.sender == loanContract,
-            "InterestRateCred: only loan contract."
+            msg.sender == lineContract,
+            "InterestRateCred: only line contract."
         );
         _;
     }
@@ -30,8 +30,8 @@ contract InterestRateCredit is IInterestRateCredit {
     ///////////  FUNCTIONS  ///////////
 
     /**
-     * @dev accrueInterest function for revolver loan
-     * @dev    - callable by `loan`
+     * @dev accrueInterest function for revolver line
+     * @dev    - callable by `line`
      * @param drawnBalance balance of drawn funds
      * @param facilityBalance balance of facility funds
      * @return repayBalance amount to be repaid for this interest period
@@ -41,7 +41,7 @@ contract InterestRateCredit is IInterestRateCredit {
         bytes32 id,
         uint256 drawnBalance,
         uint256 facilityBalance
-    ) external override onlyLoanContract returns (uint256) {
+    ) external override onlyLineContract returns (uint256) {
         return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
@@ -65,14 +65,14 @@ contract InterestRateCredit is IInterestRateCredit {
 
     /**
      * @notice update interest rates for a position
-     * @dev - Loan contract responsible for calling accrueInterest() before updateInterest() if necessary
-     * @dev    - callable by `loan`
+     * @dev - Line contract responsible for calling accrueInterest() before updateInterest() if necessary
+     * @dev    - callable by `line`
      */
     function setRate(
         bytes32 id,
         uint128 drawnRate,
         uint128 facilityRate
-    ) external onlyLoanContract returns (bool) {
+    ) external onlyLineContract returns (bool) {
         rates[id] = Rate({
             drawnRate: drawnRate,
             facilityRate: facilityRate,
