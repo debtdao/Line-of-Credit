@@ -1,14 +1,14 @@
 pragma solidity ^0.8.9;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { LoanLib } from "../../utils/LoanLib.sol";
-import { EscrowedLoan } from "./EscrowedLoan.sol";
-import { SpigotedLoan } from "./SpigotedLoan.sol";
-import { SpigotedLoanLib } from "../../utils/SpigotedLoanLib.sol";
+import { LineLib } from "../../utils/LineLib.sol";
+import { EscrowedLine } from "./EscrowedLine.sol";
+import { SpigotedLine } from "./SpigotedLine.sol";
+import { SpigotedLineLib } from "../../utils/SpigotedLineLib.sol";
 import { LineOfCredit } from "./LineOfCredit.sol";
 import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
-import { ISecuredLoan } from "../../interfaces/ISecuredLoan.sol";
+import { ISecuredLine } from "../../interfaces/ISecuredLine.sol";
 
-contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
+contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
 
     constructor(
         address oracle_,
@@ -19,7 +19,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
         address escrow_,
         uint ttl_,
         uint8 defaultSplit_
-    ) SpigotedLoan(
+    ) SpigotedLine(
         oracle_,
         arbiter_,
         borrower_,
@@ -27,37 +27,35 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
         swapTarget_,
         ttl_,
         defaultSplit_
-    ) EscrowedLoan(escrow_) {
+    ) EscrowedLine(escrow_) {
 
     }
 
-  function _init() internal override(SpigotedLoan, EscrowedLoan) virtual returns(LoanLib.STATUS) {
-     LoanLib.STATUS s =  LoanLib.STATUS.ACTIVE;
+  function _init() internal override(SpigotedLine, EscrowedLine) virtual returns(LineLib.STATUS) {
+     LineLib.STATUS s =  LineLib.STATUS.ACTIVE;
     
-    if(SpigotedLoan._init() != s || EscrowedLoan._init() != s) {
-      return LoanLib.STATUS.UNINITIALIZED;
+    if(SpigotedLine._init() != s || EscrowedLine._init() != s) {
+      return LineLib.STATUS.UNINITIALIZED;
     }
     
     return s;
   }
 
-  function rollover(address newLoan)
+  function rollover(address newLine)
     external
     onlyBorrower
     override
     returns(bool)
   {
-    // only borrower can call. No debt so arbiter shouldn't control
-    if(msg.sender != borrower) { revert CallerAccessDenied(); }
     // require all debt successfully paid already
-    if(loanStatus != LoanLib.STATUS.REPAID) { revert DebtOwed(); }
-    // require new loan isn't activated yet
-    if(ILineOfCredit(newLoan).init() != LoanLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
-    // we dont check borrower is same on both loans because borrower might want new address managing new loan
+    if(status != LineLib.STATUS.REPAID) { revert DebtOwed(); }
+    // require new line isn't activated yet
+    if(ILineOfCredit(newLine).init() != LineLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
+    // we dont check borrower is same on both lines because borrower might want new address managing new line
 
     return (
-      EscrowedLoan._rollover(newLoan) &&
-      SpigotedLoanLib.rollover(address(spigot), newLoan)
+      EscrowedLine._rollover(newLine) &&
+      SpigotedLineLib.rollover(address(spigot), newLine)
     );
   }
 
@@ -66,7 +64,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
   /**
    * @notice - Forcefully take collateral from borrower and repay debt for lender
    * @dev - only called by neutral arbiter party/contract
-   * @dev - `loanStatus` must be LIQUIDATABLE
+   * @dev - `status` must be LIQUIDATABLE
    * @dev - callable by `arbiter`
    * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
    * @param targetToken - token in escrow that will be sold of to repay position
@@ -81,7 +79,7 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
     returns(uint256)
   {
     if(msg.sender != arbiter) { revert CallerAccessDenied(); }
-    if(_updateStatus(_healthcheck()) != LoanLib.STATUS.LIQUIDATABLE) {
+    if(_updateStatus(_healthcheck()) != LineLib.STATUS.LIQUIDATABLE) {
       revert NotLiquidatable();
     }
 
@@ -91,13 +89,13 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
 
   
     /** @notice checks internal accounting logic for status and if ok, runs modules checks */
-    function _healthcheck() internal override(EscrowedLoan, LineOfCredit) returns(LoanLib.STATUS) {
-      LoanLib.STATUS s = LineOfCredit._healthcheck();
-      if(s != LoanLib.STATUS.ACTIVE) {
+    function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns(LineLib.STATUS) {
+      LineLib.STATUS s = LineOfCredit._healthcheck();
+      if(s != LineLib.STATUS.ACTIVE) {
         return s;
       }
 
-      return EscrowedLoan._healthcheck();
+      return EscrowedLine._healthcheck();
     }
 
 
@@ -105,12 +103,12 @@ contract SecuredLoan is SpigotedLoan, EscrowedLoan, ISecuredLoan {
     function _canDeclareInsolvent()
       internal
       virtual
-      override(EscrowedLoan, SpigotedLoan)
+      override(EscrowedLine, SpigotedLine)
       returns(bool)
     {
       return (
-        EscrowedLoan._canDeclareInsolvent() &&
-        SpigotedLoan._canDeclareInsolvent()
+        EscrowedLine._canDeclareInsolvent() &&
+        SpigotedLine._canDeclareInsolvent()
       );
     }
 

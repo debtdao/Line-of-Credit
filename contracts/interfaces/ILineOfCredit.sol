@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import { LoanLib } from "../utils/LoanLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 
 interface ILineOfCredit {
@@ -18,7 +18,7 @@ interface ILineOfCredit {
   // General Events
   event UpdateStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
-  event DeployLoan(
+  event DeployLine(
     address indexed oracle,
     address indexed arbiter,
     address indexed borrower
@@ -41,7 +41,7 @@ interface ILineOfCredit {
   // Lender Events
 
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // lender removing funds from Loan  principal
+  // lender removing funds from Line  principal
   event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
   // lender taking interest earned out of contract
 
@@ -55,7 +55,7 @@ interface ILineOfCredit {
   // Borrower Events
 
   event Borrow(bytes32 indexed id, uint256 indexed amount);
-  // receive full loan or drawdown on credit
+  // receive full line or drawdown on credit
 
   event RepayInterest(bytes32 indexed id, uint256 indexed amount);
 
@@ -72,7 +72,7 @@ interface ILineOfCredit {
   error TokenTransferFailed();
   error NoTokenPrice();
 
-  // Loan
+  // Line
   error BadModule(address module);
   error NoLiquidity();
   error PositionExists();
@@ -81,7 +81,7 @@ interface ILineOfCredit {
   error NotLiquidatable();
   error AlreadyInitialized();
 
-  function init() external returns(LoanLib.STATUS);
+  function init() external returns(LineLib.STATUS);
 
   // MutualConsent functions
   function addCredit(
@@ -107,10 +107,10 @@ interface ILineOfCredit {
   function declareInsolvent() external returns(bool);
 
   function accrueInterest() external returns(bool);
-  function healthcheck() external returns(LoanLib.STATUS);
+  function healthcheck() external returns(LineLib.STATUS);
   function updateOutstandingDebt() external returns(uint256, uint256);
 
-  function loanStatus() external returns(LoanLib.STATUS);
+  function status() external returns(LineLib.STATUS);
   function borrower() external returns(address);
   function arbiter() external returns(address);
   function oracle() external returns(IOracle);

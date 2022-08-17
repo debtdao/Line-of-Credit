@@ -1,11 +1,11 @@
 pragma solidity 0.8.9;
 
 import { IEscrow } from "../../interfaces/IEscrow.sol";
-import { LoanLib } from "../../utils/LoanLib.sol";
-import { IEscrowedLoan } from "../../interfaces/IEscrowedLoan.sol";
+import { LineLib } from "../../utils/LineLib.sol";
+import { IEscrowedLine } from "../../interfaces/IEscrowedLine.sol";
 import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 
-abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
+abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
   // contract holding all collateral for borrower
   IEscrow immutable public escrow;
 
@@ -13,18 +13,18 @@ abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
     escrow = IEscrow(_escrow);
   }
 
-  function _init() internal virtual returns(LoanLib.STATUS) {
-    if(escrow.loan() != address(this)) return LoanLib.STATUS.UNINITIALIZED;
-    return LoanLib.STATUS.ACTIVE;
+  function _init() internal virtual returns(LineLib.STATUS) {
+    if(escrow.line() != address(this)) return LineLib.STATUS.UNINITIALIZED;
+    return LineLib.STATUS.ACTIVE;
   }
 
-  /** @dev see BaseLoan._healthcheck */
-  function _healthcheck() virtual internal returns(LoanLib.STATUS) {
+  /** @dev see BaseLine._healthcheck */
+  function _healthcheck() virtual internal returns(LineLib.STATUS) {
     if(escrow.isLiquidatable()) {
-      return LoanLib.STATUS.LIQUIDATABLE;
+      return LineLib.STATUS.LIQUIDATABLE;
     }
 
-    return LoanLib.STATUS.ACTIVE;
+    return LineLib.STATUS.ACTIVE;
   }
 
   /**
@@ -56,15 +56,15 @@ abstract contract EscrowedLoan is IEscrowedLoan, ILineOfCredit {
   /**
    * @notice require all collateral sold off before declaring insolvent
    *(@dev priviliegad internal function.
-   * @return if loan is insolvent or not
+   * @return if line is insolvent or not
   */
   function _canDeclareInsolvent() internal virtual returns(bool) {
     if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
     return true;
   }
 
-  function _rollover(address newLoan) internal virtual returns(bool) {
-    require(escrow.updateLoan(newLoan));
+  function _rollover(address newLine) internal virtual returns(bool) {
+    require(escrow.updateLine(newLine));
     return true;
   }
 }

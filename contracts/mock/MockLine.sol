@@ -1,20 +1,20 @@
 pragma solidity 0.8.9;
 
 import { IEscrow } from "../interfaces/IEscrow.sol";
-import { LoanLib } from "../utils/LoanLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
 
-contract MockLoan {
+contract MockLine {
 
     uint debtValueUSD;
     address escrow;
     address public arbiter;
-    LoanLib.STATUS public loanStatus;
+    LineLib.STATUS public status;
 
     constructor(uint _debt, address arbiter_) public {
         debtValueUSD = _debt;
         // console.log("arbiter", msg.sender);
         arbiter = arbiter_;
-        loanStatus =  LoanLib.STATUS.ACTIVE;
+        status =  LineLib.STATUS.ACTIVE;
     }
 
     function setEscrow(address _escrow) public {
@@ -31,8 +31,8 @@ contract MockLoan {
     }
 
 
-    function setStatus(LoanLib.STATUS _status) external {
-        loanStatus = _status;
+    function setStatus(LineLib.STATUS _status) external {
+        status = _status;
     }
 
     function liquidate(uint positionId, uint amount, address token, address to) external {

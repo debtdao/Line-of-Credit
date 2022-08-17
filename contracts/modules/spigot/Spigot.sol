@@ -1,7 +1,7 @@
 pragma solidity 0.8.9;
 
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { LoanLib } from  "../../utils/LoanLib.sol";
+import { LineLib } from  "../../utils/LineLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 
@@ -9,7 +9,7 @@ import {ISpigot} from "../../interfaces/ISpigot.sol";
  * @title Spigot
  * @author Kiba Gateaux
  * @notice Contract allowing Owner to secure revenue streams from a DAO and split payments between them
- * @dev Should be deployed once per loan. Can attach multiple revenue contracts
+ * @dev Should be deployed once per line. Can attach multiple revenue contracts
  */
 contract Spigot is ISpigot, ReentrancyGuard {
 
@@ -60,7 +60,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
       // if excess revenue sitting in Spigot after MAX_REVENUE cut,
       // prevent actions until all revenue claimed and escrow updated
       // only protects push payments not pull payments.
-      if( LoanLib.getBalance(token) > escrowed[token]) {
+      if( LineLib.getBalance(token) > escrowed[token]) {
         revert UnclaimedRevenue();
       }
       _;
@@ -94,7 +94,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         
         // send non-escrowed tokens to Treasury if non-zero
         if(claimed > escrowedAmount) {
-            require(LoanLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
+            require(LineLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
         }
 
         emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
@@ -107,7 +107,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         internal
         returns (uint256 claimed)
     {
-        uint256 existingBalance = LoanLib.getBalance(token);
+        uint256 existingBalance = LineLib.getBalance(token);
         if(settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
@@ -118,7 +118,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
             (bool claimSuccess,) = revenueContract.call(data);
             if(!claimSuccess) { revert ClaimFailed(); }
             // claimed = total balance - existing balance
-            claimed = LoanLib.getBalance(token) - existingBalance;
+            claimed = LineLib.getBalance(token) - existingBalance;
         }
 
         if(claimed == 0) { revert NoRevenue(); }
@@ -149,7 +149,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
         if(claimed == 0) { revert ClaimFailed(); }
 
-        LoanLib.sendOutTokenOrETH(token, owner, claimed);
+        LineLib.sendOutTokenOrETH(token, owner, claimed);
 
         escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
@@ -254,7 +254,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         address token = settings[revenueContract].token;
         uint256 claimable = escrowed[token];
         if(claimable > 0) {
-            require(LoanLib.sendOutTokenOrETH(token, owner, claimable));
+            require(LineLib.sendOutTokenOrETH(token, owner, claimable));
             emit ClaimEscrow(token, claimable, owner);
         }
         
