@@ -57,6 +57,8 @@ library LoanLib {
       returns (bool)
     {
         if(token == address(0)) { revert TransferFailed(); }
+        
+        // both branches revert if call failed
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH

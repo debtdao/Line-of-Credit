@@ -8,11 +8,24 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 library SpigotedLoanLib {
-    error BadTradingPair();
+
+    // max revenue to take from spigot if loan is in distress
+    uint8 constant MAX_SPLIT = 100;
+
+    error NoSpigot();
 
     error TradeFailed();
 
+    error BadTradingPair();
+
+    error CallerAccessDenied();
+    
+    error ReleaseSpigotFailed();
+
+    error NotInsolvent(address module);
+
     error UsedExcessTokens(address token, uint256 amountAvailable);
+
 
     event TradeSpigotRevenue(
         address indexed revenueToken,
@@ -47,11 +60,12 @@ library SpigotedLoanLib {
     {
         // can not trade into same token. causes double count for unused tokens
         if(claimToken == targetToken) { revert BadTradingPair(); }
+
         // snapshot token balances now to diff after trade executes
         uint256 oldClaimTokens = LoanLib.getBalance(claimToken);
         uint256 oldTargetTokens = LoanLib.getBalance(targetToken);
         
-        // has to be called after we get balance
+        // claim has to be called after we get balance
         uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
         trade(
@@ -63,12 +77,14 @@ library SpigotedLoanLib {
         
         // underflow revert ensures we have more tokens than we started with
         uint256 tokensBought = LoanLib.getBalance(targetToken) - oldTargetTokens;
-        if(tokensBought == 0) { revert TradeFailed(); } // ensure tokens 
+
+        if(tokensBought == 0) { revert TradeFailed(); } // ensure tokens bought
+
         uint256 newClaimTokens = LoanLib.getBalance(claimToken);
+
         // ideally we could use oracle to calculate # of tokens to receive
         // but sellToken might not have oracle. buyToken must have oracle
 
-        
         emit TradeSpigotRevenue(
             claimToken,
             claimed,
@@ -128,4 +144,86 @@ library SpigotedLoanLib {
       return true;
     }
 
+    function canDeclareInsolvent(address spigot, address arbiter) external view returns (bool) {
+            // Must have called releaseSpigot() and sold off protocol / revenue streams already
+      address owner_ = ISpigot(spigot).owner();
+      if(
+        address(this) == owner_ ||
+        arbiter == owner_
+      ) { revert NotInsolvent(spigot); }
+      // no additional logic in LineOfCredit to include
+      return true;
+    }
+
+
+    /**
+     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
+     * @dev    - callable `arbiter` + `borrower`
+     * @param revenueContract - spigot to update
+     * @return whether or not split was updated
+     */
+    function updateSplit(address spigot, address revenueContract, LoanLib.STATUS status, uint8 defaultSplit) external returns (bool) {
+        (,uint8 split,  ,bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
+
+        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
+
+        if(status == LoanLib.STATUS.ACTIVE && split != defaultSplit) {
+            // if loan is healthy set split to default take rate
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
+        } else if (status == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
+            // if loan is in distress take all revenue to repay loan
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, MAX_SPLIT);
+        }
+
+        return false;
+    }
+
+
+    /**
+
+   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
+             -  doesnt transfer out if loan is unpaid and/or healthy
+   * @dev    - callable by anyone 
+   * @return - whether or not spigot was released
+  */
+    function releaseSpigot(address spigot, LoanLib.STATUS status, address borrower, address arbiter) external returns (bool) {
+        if (status == LoanLib.STATUS.REPAID) {
+          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+          if(!ISpigot(spigot).updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
+          return true;
+        }
+
+        if (status == LoanLib.STATUS.LIQUIDATABLE) {
+          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+          if(!ISpigot(spigot).updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
+          return true;
+        }
+
+        return false;
+    }
+
+
+        /**
+
+   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
+             -  doesnt transfer out if loan is unpaid and/or healthy
+   * @dev    - callable by anyone 
+   * @return - whether or not spigot was released
+  */
+    function sweep(address to, address token, uint256 amount, LoanLib.STATUS status, address borrower, address arbiter) external returns (bool) {
+        if(amount == 0) { revert UsedExcessTokens(token, 0); }
+
+        if (status == LoanLib.STATUS.REPAID) {
+            if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+            return LoanLib.sendOutTokenOrETH(token, to, amount);
+
+        }
+
+        if (status == LoanLib.STATUS.LIQUIDATABLE) {
+            if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+            return LoanLib.sendOutTokenOrETH(token, to, amount);
+        }
+
+        return false;
+    }
 }

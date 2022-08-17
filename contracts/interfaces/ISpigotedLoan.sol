@@ -10,9 +10,7 @@ interface ISpigotedLoan {
     // this event is just semantics/helper to track payments from revenue specifically
   );
 
-  error NoSpigot();
-  error TradeFailed();
-  error ReleaseSpigotFailed();
+
 
 
   // Borrower functions

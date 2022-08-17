@@ -179,7 +179,7 @@ contract LoanTest is Test {
 
 
     function test_loan_cant_init_after_init() public {
-        vm.expectRevert();
+        vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
         loan.init();
     }
 
@@ -902,7 +902,8 @@ contract LoanTest is Test {
       loan.rollover(address(loan));
 
       oracle.changePrice(address(supportedToken2), 1);
-      assertEq(uint(loan.loanStatus()), LoanLib.STATUS.LIQUIDATABLE);
+      assertFalse(loan.loanStatus() == LoanLib.STATUS.REPAID);
+      // assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.REPAID));
 
       // LIQUIDATABLE w/ debt
       vm.expectRevert(ISecuredLoan.DebtOwed.selector);

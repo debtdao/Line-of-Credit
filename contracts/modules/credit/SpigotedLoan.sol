@@ -22,9 +22,6 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     // amount of revenue to take from spigot if loan is healthy
     uint8 public immutable defaultRevenueSplit;
 
-    // max revenue to take from spigot if loan is in distress
-    uint8 constant MAX_SPLIT = 100;
-
     // credit tokens we bought from revenue but didn't use to repay loan
     // needed because Revolver might have same token held in contract as being bought/sold
     mapping(address => uint256) private unusedTokens;
@@ -47,7 +44,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        require(defaultRevenueSplit_ <= MAX_SPLIT);
+        require(defaultRevenueSplit_ <= SpigotedLoanLib.MAX_SPLIT);
 
         spigot = ISpigot(spigot_);
         defaultRevenueSplit = defaultRevenueSplit_;
@@ -64,14 +61,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     }
 
     function _canDeclareInsolvent() internal virtual override returns(bool) {
-      // Must have called releaseSpigot() and sold off protocol / revenue streams already
-      address owner_ = spigot.owner();
-      if(
-        address(this) == owner_ ||
-        arbiter == owner_
-      ) { revert NotInsolvent(address(spigot)); }
-      // no additional logic in LineOfCredit to include
-      return true;
+        return SpigotedLoanLib.canDeclareInsolvent(address(spigot), arbiter);
     }
 
 
@@ -132,8 +122,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
       require(amount <= unusedTokens[credit.token]);
       unusedTokens[credit.token] -= amount;
 
-      credit = _accrue(credit, id);
-      credits[id] = _repay(credit, id, amount);
+      credits[id] = _repay(_accrue(credit, id), id, amount);
 
       return true;
     }
@@ -183,7 +172,6 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
       bytes calldata zeroExTradeData
     )
         internal
-        whileBorrowing
         returns (uint256)
     {
         (uint256 tokensBought, uint256 totalUnused) = SpigotedLoanLib.claimAndTrade(
@@ -210,20 +198,12 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
      * @return whether or not split was updated
      */
     function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (,uint8 split,  ,bytes4 transferFunc) = spigot.getSetting(revenueContract);
-
-        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
-
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-        if(s == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
-            // if loan is healthy set split to default take rate
-            return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (s == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
-            // if loan is in distress take all revenue to repay loan
-            return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
-        }
-
-        return false;
+        return SpigotedLoanLib.updateSplit(
+          address(spigot),
+          revenueContract,
+          _updateStatus(_healthcheck()),
+          defaultRevenueSplit
+        );
     }
 
     /**
@@ -263,23 +243,12 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-
-        if (s == LoanLib.STATUS.REPAID) {
-          address b = borrower; // gas savings
-          if (msg.sender != b) { revert CallerAccessDenied(); } 
-          if(!spigot.updateOwner(b)) { revert ReleaseSpigotFailed(); }
-          return true;
-        }
-
-        if (s == LoanLib.STATUS.LIQUIDATABLE) {
-          address a = arbiter; // gas savings
-          if (msg.sender != a) { revert CallerAccessDenied(); } 
-          if(!spigot.updateOwner(a)) { revert ReleaseSpigotFailed(); }
-          return true;
-        }
-
-        return false;
+        return SpigotedLoanLib.releaseSpigot(
+          address(spigot),
+          _updateStatus(_healthcheck()),
+          borrower,
+          arbiter
+        );
     }
 
   /**
@@ -289,24 +258,18 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
    * @param token - token to take out
   */
     function sweep(address to, address token) external returns (uint256) {
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-        if (s == LoanLib.STATUS.REPAID) {
-          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
-            return _sweep(to, token);
-        }
+        uint256 amount = unusedTokens[token];
 
-        if (s == LoanLib.STATUS.LIQUIDATABLE) {
-          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
-          return _sweep(to, token);
-        }
+        bool success = SpigotedLoanLib.sweep(
+          to,
+          token,
+          amount,
+          _updateStatus(_healthcheck()),
+          borrower,
+          arbiter
+        );
 
-        return 0;
-    }
-
-    function _sweep(address to, address token) internal returns (uint256 x) {
-        x = unusedTokens[token];
-        LoanLib.sendOutTokenOrETH(token, to, x);
-        delete unusedTokens[token];
+        return success ? amount : 0;
     }
 
     // allow claiming/trading in ETH

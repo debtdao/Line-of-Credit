@@ -1,15 +1,19 @@
 
 pragma solidity ^0.8.9;
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import "forge-std/Test.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
+import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+
 import { ZeroEx } from "../../mock/ZeroEx.sol";
+import { SimpleOracle } from "../../mock/SimpleOracle.sol";
+import { RevenueToken } from "../../mock/RevenueToken.sol";
 
 import { Spigot } from "../spigot/Spigot.sol";
 import { SpigotedLoan } from './SpigotedLoan.sol';
+
 import { LoanLib } from '../../utils/LoanLib.sol';
+import { SpigotedLoanLib } from '../../utils/SpigotedLoanLib.sol';
+
 import { ISpigot } from '../../interfaces/ISpigot.sol';
 import { ISpigotedLoan } from '../../interfaces/ISpigotedLoan.sol';
 import { ILineOfCredit } from '../../interfaces/ILineOfCredit.sol';
@@ -192,7 +196,7 @@ contract SpigotedLoanTest is Test {
 
       hoax(borrower);
       // No unused tokens so can't get approved
-      vm.expectRevert(ISpigotedLoan.TradeFailed.selector);
+      vm.expectRevert(SpigotedLoanLib.TradeFailed.selector);
       loan.claimAndTrade(address(revenueToken), tradeData);
     }
 
@@ -271,7 +275,7 @@ contract SpigotedLoanTest is Test {
 
       // No unused tokens so can't get approved
       vm.startPrank(borrower);
-      vm.expectRevert(ISpigotedLoan.TradeFailed.selector);
+      vm.expectRevert(SpigotedLoanLib.TradeFailed.selector);
       loan.claimAndTrade(address(revenueToken), tradeData);
       (,uint p,,,,,) = loan.credits(loan.ids(0));
       
@@ -653,7 +657,6 @@ contract SpigotedLoanTest is Test {
 
     function test_cant_sweep_tokens_while_active() public {
       _borrow(loan.ids(0), lentAmount);
-      hoax(borrower);
       uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amountd tokens for test
       // create unused tokens      
       bytes memory tradeData = abi.encodeWithSignature(
@@ -663,9 +666,21 @@ contract SpigotedLoanTest is Test {
         claimed - 1,
         lentAmount
       );
-      loan.claimAndRepay(address(revenueToken), tradeData);
+      hoax(borrower);
+      loan.claimAndTrade(address(revenueToken), tradeData);
       vm.stopPrank();
+
       assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
+    }
+
+
+    function test_cant_sweep_empty_tokens() public {
+      vm.expectRevert(abi.encodeWithSelector(
+        SpigotedLoanLib.UsedExcessTokens.selector,
+        address(creditToken),
+        0
+      ));
+      loan.sweep(address(this), address(creditToken));
     }
 
     function test_cant_sweep_tokens_when_repaid_as_anon() public {
@@ -677,7 +692,7 @@ contract SpigotedLoanTest is Test {
         address(revenueToken),
         address(creditToken),
         claimed - 1,
-        lentAmount
+        lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
       );
       
       hoax(borrower);
@@ -701,8 +716,9 @@ contract SpigotedLoanTest is Test {
         address(revenueToken),
         address(creditToken),
         claimed - 10,
-        lentAmount
+        lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
       );
+
 
       loan.claimAndRepay(address(revenueToken), tradeData);
       
@@ -727,7 +743,19 @@ contract SpigotedLoanTest is Test {
 
     function test_cant_sweep_tokens_when_liquidate_as_anon() public {
       _borrow(loan.ids(0), lentAmount);
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        MAX_REVENUE / 100,
+        lentAmount // give excess tokens so we can sweep with out UsedExcess error
+      );
+      hoax(borrower);
+
+      loan.claimAndTrade(address(revenueToken), tradeData);
+
       vm.warp(ttl+1);
+
       hoax(address(0xdebf));
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       assertEq(0, loan.sweep(address(this), address(creditToken))); // no tokens transfered
@@ -791,7 +819,7 @@ contract SpigotedLoanTest is Test {
     }
 
     function test_update_split_bad_contract() public {
-      vm.expectRevert(ISpigotedLoan.NoSpigot.selector);
+      vm.expectRevert(SpigotedLoanLib.NoSpigot.selector);
       loan.updateOwnerSplit(address(0xdead));
     }
 
