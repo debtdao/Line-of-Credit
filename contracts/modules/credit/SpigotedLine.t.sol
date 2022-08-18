@@ -794,6 +794,23 @@ contract SpigotedLineTest is Test {
 
     // updateOwnerSplit()
 
+    function test_split_must_be_lte_100(uint8 proposedSplit) public {
+      if(proposedSplit > 100) {
+        vm.expectRevert();
+      }
+
+      new SpigotedLine(
+          address(oracle),
+          arbiter,
+          borrower,
+          address(spigot),
+          payable(address(dex)),
+          ttl,
+          proposedSplit
+        );
+        
+    }
+
     function test_update_split_no_action_on_active() public {
       // already at default so doesnt change
       assertFalse(line.updateOwnerSplit(revenueContract));
