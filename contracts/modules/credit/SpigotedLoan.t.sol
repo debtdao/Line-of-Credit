@@ -824,6 +824,22 @@ contract SpigotedLoanTest is Test {
       assertEq(split3, ownerSplit); // to default since ACTIVE
     }
 
+    function test_revenue_split_must_be_lte_100(uint8 proposedSplit) public {
+      if(proposedSplit > 100) {
+        vm.expectRevert();
+      }
+
+      new SpigotedLoan(
+        address(oracle),
+        arbiter,
+        borrower,
+        address(spigot),
+        payable(address(dex)),
+        ttl,
+        proposedSplit
+      );
+    }
+
     // addSpigot()
 
     function test_cant_add_spigot_without_consent() public {

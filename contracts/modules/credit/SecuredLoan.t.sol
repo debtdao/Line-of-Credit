@@ -902,7 +902,7 @@ contract LoanTest is Test {
       loan.rollover(address(loan));
 
       oracle.changePrice(address(supportedToken2), 1);
-      assertEq(uint(loan.loanStatus()), LoanLib.STATUS.LIQUIDATABLE);
+      assertEq(uint(loan.loanStatus()), uint(LoanLib.STATUS.LIQUIDATABLE));
 
       // LIQUIDATABLE w/ debt
       vm.expectRevert(ISecuredLoan.DebtOwed.selector);
