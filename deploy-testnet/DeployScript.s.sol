@@ -43,13 +43,13 @@ contract DeployScript is Script {
 
         Spigot spigot = new Spigot(msg.sender, borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        escrow = new Escrow(minCollateralRatio, address(oracle),msg.sender, borrower);
+        escrow = new Escrow(minCollateralRatio, address(oracle), msg.sender, borrower);
 
         loan = new SecuredLoan(
             address(oracle),
             arbiter,
             borrower,
-            address(0),
+            payable(address(0)),
             address(spigot),
             address(escrow),
             150 days,
