@@ -9,64 +9,27 @@ import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 
-contract Escrow is IEscrow {
+library EscrowLib {
     using SafeERC20 for IERC20;
-
-    // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
-    uint256 public minimumCollateralRatio;
 
     // return if have collateral but no debt
     uint256 constant MAX_INT =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    // Stakeholders and contracts used in Escrow
-    address public immutable oracle;
-    address public immutable borrower;
-    address public line;
-
-    // tracking tokens that were deposited
-    address[] private _collateralTokens;
-
-    // mapping if lenders allow token as collateral. ensures uniqueness in tokensUsedAsCollateral
-    mapping(address => bool) private enabled;
-
-    // tokens used as collateral (must be able to value with oracle)
-    mapping(address => Deposit) public deposited;
-
-    constructor(
-        uint256 _minimumCollateralRatio,
-        address _oracle,
-        address _line,
-        address _borrower
-    ) {
-        minimumCollateralRatio = _minimumCollateralRatio;
-        oracle = _oracle;
-        line = _line;
-        borrower = _borrower;
+    function isLiquidatable(IEscrow.State storage state)
+        external
+        returns (bool)
+    {
+        return _getLatestCollateralRatio(state) < state.minimumCollateralRatio;
     }
 
-    // function oracle() external override returns(address) {
-    //   return address(oracle);
-    // }
-    // function borrower() external override returns(address) {
-    //   return borrower;
-    // }
-    // function line() external override returns(address) {
-    //   return address(line);
-    // }
-
-    // function minimumCollateralRatio() external override returns(uint256) {
-    //   return minimumCollateralRatio;
-    // }
-
-    function isLiquidatable() external returns(bool) {
-      return _getLatestCollateralRatio() < minimumCollateralRatio;
-    }
-
-    function updateLine(address _line) external returns(bool) {
-      require(msg.sender == line);
-      line = _line;
-      return true;
+    function updateLine(IEscrow.State storage state, address _line)
+        external
+        returns (bool)
+    {
+        require(msg.sender == state.line);
+        state.line = _line;
+        return true;
     }
 
     /**
@@ -74,10 +37,14 @@ contract Escrow is IEscrow {
      * @dev calls accrue interest on the line contract to update the latest interest payable
      * @return the updated collateral ratio in 18 decimals
      */
-    function _getLatestCollateralRatio() internal returns (uint256) {
-        (uint256 principal, uint256 interest) = ILineOfCredit(line).updateOutstandingDebt();
-        uint256 debtValue =  principal + interest;
-        uint256 collateralValue = _getCollateralValue();
+    function _getLatestCollateralRatio(IEscrow.State storage state)
+        internal
+        returns (uint256)
+    {
+        (uint256 principal, uint256 interest) = ILineOfCredit(state.line)
+            .updateOutstandingDebt();
+        uint256 debtValue = principal + interest;
+        uint256 collateralValue = _getCollateralValue(state);
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
 
@@ -108,16 +75,19 @@ contract Escrow is IEscrow {
     * @dev calculate the USD value of all the collateral stored
     * @return - the collateral's USD value in 8 decimals
     */
-    function _getCollateralValue() internal returns (uint256) {
+    function _getCollateralValue(IEscrow.State storage state)
+        internal
+        returns (uint256)
+    {
         uint256 collateralValue = 0;
         // gas savings
-        uint256 length = _collateralTokens.length;
-        IOracle o = IOracle(oracle); 
-        Deposit memory d;
+        uint256 length = state.collateralTokens.length;
+        IOracle o = IOracle(state.oracle);
+        IEscrow.Deposit memory d;
         for (uint256 i = 0; i < length; i++) {
-            address token = _collateralTokens[i];
-            d = deposited[token];
-             // new var so we don't override original deposit amount for 4626 tokens
+            address token = state.collateralTokens[i];
+            d = state.deposited[token];
+            // new var so we don't override original deposit amount for 4626 tokens
             uint256 deposit = d.amount;
             if (deposit != 0) {
                 if (d.isERC4626) {
@@ -133,9 +103,9 @@ contract Escrow is IEscrow {
                 }
 
                 collateralValue += CreditLib.calculateValue(
-                  o.getLatestAnswer(d.asset),
-                  deposit,
-                  d.assetDecimals
+                    o.getLatestAnswer(d.asset),
+                    deposit,
+                    d.assetDecimals
                 );
             }
         }
@@ -152,20 +122,23 @@ contract Escrow is IEscrow {
      * @param token - the token address of the deposited token
      * @return - the updated cratio
      */
-    function addCollateral(uint256 amount, address token)
-        external
-        returns (uint256)
-    {
+    function addCollateral(
+        IEscrow.State storage state,
+        uint256 amount,
+        address token
+    ) external returns (uint256) {
         require(amount > 0);
-        if(!enabled[token])  { revert InvalidCollateral(); }
+        if (!state.enabled[token]) {
+            revert IEscrow.InvalidCollateral();
+        }
 
         LineLib.receiveTokenOrETH(token, msg.sender, amount);
 
-        deposited[token].amount += amount;
+        state.deposited[token].amount += amount;
 
         emit AddCollateral(token, amount);
 
-        return _getLatestCollateralRatio();
+        return _getLatestCollateralRatio(state);
     }
 
     /**
@@ -175,25 +148,32 @@ contract Escrow is IEscrow {
      *       - only need to allow once. Can not disable collateral once enabled.
      * @param token - the token to all borrow to deposit as collateral
      */
-    function enableCollateral(address token) external returns (bool) {
-        require(msg.sender == ILineOfCredit(line).arbiter());
+    function enableCollateral(IEscrow.State storage state, address token)
+        external
+        returns (bool)
+    {
+        require(msg.sender == ILineOfCredit(state.line).arbiter());
 
-        _enableToken(token);
+        _enableToken(state, token);
 
         return true;
     }
 
-  /**
+    /**
     * @notice track the tokens used as collateral. Ensures uniqueness,
               flags if its a EIP 4626 token, and gets its decimals
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
     * return bool - if collateral is now enabled or not.
     */
-    function _enableToken(address token) internal returns(bool) {
-        bool isEnabled = enabled[token];
-        Deposit memory deposit = deposited[token]; // gas savings
+    function _enableToken(IEscrow.State storage state, address token)
+        internal
+        returns (bool)
+    {
+        bool isEnabled = state.enabled[token];
+        IEscrow.Deposit memory deposit = state.deposited[token]; // gas savings
         if (!isEnabled) {
-            if(token == Denominations.ETH) { // enable native eth support
+            if (token == Denominations.ETH) {
+                // enable native eth support
                 deposit.asset = Denominations.ETH;
                 deposit.assetDecimals = 18;
             } else {
@@ -204,10 +184,16 @@ contract Escrow is IEscrow {
                 bool is4626 = tokenAddrBytes.length > 0 && passed;
                 deposit.isERC4626 = is4626;
                 // if 4626 save the underlying token to use for oracle pricing
-                deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
+                deposit.asset = !is4626
+                    ? token
+                    : abi.decode(tokenAddrBytes, (address));
 
-                int price = IOracle(oracle).getLatestAnswer(deposit.asset);
-                if(price <= 0) { revert InvalidCollateral(); }
+                int256 price = IOracle(state.oracle).getLatestAnswer(
+                    deposit.asset
+                );
+                if (price <= 0) {
+                    revert IEscrow.InvalidCollateral();
+                }
 
                 (bool successDecimals, bytes memory decimalBytes) = deposit
                     .asset
@@ -220,15 +206,15 @@ contract Escrow is IEscrow {
             }
 
             // update collateral settings
-            enabled[token] = true;
-            deposited[token] = deposit;
-            _collateralTokens.push(token);
+            state.enabled[token] = true;
+            state.deposited[token] = deposit;
+            state.collateralTokens.push(token);
             emit EnableCollateral(deposit.asset);
         }
 
         return isEnabled;
     }
-  
+
     /**
      * @notice remove collateral from your position. Must remain above min collateral ratio
      * @dev callable by `borrower`
@@ -239,25 +225,32 @@ contract Escrow is IEscrow {
      * @return - the updated cratio
      */
     function releaseCollateral(
+        IEscrow.State storage state,
         uint256 amount,
         address token,
         address to
     ) external returns (uint256) {
         require(amount > 0);
-        if(msg.sender != borrower) { revert CallerAccessDenied(); }
-        if(deposited[token].amount < amount) { revert InvalidCollateral(); }
-        deposited[token].amount -= amount;
-        
+        if (msg.sender != state.borrower) {
+            revert IEscrow.CallerAccessDenied();
+        }
+        if (state.deposited[token].amount < amount) {
+            revert IEscrow.InvalidCollateral();
+        }
+        state.deposited[token].amount -= amount;
+
         LineLib.sendOutTokenOrETH(token, to, amount);
 
-        uint256 cratio = _getLatestCollateralRatio();
-        // fail if reduces cratio below min 
+        uint256 cratio = _getLatestCollateralRatio(state);
+        // fail if reduces cratio below min
         // but allow borrower to always withdraw if fully repaid
-        if(
-          cratio < minimumCollateralRatio &&         // if undercollateralized, revert;
-          ILineOfCredit(line).status() != LineLib.STATUS.REPAID // if repaid, skip;
-        ) { revert UnderCollateralized(); }
-        
+        if (
+            cratio < state.minimumCollateralRatio && // if undercollateralized, revert;
+            ILineOfCredit(state.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
+        ) {
+            revert IEscrow.UnderCollateralized();
+        }
+
         emit RemoveCollateral(token, amount);
 
         return cratio;
@@ -268,8 +261,11 @@ contract Escrow is IEscrow {
      * @dev callable by anyone
      * @return - the calculated cratio
      */
-    function getCollateralRatio() external returns (uint256) {
-        return _getLatestCollateralRatio();
+    function getCollateralRatio(IEscrow.State storage state)
+        external
+        returns (uint256)
+    {
+        return _getLatestCollateralRatio(state);
     }
 
     /**
@@ -277,8 +273,11 @@ contract Escrow is IEscrow {
      * @dev callable by anyone
      * @return - the calculated collateral value to 8 decimals
      */
-    function getCollateralValue() external returns (uint256) {
-        return _getCollateralValue();
+    function getCollateralValue(IEscrow.State storage state)
+        external
+        returns (uint256)
+    {
+        return _getCollateralValue(state);
     }
 
     /**
@@ -292,20 +291,33 @@ contract Escrow is IEscrow {
      * @return - true if successful
      */
     function liquidate(
+        IEscrow.State storage state,
         uint256 amount,
         address token,
         address to
     ) external returns (bool) {
         require(amount > 0);
-        if(msg.sender != line) { revert CallerAccessDenied(); }
-        if(deposited[token].amount < amount) { revert InvalidCollateral(); }
+        if (msg.sender != state.line) {
+            revert IEscrow.CallerAccessDenied();
+        }
+        if (state.deposited[token].amount < amount) {
+            revert IEscrow.InvalidCollateral();
+        }
 
-        deposited[token].amount -= amount;
-        
+        state.deposited[token].amount -= amount;
+
         LineLib.sendOutTokenOrETH(token, to, amount);
 
         emit Liquidate(token, amount);
 
         return true;
     }
+
+    event AddCollateral(address indexed token, uint256 indexed amount);
+
+    event EnableCollateral(address indexed token);
+
+    event RemoveCollateral(address indexed token, uint256 indexed amount);
+
+    event Liquidate(address indexed token, uint256 indexed amount);
 }

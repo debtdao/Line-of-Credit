@@ -1,14 +1,26 @@
 pragma solidity 0.8.9;
 
-interface IEscrowState {
-  
-}
 interface IEscrow {
     struct Deposit {
         uint amount;
         bool isERC4626;
         address asset; // eip4626 asset else the erc20 token itself
         uint8 assetDecimals;
+    }
+
+    struct State {
+        // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
+        uint256 minimumCollateralRatio;
+        // Stakeholders and contracts used in Escrow
+        address oracle;
+        address borrower;
+        address line;
+        // tracking tokens that were deposited
+        address[] collateralTokens;
+        // mapping if lenders allow token as collateral. ensures uniqueness in tokensUsedAsCollateral
+        mapping(address => bool) enabled;
+        // tokens used as collateral (must be able to value with oracle)
+        mapping(address => Deposit) deposited;
     }
 
     event AddCollateral(address indexed token, uint indexed amount);
