@@ -47,9 +47,13 @@ contract SpigotedLineTest is Test {
     address private arbiter = address(this);
     address private borrower = address(10);
     address private lender = address(20);
+
+    address private testaddr = makeAddr("test");
     SimpleOracle private oracle;
 
     function setUp() public {
+
+        console.log(testaddr);
         dex = new ZeroEx();
         creditToken = new RevenueToken();
         revenueToken = new RevenueToken();
