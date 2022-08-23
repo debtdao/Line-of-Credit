@@ -49,7 +49,7 @@ interface IEscrow {
 
     function enableCollateral(address token) external returns(bool);
 
-    function addCollateral(uint amount, address token) external returns(uint);
+    function addCollateral(uint amount, address token) external payable returns(uint);
 
     function releaseCollateral(uint amount, address token, address to) external returns(uint);
     
