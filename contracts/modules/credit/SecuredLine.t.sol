@@ -37,17 +37,17 @@ contract LineTest is Test {
     address lender;
 
     function setUp() public {
-        borrower = address(this);
-        lender = address(this);
+        borrower = address(2);
+        lender = address(1);
         arbiter = address(this);
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
 
-        spigot = new Spigot(address(this), borrower, borrower);
+        spigot = new Spigot(arbiter, borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
 
-        escrow = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
+        escrow = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
 
         line = new SecuredLine(
           address(oracle),
@@ -68,11 +68,18 @@ contract LineTest is Test {
         _mintAndApprove();
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
+   
+        vm.startPrank(borrower);
+        supportedToken2.approve(address(escrow), mintAmount);
         escrow.addCollateral(1 ether, address(supportedToken2));
+        vm.stopPrank();
+        
+        
     }
 
     function _mintAndApprove() internal {
         deal(lender, mintAmount);
+        
         supportedToken1.mint(borrower, mintAmount);
         supportedToken1.approve(address(escrow), MAX_INT);
         supportedToken1.approve(address(line), MAX_INT);
@@ -96,10 +103,12 @@ contract LineTest is Test {
     }
 
     function test_can_liquidate_escrow_if_cratio_below_min() public {
+        vm.startPrank(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
         uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
+        console.log('checkpoint');
         bytes32 id = line.ids(0);
         line.borrow(id, 1 ether);
         (uint p,) = line.updateOutstandingDebt();
@@ -108,6 +117,7 @@ contract LineTest is Test {
         line.liquidate(1 ether, address(supportedToken2));
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
         assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
+        vm.stopPrank();
     }
 
     function test_line_is_uninitilized_on_deployment() public {
@@ -519,15 +529,21 @@ contract LineTest is Test {
 
     function test_accrues_and_repays_facility_fee_on_close() public {
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
         
+        assertEq(supportedToken1.balanceOf(borrower), mintAmount, "Borrower should have initial mint balance");
+        
+        vm.startPrank(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-
+        
+        
+        console.log('test checkpoint');
         bytes32 id = line.ids(0);
+        
+        vm.stopPrank();
 
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
-
+        
         line.borrow(id, 1 ether);
         assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
         line.depositAndRepay(1 ether);
