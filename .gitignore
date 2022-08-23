@@ -3,6 +3,7 @@ package-lock.json
 out
 docs
 .env
+lib
 
 
 #Hardhat files
