@@ -91,13 +91,30 @@ contract LineTest is Test {
         supportedToken2.mint(borrower, mintAmount);
         supportedToken2.mint(lender, mintAmount);
 
-        hoax(borrower);
+        vm.startPrank(borrower);
         supportedToken2.approve(address(escrow), MAX_INT);
         supportedToken2.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        supportedToken2.approve(address(escrow), MAX_INT);
+        supportedToken2.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
 
         unsupportedToken.mint(borrower, mintAmount);
+        unsupportedToken.mint(lender, mintAmount);
+
+        vm.startPrank(borrower);
         unsupportedToken.approve(address(escrow), MAX_INT);
         unsupportedToken.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        unsupportedToken.approve(address(escrow), MAX_INT);
+        unsupportedToken.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
     }
 
     function _addCredit(address token, uint256 amount) public {
@@ -110,10 +127,11 @@ contract LineTest is Test {
     }
 
     function test_can_liquidate_escrow_if_cratio_below_min() public {
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        // hoax(borrower);
+        // line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        // hoax(lender);
+        // line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        _addCredit(address(supportedToken1), 1 ether);
         uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
         uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
         
@@ -211,10 +229,7 @@ contract LineTest is Test {
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
         assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial mint balance");
 
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
 
         assert(id != bytes32(0));
@@ -239,11 +254,8 @@ contract LineTest is Test {
     }
 
     function test_can_borrow() public {
-        hoax(borrower);
-        
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        _addCredit(address(supportedToken1), 1 ether);
         assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
         bytes32 id = line.ids(0);
 
@@ -283,27 +295,32 @@ contract LineTest is Test {
     }
 
     function test_can_manually_close_if_no_outstanding_credit() public {
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
+        hoax(borrower);
         line.borrow(id, 1 ether);
+        hoax(borrower);
         line.depositAndRepay(1 ether);
         (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, 0, "Line outstanding credit should be 0");
+        hoax(borrower);
         line.close(id);
     }
 
     function test_can_repay_line() public {
         int prc = oracle.getLatestAnswer(address(supportedToken1));
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
+        hoax(borrower);
         line.borrow(id, 1 ether);
         (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, tokenPriceOneUnit, "Line outstanding credit should be set as one full unit price in USD");
         assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
         assertEq(i, 0, "No interest should have been accrued");
+        hoax(borrower);
         line.depositAndRepay(1 ether);
         (uint p2, uint i2) = line.updateOutstandingDebt();
         assertEq(p2 + i2, 0, "Line outstanding credit should be 0");
@@ -314,10 +331,11 @@ contract LineTest is Test {
     function test_can_repay_part_of_line() public {
         int prc = oracle.getLatestAnswer(address(supportedToken1));
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
+        hoax(borrower);
         line.borrow(id, 1 ether);
+        hoax(borrower);
         line.depositAndRepay(0.5 ether);
         (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, tokenPriceOneUnit / 2, "Line outstanding credit should be set as half of one full unit price in USD");
@@ -328,15 +346,17 @@ contract LineTest is Test {
     function test_can_repay_one_credit_and_keep_another() public {
         int prc = oracle.getLatestAnswer(address(supportedToken2));
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
+        hoax(borrower);
         line.borrow(id, 1 ether);
+        hoax(borrower);
         line.depositAndRepay(1 ether);
-        
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        _addCredit(address(supportedToken2), 1 ether);
         bytes32 id2 = line.ids(1);
+        hoax(borrower);
         line.borrow(id2, 1 ether);
         (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, tokenPriceOneUnit, "Line outstanding credit should be set as one full unit price in USD");
@@ -352,7 +372,7 @@ contract LineTest is Test {
         RevenueToken token = new RevenueToken();
         tokens[i] = address(token);
 
-        token.mint(address(this), mintAmount);
+        token.mint(arbiter, mintAmount);
         token.approve(address(line), mintAmount);
         token.approve(address(escrow), mintAmount);
         oracle.changePrice(address(token), 1 ether);
@@ -366,20 +386,23 @@ contract LineTest is Test {
     }
 
     function test_positions_move_in_queue_of_2() public {
+        hoax(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
         bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-
+        hoax(lender);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        hoax(lender);
         bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
 
         assertEq(line.ids(0), id);
         assertEq(line.ids(1), id2);
-
+        hoax(borrower);
         line.borrow(id2, 1 ether);
         
         assertEq(line.ids(0), id2);
         assertEq(line.ids(1), id);
-
+        hoax(borrower);
         line.depositAndClose();
 
         assertEq(line.ids(0), id);
@@ -484,13 +507,14 @@ contract LineTest is Test {
     }
 
     function test_can_deposit_and_close_position() public {
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line balance should be 1e18");
+        hoax(borrower);
         line.borrow(id, 1 ether);
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial mint balance");
+        hoax(borrower);
         line.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Tokens should be sent back to lender");
         (uint p, uint i) = line.updateOutstandingDebt();
@@ -498,23 +522,23 @@ contract LineTest is Test {
     }
 
     function test_can_withdraw_from_position() public {
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-        line.addCredit(drawnRate, facilityRate, 0.5 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 0.5 ether, address(supportedToken1), lender);
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial mint balance");
+         
+        _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 0.5 ether, "Contract should have initial mint balance - 1e18 / 2");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 0.5 ether, "Contract should have initial mint balance - 1e18 / 2");
         assertEq(supportedToken1.balanceOf(address(line)), 0.5 ether, "Line balance should be 1e18 / 2");
+        hoax(lender);
         line.withdraw(id, 0.1 ether);
         assertEq(supportedToken1.balanceOf(address(line)), 0.4 ether, "Line balance should be 1e18 * 0.4");
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 0.4 ether, "Contract should have initial mint balance - 1e18 * 0.4");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 0.4 ether, "Contract should have initial mint balance - 1e18 * 0.4");
     }
 
     function test_return_lender_funds_on_deposit_and_close() public {
       assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-      assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-      
-      line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-      line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+      assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial mint balance");
+       
+      _addCredit(address(supportedToken1), 1 ether);
 
       bytes32 id = line.ids(0);
       
@@ -523,8 +547,10 @@ contract LineTest is Test {
       assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
 
       // test depsoitAndClose()
+      hoax(borrower);  
       line.borrow(id, 1 ether);
       assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+      hoax(borrower);  
       line.depositAndClose();
       assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
       assertEq(supportedToken1.balanceOf(address(line)), 0, "Line should not have tokens");
@@ -534,23 +560,24 @@ contract LineTest is Test {
 
     function test_return_lender_funds_on_close() public {
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial mint balance");
-        
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial mint balance");
+         
+        _addCredit(address(supportedToken1), 1 ether);
 
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
 
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
-
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+        hoax(borrower);
         line.borrow(id, 1 ether);
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after depositAndClose");
+        assertEq(supportedToken1.balanceOf(borrower), mintAmount + 1, "Contract should have initial balance after depositAndClose");
+        hoax(borrower);
         line.depositAndRepay(1 ether);
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount - 1 ether, "Contract should have initial balance after depositAndClose");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance after depositAndClose");
+        hoax(lender);
         line.close(id);
 
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "Contract should have initial balance after close");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial balance after close");
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line should not have tokens");
         assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
@@ -562,13 +589,7 @@ contract LineTest is Test {
         assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
         
      
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        assertEq(supportedToken1.balanceOf(borrower), mintAmount, "Borrower should have initial mint balance");
-        
-
-        hoax(lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        _addCredit(address(supportedToken1), 1 ether);
         
         bytes32 id = line.ids(0);
         
@@ -593,71 +614,93 @@ contract LineTest is Test {
     }
 
     function test_cannot_open_credit_position_without_consent() public {
+        hoax(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(address(this)), mintAmount, "borrower balance should be original");
+        assertEq(supportedToken1.balanceOf(borrower), mintAmount, "borrower balance should be original");
     }
 
     function test_cannot_borrow_from_nonexistant_position() public {
+        hoax(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
+         
         line.borrow(bytes32(uint(12743134)), 1 ether);
     }
 
     function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
-        line.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 100 ether, address(supportedToken1), lender);
+         
+        _addCredit(address(supportedToken1), 100 ether);
         bytes32 id = line.ids(0);
         vm.expectRevert(ILineOfCredit.NotActive.selector); 
+        hoax(borrower);
         line.borrow(id, 100 ether);
     }
 
     function test_cannot_withdraw_if_all_lineed_out() public {
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = line.ids(0);
+        hoax()
         line.borrow(id, 1 ether);
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
+        hoax(lender);
         line.withdraw(id, 0.1 ether);
     }
 
     function test_cannot_borrow_more_than_position() public {
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = line.ids(0);
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
+         
         line.borrow(id, 100 ether);
     }
 
     function test_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
         vm.expectRevert('SimpleOracle: unsupported token' ); 
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
     }
 
     function test_cannot_borrow_if_not_active() public {
         assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
+         
         line.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
+         
         line.addCredit(drawnRate, facilityRate, 0.1 ether, address(supportedToken1), lender);
         bytes32 id = line.ids(0);
+         
         line.borrow(id, 0.1 ether);
         oracle.changePrice(address(supportedToken2), 1);
         assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
         vm.expectRevert(ILineOfCredit.NotActive.selector); 
+         
         line.borrow(id, 0.9 ether);
     }
 
     function test_cannot_borrow_against_closed_position() public {
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         bytes32 id = line.ids(0);
+         
         line.borrow(id, 1 ether);
-
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+         
         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        
+         
         line.depositAndClose();
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector);
+         
         line.borrow(id, 1 ether);
     }
 
