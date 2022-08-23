@@ -2,16 +2,16 @@ pragma solidity ^0.8.9;
 
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
-import {LoanLib} from "../../utils/LoanLib.sol";
+import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
-import {SpigotedLoanLib} from "../../utils/SpigotedLoanLib.sol";
+import {SpigotedLineLib} from "../../utils/SpigotedLineLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
 import {ISpigot} from "../../interfaces/ISpigot.sol";
-import {ISpigotedLoan} from "../../interfaces/ISpigotedLoan.sol";
+import {ISpigotedLine} from "../../interfaces/ISpigotedLine.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
+contract SpigotedLine is ISpigotedLine, LineOfCredit {
     using SafeERC20 for IERC20;
 
     ISpigot public immutable spigot;
@@ -19,18 +19,15 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     // 0x exchange to trade spigot revenue for credit tokens for
     address payable public immutable swapTarget;
 
-    // amount of revenue to take from spigot if loan is healthy
+    // amount of revenue to take from spigot if line is healthy
     uint8 public immutable defaultRevenueSplit;
 
-    // max revenue to take from spigot if loan is in distress
-    uint8 constant MAX_SPLIT = 100;
-
-    // credit tokens we bought from revenue but didn't use to repay loan
+    // credit tokens we bought from revenue but didn't use to repay line
     // needed because Revolver might have same token held in contract as being bought/sold
     mapping(address => uint256) private unusedTokens;
 
     /**
-     * @notice - LineofCredit contract with additional functionality for integrating with Spigot and borrower revenue streams to repay loans
+     * @notice - LineofCredit contract with additional functionality for integrating with Spigot and borrower revenue streams to repay lines
      * @param oracle_ - price oracle to use for getting all token values
      * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
      * @param borrower_ - the debitor for all credit positions in this contract
@@ -47,15 +44,15 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        require(defaultRevenueSplit_ <= MAX_SPLIT);
+        require(defaultRevenueSplit_ <= SpigotedLineLib.MAX_SPLIT);
 
         spigot = ISpigot(spigot_);
         defaultRevenueSplit = defaultRevenueSplit_;
         swapTarget = swapTarget_;
     }
 
-    function _init() internal virtual override(LineOfCredit) returns(LoanLib.STATUS) {
-      if(spigot.owner() != address(this)) return LoanLib.STATUS.UNINITIALIZED;
+    function _init() internal virtual override(LineOfCredit) returns(LineLib.STATUS) {
+      if(spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
       return LineOfCredit._init();
     }
 
@@ -64,14 +61,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     }
 
     function _canDeclareInsolvent() internal virtual override returns(bool) {
-      // Must have called releaseSpigot() and sold off protocol / revenue streams already
-      address owner_ = spigot.owner();
-      if(
-        address(this) == owner_ ||
-        arbiter == owner_
-      ) { revert NotInsolvent(address(spigot)); }
-      // no additional logic in LineOfCredit to include
-      return true;
+        return SpigotedLineLib.canDeclareInsolvent(address(spigot), arbiter);
     }
 
 
@@ -113,7 +103,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
         if (repaid > debt) repaid = debt;
         // update unused amount based on usage
         if (repaid > newTokens) {
-            // using bought + unused to repay loan
+            // using bought + unused to repay line
             unusedTokens[credit.token] -= repaid - newTokens;
         } else {
             //  high revenue and bought more than we need
@@ -132,8 +122,7 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
       require(amount <= unusedTokens[credit.token]);
       unusedTokens[credit.token] -= amount;
 
-      credit = _accrue(credit, id);
-      credits[id] = _repay(credit, id, amount);
+      credits[id] = _repay(_accrue(credit, id), id, amount);
 
       return true;
     }
@@ -183,10 +172,9 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
       bytes calldata zeroExTradeData
     )
         internal
-        whileBorrowing
         returns (uint256)
     {
-        (uint256 tokensBought, uint256 totalUnused) = SpigotedLoanLib.claimAndTrade(
+        (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
             claimToken,
             targetToken,
             swapTarget,
@@ -204,30 +192,22 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     //  SPIGOT OWNER FUNCTIONS
 
     /**
-     * @notice changes the revenue split between borrower treasury and lan repayment based on loan health
+     * @notice changes the revenue split between borrower treasury and lan repayment based on line health
      * @dev    - callable `arbiter` + `borrower`
      * @param revenueContract - spigot to update
      * @return whether or not split was updated
      */
     function updateOwnerSplit(address revenueContract) external returns (bool) {
-        (,uint8 split,  ,bytes4 transferFunc) = spigot.getSetting(revenueContract);
-
-        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
-
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-        if(s == LoanLib.STATUS.ACTIVE && split != defaultRevenueSplit) {
-            // if loan is healthy set split to default take rate
-            return spigot.updateOwnerSplit(revenueContract, defaultRevenueSplit);
-        } else if (s == LoanLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
-            // if loan is in distress take all revenue to repay loan
-            return spigot.updateOwnerSplit(revenueContract, MAX_SPLIT);
-        }
-
-        return false;
+        return SpigotedLineLib.updateSplit(
+          address(spigot),
+          revenueContract,
+          _updateStatus(_healthcheck()),
+          defaultRevenueSplit
+        );
     }
 
     /**
-     * @notice - allow Loan to add new revenue streams to reapy credit
+     * @notice - allow Line to add new revenue streams to reapy credit
      * @dev    - see Spigot.addSpigot()
      * @dev    - callable `arbiter` + `borrower`
      */
@@ -258,55 +238,38 @@ contract SpigotedLoan is ISpigotedLoan, LineOfCredit {
     /**
 
    * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
-             -  doesnt transfer out if loan is unpaid and/or healthy
+             -  doesnt transfer out if line is unpaid and/or healthy
    * @dev    - callable by anyone 
    * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-
-        if (s == LoanLib.STATUS.REPAID) {
-          address b = borrower; // gas savings
-          if (msg.sender != b) { revert CallerAccessDenied(); } 
-          if(!spigot.updateOwner(b)) { revert ReleaseSpigotFailed(); }
-          return true;
-        }
-
-        if (s == LoanLib.STATUS.LIQUIDATABLE) {
-          address a = arbiter; // gas savings
-          if (msg.sender != a) { revert CallerAccessDenied(); } 
-          if(!spigot.updateOwner(a)) { revert ReleaseSpigotFailed(); }
-          return true;
-        }
-
-        return false;
+        return SpigotedLineLib.releaseSpigot(
+          address(spigot),
+          _updateStatus(_healthcheck()),
+          borrower,
+          arbiter
+        );
     }
 
   /**
    * @notice - sends unused tokens to borrower if repaid or arbiter if liquidatable
-             -  doesnt send tokens out if loan is unpaid but healthy
+             -  doesnt send tokens out if line is unpaid but healthy
    * @dev    - callable by anyone 
    * @param token - token to take out
   */
     function sweep(address to, address token) external returns (uint256) {
-        LoanLib.STATUS s = _updateStatus(_healthcheck());
-        if (s == LoanLib.STATUS.REPAID) {
-          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
-            return _sweep(to, token);
-        }
+        uint256 amount = unusedTokens[token];
 
-        if (s == LoanLib.STATUS.LIQUIDATABLE) {
-          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
-          return _sweep(to, token);
-        }
+        bool success = SpigotedLineLib.sweep(
+          to,
+          token,
+          amount,
+          _updateStatus(_healthcheck()),
+          borrower,
+          arbiter
+        );
 
-        return 0;
-    }
-
-    function _sweep(address to, address token) internal returns (uint256 x) {
-        x = unusedTokens[token];
-        LoanLib.sendOutTokenOrETH(token, to, x);
-        delete unusedTokens[token];
+        return success ? amount : 0;
     }
 
     // allow claiming/trading in ETH

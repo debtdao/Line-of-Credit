@@ -29,7 +29,7 @@ interface IEscrow {
 
     // State var etters. 
 
-    function loan() external returns(address);
+    function line() external returns(address);
 
     function oracle() external returns(address);
 
@@ -41,7 +41,7 @@ interface IEscrow {
 
     function isLiquidatable() external returns(bool);
 
-    function updateLoan(address loan_) external returns(bool);
+    function updateLine(address line_) external returns(bool);
 
     function getCollateralRatio() external returns(uint);
 

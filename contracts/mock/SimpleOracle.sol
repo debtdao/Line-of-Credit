@@ -2,7 +2,7 @@ pragma solidity 0.8.9;
 
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
-import { LoanLib } from "../utils/LoanLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
 
 contract SimpleOracle is IOracle {
 
@@ -27,11 +27,11 @@ contract SimpleOracle is IOracle {
         return prices[token];
     }
 
-    function healthcheck() external pure returns (LoanLib.STATUS status) {
-        return LoanLib.STATUS.ACTIVE;
+    function healthcheck() external pure returns (LineLib.STATUS status) {
+        return LineLib.STATUS.ACTIVE;
     }
 
-    function loan() external pure returns (address) {
+    function line() external pure returns (address) {
         return address(0);
     }
 

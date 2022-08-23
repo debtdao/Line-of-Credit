@@ -10,7 +10,7 @@ import { InterestRateCredit } from  "./InterestRateCredit.sol";
  * @dev - does not test spigot integration e.g. claimEscrow() since that should already be covered in Spigot tests
  *      - these tests would fail if that assumption was wrong anyway
  */
-contract SpigotedLoanTest is DSTest {
+contract SpigotedLineTest is DSTest {
     InterestRateCredit i;
 
     function setUp() public {

@@ -4,12 +4,12 @@ import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 import { IInterestRateCredit } from "../interfaces/IInterestRateCredit.sol";
 import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
-import { LoanLib } from "./LoanLib.sol";
+import { LineLib } from "./LineLib.sol";
 
 /**
-  * @title Debt DAO P2P Loan Library
+  * @title Debt DAO P2P Line Library
   * @author Kiba Gateaux
-  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace lines
  */
 library CreditLib {
 
@@ -21,7 +21,7 @@ library CreditLib {
     );
 
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // lender removing funds from Loan  principal
+  // lender removing funds from Line  principal
   event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
   // lender taking interest earned out of contract
 
@@ -32,7 +32,7 @@ library CreditLib {
   // Borrower Events
 
   event Borrow(bytes32 indexed id, uint256 indexed amount);
-  // receive full loan or drawdown on credit
+  // receive full line or drawdown on credit
 
   event RepayInterest(bytes32 indexed id, uint256 indexed amount);
 
@@ -45,21 +45,21 @@ library CreditLib {
 
 
   /**
-   * @dev          - Create deterministic hash id for a debt position on `loan` given position details
-   * @param loan   - loan that debt position exists on
+   * @dev          - Create deterministic hash id for a debt position on `line` given position details
+   * @param line   - line that debt position exists on
    * @param lender - address managing debt position
    * @param token  - token that is being lent out in debt position
    * @return positionId
    */
   function computeId(
-    address loan,
+    address line,
     address lender,
     address token
   )
     external pure
     returns(bytes32)
   {
-    return keccak256(abi.encode(loan, lender, token));
+    return keccak256(abi.encode(line, lender, token));
   }
 
     function getOutstandingDebt(
@@ -91,7 +91,7 @@ library CreditLib {
     /**
      * @notice         - calculates value of tokens in US
      * @dev            - Assumes oracles all return answers in USD with 1e8 decimals
-                       - Does not check if price < 0. HAndled in Oracle or Loan
+                       - Does not check if price < 0. HAndled in Oracle or Line
      * @param price    - oracle price of asset. 8 decimals
      * @param amount   - amount of tokens vbeing valued.
      * @param decimals - token decimals to remove for usd price

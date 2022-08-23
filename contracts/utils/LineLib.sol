@@ -7,11 +7,11 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 /**
-  * @title Debt DAO P2P Loan Library
+  * @title Debt DAO P2P Line Library
   * @author Kiba Gateaux
-  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace lines
  */
-library LoanLib {
+library LineLib {
     using SafeERC20 for IERC20;
 
     error TransferFailed();
@@ -19,25 +19,25 @@ library LoanLib {
 
     enum STATUS {
         // ¿hoo dis
-        // Loan has been deployed but terms and conditions are still being signed off by parties
+        // Line has been deployed but terms and conditions are still being signed off by parties
         UNINITIALIZED,
         INITIALIZED,
 
         // ITS ALLLIIIIVVEEE
-        // Loan is operational and actively monitoring status
+        // Line is operational and actively monitoring status
         ACTIVE,
         UNDERCOLLATERALIZED,
         LIQUIDATABLE, // [#X
         DELINQUENT,
 
-        // Loan is in distress and paused
+        // Line is in distress and paused
         LIQUIDATING,
         OVERDRAWN,
         DEFAULT,
         ARBITRATION,
 
         // Lön izz ded
-        // Loan is no longer active, successfully repaid or insolvent
+        // Line is no longer active, successfully repaid or insolvent
         REPAID,
         INSOLVENT
     }
@@ -57,6 +57,8 @@ library LoanLib {
       returns (bool)
     {
         if(token == address(0)) { revert TransferFailed(); }
+        
+        // both branches revert if call failed
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH

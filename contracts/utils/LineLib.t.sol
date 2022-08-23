@@ -3,36 +3,36 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
-import { LoanLib } from "./LoanLib.sol";
+import { LineLib } from "./LineLib.sol";
 import { CreditLib } from "./CreditLib.sol";
 import { CreditListLib } from "./CreditListLib.sol";
 
 
-contract LoanLibTest is Test {
+contract LineLibTest is Test {
     using CreditListLib for bytes32[];
     bytes32[] private ids;
 
     address lender = address(0);
-    address loan = address(1);
+    address line = address(1);
     address token = address(2);
 
     function test_computes_the_same_position_id() public view {
-        bytes32 id = CreditLib.computeId(loan, lender, token);
-        bytes32 id2 = CreditLib.computeId(loan, lender, token);
+        bytes32 id = CreditLib.computeId(line, lender, token);
+        bytes32 id2 = CreditLib.computeId(line, lender, token);
         assert(id == id2);
     }
 
     function test_computes_a_different_position_id() public view {
-        bytes32 id = CreditLib.computeId(loan, lender, token);
-        bytes32 id2 = CreditLib.computeId(loan, address(this), token);
+        bytes32 id = CreditLib.computeId(line, lender, token);
+        bytes32 id2 = CreditLib.computeId(line, address(this), token);
         assert(id != id2);
-        bytes32 idSameInputsDifferentOrder = CreditLib.computeId(lender, loan, token);
+        bytes32 idSameInputsDifferentOrder = CreditLib.computeId(lender, line, token);
         assert(idSameInputsDifferentOrder != id);
     }
 
     function test_can_remove_position() public {
-        bytes32 id = CreditLib.computeId(loan, lender, token);
-        bytes32 id2 = CreditLib.computeId(loan, address(this), token);
+        bytes32 id = CreditLib.computeId(line, lender, token);
+        bytes32 id2 = CreditLib.computeId(line, address(this), token);
         ids.push(id);
         ids.push(id2);
         
@@ -46,7 +46,7 @@ contract LoanLibTest is Test {
 
 
     function test_cannot_remove_non_existent_position() public {
-        bytes32 id = CreditLib.computeId(loan, lender, token);
+        bytes32 id = CreditLib.computeId(line, lender, token);
         ids.push(id);
         assert(ids.length == 1);
         ids.removePosition(bytes32(0));

@@ -4,7 +4,7 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {LoanLib} from "../../utils/LoanLib.sol";
+import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
 import {CreditListLib} from "../../utils/CreditListLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
@@ -34,13 +34,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
     mapping(bytes32 => Credit) public credits; // id -> Credit
 
-    // Loan Financials aggregated accross all existing  Credit
-    LoanLib.STATUS public loanStatus;
+    // Line Financials aggregated accross all existing  Credit
+    LineLib.STATUS public status;
 
     /**
-   * @dev - Loan borrower and proposed lender agree on terms
+   * @dev - Line borrower and proposed lender agree on terms
             and add it to potential options for borrower to drawdown on
-            Lender and borrower must both call function for MutualConsent to add credit position to Loan
+            Lender and borrower must both call function for MutualConsent to add credit position to Line
    * @param oracle_ - price oracle to use for getting all token values
    * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
    * @param borrower_ - the debitor for all credit positions in this contract
@@ -58,17 +58,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         deadline = block.timestamp + ttl_;
         interestRate = new InterestRateCredit();
 
-        emit DeployLoan(oracle_, arbiter_, borrower_);
+        emit DeployLine(oracle_, arbiter_, borrower_);
     }
 
-    function init() external virtual returns(LoanLib.STATUS) {
-      if(loanStatus != LoanLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
+    function init() external virtual returns(LineLib.STATUS) {
+      if(status != LineLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
       return _updateStatus(_init());
     }
 
-    function _init() internal virtual returns(LoanLib.STATUS) {
-       // If no modules then loan is immediately active
-      return LoanLib.STATUS.ACTIVE;
+    function _init() internal virtual returns(LineLib.STATUS) {
+       // If no modules then line is immediately active
+      return LineLib.STATUS.ACTIVE;
     }
 
     ///////////////
@@ -76,7 +76,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ///////////////
 
     modifier whileActive() {
-        if(loanStatus != LoanLib.STATUS.ACTIVE) { revert NotActive(); }
+        if(status != LineLib.STATUS.ACTIVE) { revert NotActive(); }
         _;
     }
 
@@ -98,9 +98,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       }
     }
 
-    function healthcheck() external returns (LoanLib.STATUS) {
-        // can only check if loan has been initialized
-        require(uint(loanStatus) >= uint( LoanLib.STATUS.ACTIVE));
+    function healthcheck() external returns (LineLib.STATUS) {
+        // can only check if line has been initialized
+        require(uint(status) >= uint( LineLib.STATUS.ACTIVE));
         return _updateStatus(_healthcheck());
     }
 
@@ -112,23 +112,23 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return (count, ids.length);
     }
 
-    function _healthcheck() internal virtual returns (LoanLib.STATUS) {
-        // if loan is in a final end state then do not run _healthcheck()
-        LoanLib.STATUS s = loanStatus;
+    function _healthcheck() internal virtual returns (LineLib.STATUS) {
+        // if line is in a final end state then do not run _healthcheck()
+        LineLib.STATUS s = status;
         if (
-            s == LoanLib.STATUS.REPAID ||               // end state - good
-            s == LoanLib.STATUS.INSOLVENT               // end state - bad
+            s == LineLib.STATUS.REPAID ||               // end state - good
+            s == LineLib.STATUS.INSOLVENT               // end state - bad
         ) {
-            return loanStatus;
+            return status;
         }
 
         // Liquidate if all lines of credit arent closed by end of term
         if (block.timestamp >= deadline && count > 0) {
             emit Default(ids[0]); // can query all defaulted positions offchain once event picked up
-            return LoanLib.STATUS.LIQUIDATABLE;
+            return LineLib.STATUS.LIQUIDATABLE;
         }
 
-        return LoanLib.STATUS.ACTIVE;
+        return LineLib.STATUS.ACTIVE;
     }
 
     /**
@@ -141,12 +141,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function declareInsolvent() external whileBorrowing returns(bool) {
         if(arbiter != msg.sender) { revert CallerAccessDenied(); }
-        if(LoanLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
+        if(LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
             revert NotLiquidatable();
         }
 
         if(_canDeclareInsolvent()) {
-            _updateStatus(LoanLib.STATUS.INSOLVENT);
+            _updateStatus(LineLib.STATUS.INSOLVENT);
             return true;
         } else {
           return false;
@@ -224,9 +224,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
-   * @notice        - Loan borrower and proposed lender agree on terms
+   * @notice        - Line borrower and proposed lender agree on terms
                     and add it to potential options for borrower to drawdown on
-                    Lender and borrower must both call function for MutualConsent to add credit position to Loan
+                    Lender and borrower must both call function for MutualConsent to add credit position to Line
    * @dev           - callable by `lender` and `borrower
    * @param drate   - interest rate in bps on funds drawndown on LoC
    * @param frate   - interest rate in bps on all unused funds in LoC
@@ -248,7 +248,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         mutualConsent(lender, borrower)
         returns (bytes32)
     {
-        LoanLib.receiveTokenOrETH(token, lender, amount);
+        LineLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);
 
@@ -287,7 +287,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
  /**
     * @notice           - Let lender and borrower increase total capacity of position
-    *                   - can only increase while loan is healthy and ACTIVE.
+    *                   - can only increase while line is healthy and ACTIVE.
     * @dev              - include lender in params for cheap gas and consistent API for mutualConsent
     * @dev              - callable by borrower    
     * @param id         - credit id that we are updating
@@ -308,7 +308,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         
         credits[id] = credit;
 
-        LoanLib.receiveTokenOrETH(credit.token, credit.lender, amount);
+        LineLib.receiveTokenOrETH(credit.token, credit.lender, amount);
 
         emit IncreaseCredit(id, amount);
 
@@ -320,7 +320,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ///////////////
 
     /**
-    * @notice - Transfers enough tokens to repay entire credit position from `borrower` to Loan contract.
+    * @notice - Transfers enough tokens to repay entire credit position from `borrower` to Line contract.
     * @dev - callable by borrower    
     */
     function depositAndClose()
@@ -338,7 +338,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 totalOwed = credit.principal + credit.interestAccrued;
 
         // borrower deposits remaining balance not already repaid and held in contract
-        LoanLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
+        LineLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
 
         // clear the debt then close and delete position
         _close(_repay(credit, id, totalOwed), id);
@@ -347,7 +347,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
-     * @dev - Transfers token used in credit position from msg.sender to Loan contract.
+     * @dev - Transfers token used in credit position from msg.sender to Line contract.
      * @dev - callable by anyone
      * @notice - see _repay() for more details
      * @param amount - amount of `token` in `id` to pay back
@@ -367,7 +367,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = _repay(credit, id, amount);
 
-        LoanLib.receiveTokenOrETH(credit.token, msg.sender, amount);
+        LineLib.receiveTokenOrETH(credit.token, msg.sender, amount);
 
         return true;
     }
@@ -377,7 +377,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ////////////////////
 
     /**
-     * @dev - Transfers tokens from Loan to lender.
+     * @dev - Transfers tokens from Line to lender.
      *        Only allowed to withdraw tokens not already lent out (prevents bank run)
      * @dev - callable by lender on `id`
      * @param id - the credit position to draw down credit on
@@ -399,13 +399,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credits[id] = credit; // save new debt before healthcheck
 
-        if(_updateStatus(_healthcheck()) != LoanLib.STATUS.ACTIVE) { 
+        if(_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) { 
             revert NotActive();
         }
 
         credits[id] = credit;
 
-        LoanLib.sendOutTokenOrETH(credit.token, borrower, amount);
+        LineLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
         emit Borrow(id, amount);
 
@@ -415,7 +415,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
-     * @dev - Transfers tokens from Loan to lender.
+     * @dev - Transfers tokens from Line to lender.
      *        Only allowed to withdraw tokens not already lent out (prevents bank run)
      * @dev - callable by lender on `id`
      * @param id -the credit position to pay down credit on and close
@@ -433,7 +433,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // accrue interest and withdraw amount
         credits[id] = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        LoanLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
         return true;
     }
@@ -458,7 +458,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(facilityFee > 0) {
           // only allow repaying interest since they are skipping repayment queue.
           // If principal still owed, _close() MUST fail
-          LoanLib.receiveTokenOrETH(credit.token, b, facilityFee);
+          LineLib.receiveTokenOrETH(credit.token, b, facilityFee);
 
           credit = _repay(credit, id, facilityFee);
         }
@@ -472,10 +472,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     //  Internal  funcs //
     //////////////////////
 
-    function _updateStatus(LoanLib.STATUS status_) internal returns(LoanLib.STATUS) {
-      if(loanStatus == status_) return status_;
+    function _updateStatus(LineLib.STATUS status_) internal returns(LineLib.STATUS) {
+      if(status == status_) return status_;
       emit UpdateStatus(uint256(status_));
-      return (loanStatus = status_);
+      return (status = status_);
     }
 
     function _createCredit(
@@ -504,7 +504,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             Reduces global USD principal and interestUsd values.
             Expects checks for conditions of repaying and param sanitizing before calling
             e.g. early repayment of principal, tokens have actually been paid by borrower, etc.
-   * @param id - credit position struct with all data pertaining to loan
+   * @param id - credit position struct with all data pertaining to line
    * @param amount - amount of token being repaid on credit position
   */
     function _repay(Credit memory credit, bytes32 id, uint256 amount)
@@ -528,7 +528,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         // return the lender's deposit
         if (credit.deposit + credit.interestRepaid > 0) {
-            LoanLib.sendOutTokenOrETH(
+            LineLib.sendOutTokenOrETH(
                 credit.token,
                 credit.lender,
                 credit.deposit + credit.interestRepaid
@@ -541,8 +541,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         ids.removePosition(id);
         unchecked { --count; }
 
-        // brick loan contract if all positions closed
-        if (count == 0) { _updateStatus(LoanLib.STATUS.REPAID); }
+        // brick line contract if all positions closed
+        if (count == 0) { _updateStatus(LineLib.STATUS.REPAID); }
 
         emit CloseCreditPosition(id);
 
