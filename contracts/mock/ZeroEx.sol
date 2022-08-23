@@ -1,7 +1,7 @@
 pragma solidity ^0.8.9;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { LoanLib } from "../utils/LoanLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
 
 contract ZeroEx {
   constructor () {
@@ -19,8 +19,8 @@ contract ZeroEx {
     payable
     returns(bool)
   {
-    LoanLib.receiveTokenOrETH(tokenIn, msg.sender, amountIn);
-    LoanLib.sendOutTokenOrETH(tokenOut, msg.sender, minAmountOut);
+    LineLib.receiveTokenOrETH(tokenIn, msg.sender, amountIn);
+    LineLib.sendOutTokenOrETH(tokenOut, msg.sender, minAmountOut);
     return true;
   }
 }

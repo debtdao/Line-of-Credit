@@ -3,11 +3,11 @@ pragma solidity ^0.8.9;
 import {Script} from "../lib/forge-std/src/Script.sol";
 import {CreditLib } from "../contracts/utils/CreditLib.sol";
 import {CreditListLib } from "../contracts/utils/CreditListLib.sol";
-import {LoanLib } from "../contracts/utils/LoanLib.sol";
-import {SpigotedLoanLib } from "../contracts/utils/SpigotedLoanLib.sol";
+import {LineLib } from "../contracts/utils/LineLib.sol";
+import {SpigotedLineLib } from "../contracts/utils/SpigotedLineLib.sol";
 import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
 import {SimpleOracle} from "../contracts/mock/SimpleOracle.sol";
-import {SecuredLoan} from "../contracts/modules/credit/SecuredLoan.sol";
+import {SecuredLine} from "../contracts/modules/credit/SecuredLine.sol";
 import {Spigot} from  "../contracts/modules/spigot/Spigot.sol";
 import {Escrow} from "../contracts/modules/escrow/Escrow.sol";
 
@@ -20,7 +20,7 @@ contract DeployScript is Script {
     RevenueToken supportedToken2;
     RevenueToken unsupportedToken;
     SimpleOracle oracle;
-    SecuredLoan loan;
+    SecuredLine line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint minCollateralRatio = 1 ether; // 100%
@@ -43,13 +43,13 @@ contract DeployScript is Script {
 
         Spigot spigot = new Spigot(msg.sender, borrower, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
-        escrow = new Escrow(minCollateralRatio, address(oracle),msg.sender, borrower);
+        escrow = new Escrow(minCollateralRatio, address(oracle), msg.sender, borrower);
 
-        loan = new SecuredLoan(
+        line = new SecuredLine(
             address(oracle),
             arbiter,
             borrower,
-            address(0),
+            payable(address(0)),
             address(spigot),
             address(escrow),
             150 days,
@@ -58,12 +58,12 @@ contract DeployScript is Script {
         
         console.log("sender", msg.sender);
         console.log("spigot owner", spigot.owner());
-        console.log("loan address", address(loan));
+        console.log("line address", address(line));
  
-        escrow.updateLoan(address(loan));
-        spigot.updateOwner(address(loan));
+        escrow.updateLine(address(line));
+        spigot.updateOwner(address(line));
    
-        loan.init();
+        line.init();
 
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
@@ -76,14 +76,14 @@ contract DeployScript is Script {
      function _mintAndApprove() internal {
         supportedToken1.mint(borrower, mintAmount);
         supportedToken1.approve(address(escrow), MAX_INT);
-        supportedToken1.approve(address(loan), MAX_INT);
+        supportedToken1.approve(address(line), MAX_INT);
 
         supportedToken2.mint(borrower, mintAmount);
         supportedToken2.approve(address(escrow), MAX_INT);
-        supportedToken2.approve(address(loan), MAX_INT);
+        supportedToken2.approve(address(line), MAX_INT);
 
         unsupportedToken.mint(borrower, mintAmount);
         unsupportedToken.approve(address(escrow), MAX_INT);
-        unsupportedToken.approve(address(loan), MAX_INT);
+        unsupportedToken.approve(address(line), MAX_INT);
     }     
 }

@@ -2,7 +2,7 @@ pragma solidity ^0.8.9;
 
 import {ISpigot} from "./ISpigot.sol";
 
-interface ISpigotedLoan {
+interface ISpigotedLine {
   event RevenuePayment(
     address indexed token,
     uint256 indexed amount
@@ -10,9 +10,7 @@ interface ISpigotedLoan {
     // this event is just semantics/helper to track payments from revenue specifically
   );
 
-  error NoSpigot();
-  error TradeFailed();
-  error ReleaseSpigotFailed();
+
 
 
   // Borrower functions
