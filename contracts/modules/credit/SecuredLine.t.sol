@@ -902,7 +902,8 @@ contract LineTest is Test {
       line.rollover(address(line));
 
       oracle.changePrice(address(supportedToken2), 1);
-      assertEq(uint(line.status()), uint(LineLib.STATUS.LIQUIDATABLE));
+      assertFalse(line.status() == LineLib.STATUS.REPAID);
+      // assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID));
 
       // LIQUIDATABLE w/ debt
       vm.expectRevert(ISecuredLine.DebtOwed.selector);

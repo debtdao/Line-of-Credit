@@ -250,14 +250,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         returns (bool)
     {
         if(msg.sender != owner) { revert CallerAccessDenied(); }
-        
-        address token = settings[revenueContract].token;
-        uint256 claimable = escrowed[token];
-        if(claimable > 0) {
-            require(LineLib.sendOutTokenOrETH(token, owner, claimable));
-            emit ClaimEscrow(token, claimable, owner);
-        }
-        
+
         (bool success,) = revenueContract.call(
             abi.encodeWithSelector(
                 settings[revenueContract].transferOwnerFunction,
@@ -267,7 +260,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         require(success);
 
         delete settings[revenueContract];
-        emit RemoveSpigot(revenueContract, token);
+        emit RemoveSpigot(revenueContract, settings[revenueContract].token);
 
         return true;
     }
