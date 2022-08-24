@@ -37,8 +37,8 @@ contract LineTest is Test {
     address lender;
 
     function setUp() public {
-        borrower = address(2);
-        lender = address(1);
+        borrower = address(20);
+        lender = address(10);
         arbiter = address(this);
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
