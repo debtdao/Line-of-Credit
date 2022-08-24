@@ -37,7 +37,7 @@ contract SpigotTest is Test {
 
     function setUp() public {
         owner = address(this);
-        operator = address(0xf1c0);
+        operator = address(10);
         treasury = address(0xf1c0);
         token = new RevenueToken();
 
