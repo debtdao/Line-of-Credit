@@ -69,8 +69,9 @@ contract LineTest is Test {
         escrow.enableCollateral( address(supportedToken1));
         escrow.enableCollateral( address(supportedToken2));
    
-        hoax(borrower);
+        vm.startPrank(borrower);
         escrow.addCollateral(1 ether, address(supportedToken2));
+        vm.stopPrank();
     }
 
     function _mintAndApprove() internal {
@@ -230,8 +231,9 @@ contract LineTest is Test {
         hoax(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
 
-        hoax(lender);
+        vm.startPrank(lender);
         line.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        vm.stopPrank();
         console.log(lender.balance);
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
@@ -258,20 +260,22 @@ contract LineTest is Test {
     }
 
     function test_can_borrow_ETH() public {
-        hoax(borrower);
+        vm.startPrank(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
-        hoax(lender);
+        vm.stopPrank();
+        vm.startPrank(lender);
         line.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        vm.stopPrank();
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
         assertEq(address(line).balance, 1 ether, "Line balance should be 1e18");
         assertEq(lender.balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
         
-        hoax(borrower);
+        vm.startPrank(borrower);
         line.borrow(id, 0.01 ether);
-
+        vm.stopPrank();
         assertEq(address(line).balance, 0.99 ether, "Line balance should be 0");
-        assertEq(borrower.balance, mintAmount + 0.01 ether, "Contract should have initial mint balance");
+        assertEq(borrower.balance,  0.01 ether, "Borrower should have initial mint balance");
 
         int prc = oracle.getLatestAnswer(Denominations.ETH);
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
