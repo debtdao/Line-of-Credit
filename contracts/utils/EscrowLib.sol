@@ -9,7 +9,7 @@ import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 
-contract Escrow is IEscrow {
+library EscrowLib is IEscrow {
     using SafeERC20 for IERC20;
 
     // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
