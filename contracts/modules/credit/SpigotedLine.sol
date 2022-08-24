@@ -1,20 +1,19 @@
 pragma solidity ^0.8.9;
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import {Denominations} from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
 import {SpigotedLineLib} from "../../utils/SpigotedLineLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {ISpigot} from "../../interfaces/ISpigot.sol";
+import {SpigotBase} from "../spigot/SpigotBase.sol";
+import {SpigotLib} from "../../utils/SpigotLib.sol";
 import {ISpigotedLine} from "../../interfaces/ISpigotedLine.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract SpigotedLine is ISpigotedLine, LineOfCredit {
+contract SpigotedLine is SpigotBase, ISpigotedLine, LineOfCredit {
     using SafeERC20 for IERC20;
-
-    ISpigot public immutable spigot;
 
     // 0x exchange to trade spigot revenue for credit tokens for
     address payable public immutable swapTarget;
@@ -51,19 +50,24 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         swapTarget = swapTarget_;
     }
 
-    function _init() internal virtual override(LineOfCredit) returns(LineLib.STATUS) {
-      if(spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
-      return LineOfCredit._init();
+    function _init()
+        internal
+        virtual
+        override(LineOfCredit)
+        returns (LineLib.STATUS)
+    {
+        if (spigot.owner() != address(this))
+            return LineLib.STATUS.UNINITIALIZED;
+        return LineOfCredit._init();
     }
 
     function unused(address token) external view returns (uint256) {
         return unusedTokens[token];
     }
 
-    function _canDeclareInsolvent() internal virtual override returns(bool) {
+    function _canDeclareInsolvent() internal virtual override returns (bool) {
         return SpigotedLineLib.canDeclareInsolvent(address(spigot), arbiter);
     }
-
 
     /**
 
@@ -82,17 +86,13 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     {
         bytes32 id = ids[0];
         Credit memory credit = credits[id];
-        credit =  _accrue(credit, id);
+        credit = _accrue(credit, id);
 
         require(msg.sender == borrower || msg.sender == arbiter);
 
-        uint256 newTokens = claimToken == credit.token ?
-          spigot.claimEscrow(claimToken) : // same asset. dont trade
-          _claimAndTrade(                   // trade revenue token for debt obligation
-              claimToken,
-              credit.token,
-              zeroExTradeData
-          );
+        uint256 newTokens = claimToken == credit.token
+            ? spigot.claimEscrow(claimToken) // same asset. dont trade
+            : _claimAndTrade(claimToken, credit.token, zeroExTradeData); // trade revenue token for debt obligation
 
         // TODO abstract this into library func
 
@@ -115,16 +115,20 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         emit RevenuePayment(claimToken, repaid);
     }
 
-    function useAndRepay(uint256 amount) external whileBorrowing returns(bool) {
-      require(msg.sender == borrower);
-      bytes32 id = ids[0];
-      Credit memory credit = credits[id];
-      require(amount <= unusedTokens[credit.token]);
-      unusedTokens[credit.token] -= amount;
+    function useAndRepay(uint256 amount)
+        external
+        whileBorrowing
+        returns (bool)
+    {
+        require(msg.sender == borrower);
+        bytes32 id = ids[0];
+        Credit memory credit = credits[id];
+        require(amount <= unusedTokens[credit.token]);
+        unusedTokens[credit.token] -= amount;
 
-      credits[id] = _repay(_accrue(credit, id), id, amount);
+        credits[id] = _repay(_accrue(credit, id), id, amount);
 
-      return true;
+        return true;
     }
 
     /**
@@ -143,13 +147,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         require(msg.sender == borrower);
 
         address targetToken = credits[ids[0]].token;
-        uint256 newTokens = claimToken == targetToken ?
-          spigot.claimEscrow(claimToken) : // same asset. dont trade
-          _claimAndTrade(                   // trade revenue token for debt obligation
-              claimToken,
-              targetToken,
-              zeroExTradeData
-          );
+        uint256 newTokens = claimToken == targetToken
+            ? spigot.claimEscrow(claimToken) // same asset. dont trade
+            : _claimAndTrade(claimToken, targetToken, zeroExTradeData); // trade revenue token for debt obligation
 
         // add bought tokens to unused balance
         unusedTokens[targetToken] += newTokens;
@@ -167,27 +167,24 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      */
 
     function _claimAndTrade(
-      address claimToken,
-      address targetToken,
-      bytes calldata zeroExTradeData
-    )
-        internal
-        returns (uint256)
-    {
-        (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
-            claimToken,
-            targetToken,
-            swapTarget,
-            address(spigot),
-            unusedTokens[claimToken],
-            zeroExTradeData
-        );
+        address claimToken,
+        address targetToken,
+        bytes calldata zeroExTradeData
+    ) internal returns (uint256) {
+        (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib
+            .claimAndTrade(
+                claimToken,
+                targetToken,
+                swapTarget,
+                address(spigot),
+                unusedTokens[claimToken],
+                zeroExTradeData
+            );
 
         // we dont use revenue after this so can store now
         unusedTokens[claimToken] = totalUnused;
         return tokensBought;
     }
-
 
     //  SPIGOT OWNER FUNCTIONS
 
@@ -198,12 +195,13 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      * @return whether or not split was updated
      */
     function updateOwnerSplit(address revenueContract) external returns (bool) {
-        return SpigotedLineLib.updateSplit(
-          address(spigot),
-          revenueContract,
-          _updateStatus(_healthcheck()),
-          defaultRevenueSplit
-        );
+        return
+            SpigotedLineLib.updateSplit(
+                address(spigot),
+                revenueContract,
+                _updateStatus(_healthcheck()),
+                defaultRevenueSplit
+            );
     }
 
     /**
@@ -214,11 +212,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function addSpigot(
         address revenueContract,
         ISpigot.Setting calldata setting
-    )
-        external
-        mutualConsent(arbiter, borrower)
-        returns (bool)
-    {
+    ) external mutualConsent(arbiter, borrower) returns (bool) {
         return spigot.addSpigot(revenueContract, setting);
     }
 
@@ -243,15 +237,16 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
    * @return - whether or not spigot was released
   */
     function releaseSpigot() external returns (bool) {
-        return SpigotedLineLib.releaseSpigot(
-          address(spigot),
-          _updateStatus(_healthcheck()),
-          borrower,
-          arbiter
-        );
+        return
+            SpigotedLineLib.releaseSpigot(
+                address(spigot),
+                _updateStatus(_healthcheck()),
+                borrower,
+                arbiter
+            );
     }
 
-  /**
+    /**
    * @notice - sends unused tokens to borrower if repaid or arbiter if liquidatable
              -  doesnt send tokens out if line is unpaid but healthy
    * @dev    - callable by anyone 
@@ -261,12 +256,12 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         uint256 amount = unusedTokens[token];
 
         bool success = SpigotedLineLib.sweep(
-          to,
-          token,
-          amount,
-          _updateStatus(_healthcheck()),
-          borrower,
-          arbiter
+            to,
+            token,
+            amount,
+            _updateStatus(_healthcheck()),
+            borrower,
+            arbiter
         );
 
         return success ? amount : 0;

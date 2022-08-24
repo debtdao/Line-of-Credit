@@ -1,6 +1,6 @@
 pragma solidity ^0.8.9;
 
-import {ISpigot} from "./ISpigot.sol";
+import {Setting} from "../utils/SpigotLib.sol";
 
 interface ISpigotedLine {
   event RevenuePayment(
@@ -19,7 +19,7 @@ interface ISpigotedLine {
   function claimAndTrade(address token,  bytes calldata zeroExTradeData) external returns(uint256 tokensBought);
   
   // Manage Spigot functions
-  function addSpigot(address revenueContract, ISpigot.Setting calldata setting) external returns(bool);
+  function addSpigot(address revenueContract, Setting calldata setting) external returns(bool);
   function updateWhitelist(bytes4 func, bool allowed) external returns(bool);
   function updateOwnerSplit(address revenueContract) external returns(bool);
   function releaseSpigot() external returns(bool);
