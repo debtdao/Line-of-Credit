@@ -114,10 +114,6 @@ contract LineTest is Test {
     }
 
     function test_can_liquidate_escrow_if_cratio_below_min() public {
-        // hoax(borrower);
-        // line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        // hoax(lender);
-        // line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
         _addCredit(address(supportedToken1), 1 ether);
         uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
         uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
