@@ -5,16 +5,16 @@ import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import {LineLib} from "../../utils/LineLib.sol";
-import {CreditLib} from "../../utils/CreditLib.sol";
-import {CreditListLib} from "../../utils/CreditListLib.sol";
-import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {InterestRateCredit} from "../interest-rate/InterestRateCredit.sol";
-import {LineOfCredit} from "./LineOfCredit.sol";
-import {IOracle} from "../../interfaces/IOracle.sol";
-import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
+import {LineLib} from "../utils/LineLib.sol";
+import {CreditLib} from "../utils/CreditLib.sol";
+import {CreditListLib} from "../utils/CreditListLib.sol";
+import {MutualConsent} from "../utils/MutualConsent.sol";
+import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
+import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
+import {IOracle} from "../interfaces/IOracle.sol";
+import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
+import { RevenueToken } from "../mock/RevenueToken.sol";
+import { SimpleOracle } from "../mock/SimpleOracle.sol";
 
 contract LineTest is Test{
 
@@ -29,6 +29,9 @@ contract LineTest is Test{
     LineOfCredit line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint minCollateralRatio = 1 ether; // 100%
+    uint128 drawnRate = 100;
+    uint128 facilityRate = 1;
 
     function setUp() public {
         borrower = address(10);
@@ -98,17 +101,15 @@ contract LineTest is Test{
         hoax(borrower);
         token.approve(address(line), mintAmount);
 
-        hoax(lender);
-        token.approve(address(escrow), mintAmount);
+        
 
-        hoax(borrower);
-        token.approve(address(escrow), mintAmount);
+        
         oracle.changePrice(address(token), 1 ether);
-        escrow.enableCollateral(address(token));
+       
 
         // add collateral for each token so we can borrow it during tests
         hoax(borrower);
-        escrow.addCollateral(1 ether, address(token));
+        
       }
       
       return tokens;
@@ -208,22 +209,6 @@ contract LineTest is Test{
         (uint p,) = line.updateOutstandingDebt();
         assertEq(p, tokenPriceOneUnit / 100, "Principal should be set as one full unit price in USD");
 
-    }
-
-
-
-    function test_can_manually_close_if_no_outstanding_credit() public {
-
-        _addCredit(address(supportedToken1), 1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-        hoax(borrower);
-        line.depositAndRepay(1 ether);
-        (uint p, uint i) = line.updateOutstandingDebt();
-        assertEq(p + i, 0, "Line outstanding credit should be 0");
-        hoax(borrower);
-        line.close(id);
     }
 
     function test_can_manually_close_if_no_outstanding_credit() public {
@@ -533,12 +518,7 @@ contract LineTest is Test{
 
 
 
-    //liquidate
-
-    function test_must_be_in_debt_to_liquidate() public {
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
-        line.liquidate(1 ether, address(supportedToken2));
-    }
+ 
 
     function test_health_becomes_liquidatable_if_debt_past_deadline() public {
         assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
@@ -552,57 +532,12 @@ contract LineTest is Test{
         assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
     }
 
-    function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
-        hoax(arbiter);
-        vm.warp(ttl+1);
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
-        line.liquidate(1 ether, address(supportedToken2));
-    }
 
-    function test_can_liquidate_if_debt_when_deadline_passes() public {
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
+    
 
-        vm.warp(ttl + 1);
-        line.liquidate(0.9 ether, address(supportedToken2));
-    }
+    
 
-    function test_cannot_liquidate_as_anon() public {
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-
-        hoax(address(0xdead));
-        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
-        line.liquidate(1 ether, address(supportedToken2));
-    }
-
-    function test_can_delcare_insolvency_when_all_assets_liquidated() public {
-        _addCredit(address(supportedToken1), 1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        
-        line.borrow(id, 1 ether);
-        console.log('check');
-
-        vm.warp(ttl+1);
-        //hoax(arbiter);
-        
-        assertTrue(line.releaseSpigot());
-        assertTrue(line.spigot().updateOwner(address(0xf1c0)));
-        assertEq(1 ether, line.liquidate(1 ether, address(supportedToken2)));
-        // release spigot + liquidate
-        
-        line.declareInsolvent();
-        assertEq(uint(LineLib.STATUS.INSOLVENT), uint(line.status()));
-    }
+    
 
     function test_increase_credit_limit_with_consent() public {
         _addCredit(address(supportedToken1), 1 ether);

@@ -3,18 +3,18 @@ pragma solidity 0.8.9;
 import "forge-std/Test.sol";
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
-import { Spigot } from "../spigot/Spigot.sol";
-import { Escrow } from "../escrow/Escrow.sol";
-import { SecuredLine } from "./SecuredLine.sol";
-import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
-import { ISecuredLine } from "../../interfaces/ISecuredLine.sol";
+import { Spigot } from "../modules/spigot/Spigot.sol";
+import { Escrow } from "../modules/escrow/Escrow.sol";
+import { SecuredLine } from "../modules/credit/SecuredLine.sol";
+import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
+import { ISecuredLine } from "../interfaces/ISecuredLine.sol";
 
-import { LineLib } from "../../utils/LineLib.sol";
-import { MutualConsent } from "../../utils/MutualConsent.sol";
+import { LineLib } from "../utils/LineLib.sol";
+import { MutualConsent } from "../utils/MutualConsent.sol";
 
-import { MockLine } from "../../mock/MockLine.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
+import { MockLine } from "../mock/MockLine.sol";
+import { SimpleOracle } from "../mock/SimpleOracle.sol";
+import { RevenueToken } from "../mock/RevenueToken.sol";
 
 contract LineTest is Test {
 

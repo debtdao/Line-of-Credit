@@ -1,0 +1,39 @@
+pragma solidity 0.8.9;
+
+import "forge-std/Test.sol";
+import { IEscrow } from "../../interfaces/IEscrow.sol";
+import { LineLib } from "../../utils/LineLib.sol";
+import { IEscrowedLine } from "../../interfaces/IEscrowedLine.sol";
+import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
+
+contract EscowTest is Test {
+
+    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        line.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
+        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+        (uint p, uint i) = line.updateOutstandingDebt();
+        assertGt(p, 0);
+        oracle.changePrice(address(supportedToken2), 1);
+        line.liquidate(1 ether, address(supportedToken2));
+        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
+        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
+    }
+
+    
+}

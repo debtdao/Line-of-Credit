@@ -1,13 +1,13 @@
 pragma solidity 0.8.9;
 
-import { Escrow } from "./Escrow.sol";
+import { Escrow } from "../modules/escrow/Escrow.sol";
 import { Test } from "forge-std/Test.sol";
-import { LineLib } from "../../utils/LineLib.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { RevenueToken4626 } from "../../mock/RevenueToken4626.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
-import { MockLine } from "../../mock/MockLine.sol";
-import { IEscrow } from "../../interfaces/IEscrow.sol";
+import { LineLib } from "../utils/LineLib.sol";
+import { RevenueToken } from "../mock/RevenueToken.sol";
+import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
+import { SimpleOracle } from "../mock/SimpleOracle.sol";
+import { MockLine } from "../mock/MockLine.sol";
+import { IEscrow } from "../interfaces/IEscrow.sol";
 contract EscrowTest is Test {
 
     Escrow escrow;
