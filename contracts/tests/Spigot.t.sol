@@ -3,8 +3,8 @@ pragma solidity 0.8.9;
 import "forge-std/Test.sol";
 import { Spigot } from "../modules/spigot/Spigot.sol";
 
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
+import { RevenueToken } from "../mock/RevenueToken.sol";
+import { SimpleRevenueContract } from '../mock/SimpleRevenueContract.sol';
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 import { ISpigot } from '../interfaces/ISpigot.sol';
