@@ -3,7 +3,7 @@ pragma solidity 0.8.9;
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Deposit, IEscrow} from "../../interfaces/IEscrow.sol";
+import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";

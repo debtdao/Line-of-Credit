@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
-import {Deposit} from "../interfaces/IEscrow.sol";
+import {IEscrow} from "../interfaces/IEscrow.sol";
 import {CreditLib} from "../utils/CreditLib.sol";
 import {LineLib} from "../utils/LineLib.sol";
 
@@ -15,7 +15,7 @@ struct EscrowState {
     /// if lenders allow token as collateral. ensures uniqueness in collateralTokens
     mapping(address => bool) enabled;
     /// tokens used as collateral (must be able to value with oracle)
-    mapping(address => Deposit) deposited;
+    mapping(address => IEscrow.Deposit) deposited;
 }
 
 library EscrowLib {
@@ -32,7 +32,7 @@ library EscrowLib {
     function getDeposited(EscrowState storage self, address token)
         external
         view
-        returns (Deposit memory)
+        returns (IEscrow.Deposit memory)
     {
         return self.deposited[token];
     }
@@ -78,7 +78,7 @@ library EscrowLib {
         // gas savings
         uint256 length = self.collateralTokens.length;
         IOracle o = IOracle(oracle);
-        Deposit memory d;
+        IEscrow.Deposit memory d;
         for (uint256 i = 0; i < length; i++) {
             address token = self.collateralTokens[i];
             d = self.deposited[token];
@@ -139,7 +139,7 @@ library EscrowLib {
         address oracle
     ) internal returns (bool) {
         bool isEnabled = self.enabled[token];
-        Deposit memory deposit = self.deposited[token]; // gas savings
+        IEscrow.Deposit memory deposit = self.deposited[token]; // gas savings
         if (!isEnabled) {
             if (token == Denominations.ETH) {
                 // enable native eth support
