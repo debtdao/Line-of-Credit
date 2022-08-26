@@ -51,6 +51,7 @@ contract LineTest is Test{
             ttl
         ); 
         assertEq(uint(line.init()), uint(LineLib.STATUS.ACTIVE));
+        _mintAndApprove();
 
     }
 
@@ -108,11 +109,150 @@ contract LineTest is Test{
        
 
         // add collateral for each token so we can borrow it during tests
-        hoax(borrower);
+        
         
       }
       
       return tokens;
+    }
+
+    function test_positions_move_in_queue_of_2() public {
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        hoax(lender);
+        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        assertEq(line.ids(0), id);
+        assertEq(line.ids(1), id2);
+        hoax(borrower);
+        line.borrow(id2, 1 ether);
+        
+        assertEq(line.ids(0), id2);
+        assertEq(line.ids(1), id);
+        hoax(borrower);
+        line.depositAndClose();
+
+        assertEq(line.ids(0), id);
+    }
+
+    function test_positions_move_in_queue_of_4_random_active_line() public {
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        hoax(lender);
+        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        // create 3rd token to fully test array sorting
+        address[] memory tokens = setupQueueTest(2);
+        address token3 = tokens[0];
+        address token4 = tokens[1];
+
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        hoax(lender);
+        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        hoax(lender);
+        bytes32 id4 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+
+        assertEq(line.ids(0), id);
+        assertEq(line.ids(1), id2);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id4);
+        hoax(borrower);
+        line.borrow(id2, 1 ether);
+        
+        assertEq(line.ids(0), id2);
+        assertEq(line.ids(1), id);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id4);
+        hoax(borrower);
+        line.borrow(id4, 1 ether);
+
+        assertEq(line.ids(0), id2);
+        assertEq(line.ids(1), id4);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id); // id switches with id4, not just pushed one step back in queue
+        hoax(borrower);
+        line.depositAndClose();
+
+        assertEq(line.ids(0), id4);
+        assertEq(line.ids(1), id3);
+        assertEq(line.ids(2), id);
+    }
+
+
+
+    // check that only borrowing from the last possible id will still sort queue properly
+    // testing for bug in code where _i is initialized at 0 and never gets updated causing position to go to first position in repayment queue
+    function test_positions_move_in_queue_of_4_only_last() public {
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        hoax(lender);
+        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+
+        address[] memory tokens = setupQueueTest(2);
+        address token3 = tokens[0];
+        address token4 = tokens[1];
+
+
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        hoax(lender);
+        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        
+        hoax(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        hoax(lender);
+        bytes32 id4 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+
+        assertEq(line.ids(0), id);
+        assertEq(line.ids(1), id2);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id4);
+
+        hoax(borrower);
+        line.borrow(id4, 1 ether);
+        
+        assertEq(line.ids(0), id4);
+        assertEq(line.ids(1), id2);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id);
+        
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        assertEq(line.ids(0), id4);
+        assertEq(line.ids(1), id);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id2); // id switches with id4, not just pushed one step back in queue
+
+        hoax(borrower);
+        line.depositAndRepay(1 wei);
+
+        assertEq(line.ids(0), id4);
+        assertEq(line.ids(1), id);
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id2);
+
+        hoax(borrower);
+        line.depositAndClose();
+
+        assertEq(line.ids(0), id);
+        assertEq(line.ids(1), id3);
+        assertEq(line.ids(2), id2);
     }
 
     // init
@@ -134,6 +274,8 @@ contract LineTest is Test{
             borrower,
             ttl
         );
+
+        
         assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
     }
 
@@ -408,14 +550,14 @@ contract LineTest is Test{
         line.borrow(bytes32(uint(12743134)), 1 ether);
     }
 
-    function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
+    // function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
          
-        _addCredit(address(supportedToken1), 100 ether);
-        bytes32 id = line.ids(0);
-        vm.expectRevert(ILineOfCredit.NotActive.selector); 
-        hoax(borrower);
-        line.borrow(id, 100 ether);
-    }
+    //     _addCredit(address(supportedToken1), 100 ether);
+    //     bytes32 id = line.ids(0);
+    //     vm.expectRevert(); 
+    //     hoax(borrower);
+    //     line.borrow(id, 100 ether);
+    // }
 
     function test_cannot_withdraw_if_all_lineed_out() public {
          
@@ -445,19 +587,21 @@ contract LineTest is Test{
         line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
     }
 
-    function test_cannot_borrow_if_not_active() public {
-        assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
-         
-        _addCredit(address(supportedToken1), 0.1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 0.1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
-        vm.expectRevert(ILineOfCredit.NotActive.selector); 
-        hoax(borrower);
-        line.borrow(id, 0.9 ether);
-    }
+    // function test_cannot_borrow_if_not_active() public {
+        
+
+    //     assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
+    //     console.log('check'); 
+    //     _addCredit(address(supportedToken1), 0.1 ether);
+    //     bytes32 id = line.ids(0);
+    //     hoax(borrower);
+    //     line.borrow(id, 0.1 ether);
+    //     oracle.changePrice(address(supportedToken2), 1);
+    //     assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
+    //     vm.expectRevert(ILineOfCredit.NotActive.selector); 
+    //     hoax(borrower);
+    //     line.borrow(id, 0.9 ether);
+    // }
 
     function test_cannot_borrow_against_closed_position() public {
          
@@ -520,24 +664,7 @@ contract LineTest is Test{
 
  
 
-    function test_health_becomes_liquidatable_if_debt_past_deadline() public {
-        assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
-        // add line otherwise no debt == passed
-        _addCredit(address(supportedToken1), 1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
 
-        vm.warp(ttl+1);
-        assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
-    }
-
-
-    
-
-    
-
-    
 
     function test_increase_credit_limit_with_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
@@ -588,6 +715,78 @@ contract LineTest is Test{
         hoax(address(0xdebf));
         line.setRates(id, uint128(1 ether), uint128(1 ether));
     }
+
+
+    // function test_cannot_liquidate_as_anon() public {
+    //     hoax(borrower);
+    //     line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     hoax(lender);
+    //     bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     hoax(borrower);
+    //     line.borrow(id, 1 ether);
+
+    //     hoax(address(0xdead));
+    //     vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
+    //     line.liquidate(1 ether, address(supportedToken2));
+    // }
+
+    // function test_health_becomes_liquidatable_when_cratio_below_min() public {
+    //     _addCredit(address(supportedToken1), 1 ether);
+    //     bytes32 id = line.ids(0);
+    //     hoax(borrower);
+    //     line.borrow(id, 1 ether);
+    //     oracle.changePrice(address(supportedToken2), 1);
+    //     assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
+    // }
+
+    // function test_health_is_not_liquidatable_if_cratio_above_min() public {
+    //     assertTrue(line.healthcheck() != LineLib.STATUS.LIQUIDATABLE);
+    // }
+
+    // function test_can_liquidate_if_debt_when_deadline_passes() public {
+    //     hoax(borrower);
+    //     line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     hoax(lender);
+    //     bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //     hoax(borrower);
+    //     line.borrow(id, 1 ether);
+
+    //     vm.warp(ttl + 1);
+    //     line.liquidate(0.9 ether, address(supportedToken2));
+    // }
+    // function test_must_be_in_debt_to_liquidate() public {
+    //     vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+    //     line.liquidate(1 ether, address(supportedToken2));
+    // }
+
+    // function test_health_becomes_liquidatable_if_cratio_below_min() public {
+    //     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
+    //     _addCredit(address(supportedToken1), 1 ether);
+    //     bytes32 id = line.ids(0);
+    //     hoax(borrower);
+    //     line.borrow(id, 1 ether);
+    //     oracle.changePrice(address(supportedToken2), 1);
+    //     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.LIQUIDATABLE));
+    // }
+
+    function test_health_becomes_liquidatable_if_debt_past_deadline() public {
+        assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
+        // add line otherwise no debt == passed
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        vm.warp(ttl+1);
+        assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
+    }
+
+    // function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
+    //     hoax(arbiter);
+    //     vm.warp(ttl+1);
+    //     vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
+    //     line.liquidate(1 ether, address(supportedToken2));
+    // }
 
 
 
