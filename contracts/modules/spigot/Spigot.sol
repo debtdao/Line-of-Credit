@@ -17,12 +17,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
     // Stakeholder variables
     
-    address public owner;
-
-    address public operator;
-
-    address public treasury;
-
     SpigotState private state;
 
     /**
@@ -39,9 +33,21 @@ contract Spigot is ISpigot, ReentrancyGuard {
         address _treasury,
         address _operator
     ) {
-        owner = _owner;
-        operator = _operator;
-        treasury = _treasury;
+        state.owner = _owner;
+        state.operator = _operator;
+        state.treasury = _treasury;
+    }
+
+    function owner() public view returns (address) {
+        return state.owner;
+    }
+
+    function operator() public view returns (address) {
+        return state.operator;
+    }
+
+    function treasury() public view returns (address) {
+        return state.treasury;
     }
 
     // ##########################
@@ -62,22 +68,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         external nonReentrant
         returns (uint256 claimed)
     {
-        address token = state.settings[revenueContract].token;
-        claimed = state._claimRevenue(revenueContract, data, token);
-
-        // split revenue stream according to settings
-        uint256 escrowedAmount = claimed * state.settings[revenueContract].ownerSplit / 100;
-        // update escrowed balance
-        state.escrowed[token] = state.escrowed[token] + escrowedAmount;
-        
-        // send non-escrowed tokens to Treasury if non-zero
-        if(claimed > escrowedAmount) {
-            require(LineLib.sendOutTokenOrETH(token, treasury, claimed - escrowedAmount));
-        }
-
-        emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
-        
-        return claimed;
+        return state.claimRevenue(revenueContract, data);
     }
 
 
@@ -93,7 +84,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         nonReentrant
         returns (uint256 claimed) 
     {
-        return state.claimEscrow(owner, token);
+        return state.claimEscrow(token);
     }
 
 
@@ -111,8 +102,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param data - tx data, including function signature, to call contract with
      */
     function operate(address revenueContract, bytes calldata data) external returns (bool) {
-        if(msg.sender != operator) { revert CallerAccessDenied(); }
-        return state._operate(revenueContract, data);
+        return state.operate(revenueContract, data);
     }
 
 
@@ -128,8 +118,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param setting - spigot settings for smart contract   
      */
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool) {
-        if(msg.sender != owner) { revert CallerAccessDenied(); }
-        return state._addSpigot(revenueContract, setting);
+        return state.addSpigot(revenueContract, setting);
     }
 
     /**
@@ -143,14 +132,14 @@ contract Spigot is ISpigot, ReentrancyGuard {
         external
         returns (bool)
     {
-       return state.removeSpigot(owner, operator, revenueContract);
+       return state.removeSpigot(revenueContract);
     }
 
     function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
         external
         returns(bool)
     {
-      return state.updateOwnerSplit(owner, revenueContract, ownerSplit);
+      return state.updateOwnerSplit(revenueContract, ownerSplit);
     }
 
     /**
@@ -160,11 +149,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param newOwner - Address to give control to
      */
     function updateOwner(address newOwner) external returns (bool) {
-        if(msg.sender != owner) { revert CallerAccessDenied(); }
-        require(newOwner != address(0));
-        owner = newOwner;
-        emit UpdateOwner(newOwner);
-        return true;
+        return state.updateOwner(newOwner);
     }
 
     /**
@@ -175,11 +160,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param newOperator - Address to give control to
      */
     function updateOperator(address newOperator) external returns (bool) {
-        if(msg.sender != operator) { revert CallerAccessDenied(); }
-        require(newOperator != address(0));
-        operator = newOperator;
-        emit UpdateOperator(newOperator);
-        return true;
+        return state.updateOperator(newOperator);
     }
     
     /**
@@ -190,14 +171,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param newTreasury - Address to divert funds to
      */
     function updateTreasury(address newTreasury) external returns (bool) {
-        if(msg.sender != operator && msg.sender != treasury) {
-          revert CallerAccessDenied();
-        }
-
-        require(newTreasury != address(0));
-        treasury = newTreasury;
-        emit UpdateTreasury(newTreasury);
-        return true;
+        return state.updateTreasury(newTreasury);
     }
 
     /**
@@ -210,7 +184,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param allowed - true/false whether to allow this function to be called by Operator
      */
      function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
-        return state.updateWhitelistedFunction(owner, func, allowed);
+        return state.updateWhitelistedFunction(func, allowed);
     }
 
     // ##########################

@@ -5,6 +5,9 @@ import {LineLib} from "../utils/LineLib.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
 struct SpigotState {
+    address owner;
+    address operator;
+    address treasury;
     // Total amount of tokens escrowed by spigot
     mapping(address => uint256) escrowed; // token  -> amount escrowed
     //  allowed by operator on all revenue contracts
@@ -31,7 +34,7 @@ library SpigotLib {
     }
 
     function _claimRevenue(SpigotState storage self, address revenueContract, bytes calldata data, address token)
-        external
+        public
         returns (uint256 claimed)
     {
         uint256 existingBalance = LineLib.getBalance(token);
@@ -57,22 +60,49 @@ library SpigotLib {
         return claimed;
     }
 
-     function claimEscrow(SpigotState storage self, address owner, address token)
+    function operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
+        if(msg.sender != self.operator) { revert CallerAccessDenied(); }
+        return _operate(self, revenueContract, data);
+    }
+
+    function claimRevenue(SpigotState storage self, address revenueContract, bytes calldata data)
+        external
+        returns (uint256 claimed)
+    {
+        address token = self.settings[revenueContract].token;
+        claimed = _claimRevenue(self, revenueContract, data, token);
+
+        // split revenue stream according to settings
+        uint256 escrowedAmount = claimed * self.settings[revenueContract].ownerSplit / 100;
+        // update escrowed balance
+        self.escrowed[token] = self.escrowed[token] + escrowedAmount;
+        
+        // send non-escrowed tokens to Treasury if non-zero
+        if(claimed > escrowedAmount) {
+            require(LineLib.sendOutTokenOrETH(token, self.treasury, claimed - escrowedAmount));
+        }
+
+        emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
+        
+        return claimed;
+    }
+
+     function claimEscrow(SpigotState storage self, address token)
         external
         whileNoUnclaimedRevenue(self, token)
         returns (uint256 claimed) 
     {
-        if(msg.sender != owner) { revert CallerAccessDenied(); }
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
         
         claimed = self.escrowed[token];
 
         if(claimed == 0) { revert ClaimFailed(); }
 
-        LineLib.sendOutTokenOrETH(token, owner, claimed);
+        LineLib.sendOutTokenOrETH(token, self.owner, claimed);
 
         self.escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
-        emit ClaimEscrow(token, claimed, owner);
+        emit ClaimEscrow(token, claimed, self.owner);
 
         return claimed;
     }
@@ -82,7 +112,7 @@ library SpigotLib {
      * @param revenueContract - smart contracts to call
      * @param data - tx data, including function signature, to call contracts with
      */
-    function _operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
+    function _operate(SpigotState storage self, address revenueContract, bytes calldata data) public returns (bool) {
         bytes4 func = bytes4(data);
         // extract function signature from tx data and check whitelist
         if(!self.whitelistedFunctions[func]) { revert BadFunction(); }
@@ -104,7 +134,7 @@ library SpigotLib {
      * @param revenueContract - smart contract to claim tokens from
      * @param setting - spigot configuration for smart contract   
      */
-    function _addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
+    function _addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) public returns (bool) {
         require(revenueContract != address(this));
         // spigot setting already exists
         require(self.settings[revenueContract].transferOwnerFunction == bytes4(0));
@@ -120,17 +150,22 @@ library SpigotLib {
         return true;
     }
 
-    function removeSpigot(SpigotState storage self, address owner, address operator, address revenueContract)
+    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        return _addSpigot(self, revenueContract, setting);
+    }
+
+    function removeSpigot(SpigotState storage self, address revenueContract)
         external
         whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
         returns (bool)
     {
-        if(msg.sender != owner) { revert CallerAccessDenied(); }
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
 
         (bool success,) = revenueContract.call(
             abi.encodeWithSelector(
                 self.settings[revenueContract].transferOwnerFunction,
-                operator    // assume function only takes one param that is new owner address
+                self.operator    // assume function only takes one param that is new owner address
             )
         );
         require(success);
@@ -141,12 +176,12 @@ library SpigotLib {
         return true;
     }
 
-    function updateOwnerSplit(SpigotState storage self, address owner, address revenueContract, uint8 ownerSplit)
+    function updateOwnerSplit(SpigotState storage self, address revenueContract, uint8 ownerSplit)
         external
         whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
         returns(bool)
     {
-      if(msg.sender != owner) { revert CallerAccessDenied(); }
+      if(msg.sender != self.owner) { revert CallerAccessDenied(); }
       if(ownerSplit > SpigotLib.MAX_SPLIT) { revert BadSetting(); }
 
       self.settings[revenueContract].ownerSplit = ownerSplit;
@@ -155,8 +190,35 @@ library SpigotLib {
       return true;
     }
 
-    function updateWhitelistedFunction(SpigotState storage self, address owner, bytes4 func, bool allowed) external returns (bool) {
-        if(msg.sender != owner) { revert CallerAccessDenied(); }
+    function updateOwner(SpigotState storage self, address newOwner) external returns (bool) {
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        require(newOwner != address(0));
+        self.owner = newOwner;
+        emit UpdateOwner(newOwner);
+        return true;
+    }
+
+    function updateOperator(SpigotState storage self, address newOperator) external returns (bool) {
+        if(msg.sender != self.operator) { revert CallerAccessDenied(); }
+        require(newOperator != address(0));
+        self.operator = newOperator;
+        emit UpdateOperator(newOperator);
+        return true;
+    }
+
+    function updateTreasury(SpigotState storage self, address newTreasury) external returns (bool) {
+        if(msg.sender != self.operator && msg.sender != self.treasury) {
+          revert CallerAccessDenied();
+        }
+
+        require(newTreasury != address(0));
+        self.treasury = newTreasury;
+        emit UpdateTreasury(newTreasury);
+        return true;
+    }
+
+    function updateWhitelistedFunction(SpigotState storage self, bytes4 func, bool allowed) external returns (bool) {
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
         self.whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, allowed);
         return true;
