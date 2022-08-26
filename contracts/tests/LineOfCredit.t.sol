@@ -276,7 +276,7 @@ contract LineTest is Test{
         );
 
         
-        assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        assertEq(uint(l.status()), uint(LineLib.STATUS.UNINITIALIZED));
     }
 
    // borrow/lend
