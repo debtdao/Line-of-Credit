@@ -114,7 +114,7 @@ contract Escrow is IEscrow {
         uint256 length = _collateralTokens.length;
         IOracle o = IOracle(oracle); 
         Deposit memory d;
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i; i < length;) {
             address token = _collateralTokens[i];
             d = deposited[token];
              // new var so we don't override original deposit amount for 4626 tokens
@@ -138,6 +138,8 @@ contract Escrow is IEscrow {
                   d.assetDecimals
                 );
             }
+
+          unchecked { ++i; }
         }
 
         return collateralValue;
