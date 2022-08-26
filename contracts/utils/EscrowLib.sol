@@ -5,21 +5,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
+import {Deposit} from "../interfaces/IEscrow.sol";
 import {CreditLib} from "../utils/CreditLib.sol";
 import {LineLib} from "../utils/LineLib.sol";
 
-struct Deposit {
-    uint256 amount;
-    bool isERC4626;
-    address asset; // eip4626 asset else the erc20 token itself
-    uint8 assetDecimals;
-}
-
 struct EscrowState {
-    /// the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
-    uint256 minimumCollateralRatio;
-    address oracle;
-    address borrower;
     address line;
     address[] collateralTokens;
     /// if lenders allow token as collateral. ensures uniqueness in collateralTokens
@@ -35,28 +25,12 @@ library EscrowLib {
     uint256 constant MAX_INT =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    function isLiquidatable(EscrowState storage state) public returns (bool) {
-        return _getLatestCollateralRatio(state) < state.minimumCollateralRatio;
-    }
-
-    function getLine(EscrowState storage self) public view returns (address) {
+    function getLine(EscrowState storage self) external view returns (address) {
         return self.line;
     }
 
-    function getOracle(EscrowState storage self) public view returns (address) {
-        return self.oracle;
-    }
-
-    function getBorrower(EscrowState storage self)
-        public
-        view
-        returns (address)
-    {
-        return self.borrower;
-    }
-
     function getDeposited(EscrowState storage self, address token)
-        public
+        external
         view
         returns (Deposit memory)
     {
@@ -73,25 +47,6 @@ library EscrowLib {
     }
 
     /**
-     * @notice updates the cratio according to the collateral value vs line value
-     * @dev calls accrue interest on the line contract to update the latest interest payable
-     * @return the updated collateral ratio in 18 decimals
-     */
-    function _getLatestCollateralRatio(EscrowState storage self)
-        internal
-        returns (uint256)
-    {
-        (uint256 principal, uint256 interest) = ILineOfCredit(self.line)
-            .updateOutstandingDebt();
-        uint256 debtValue = principal + interest;
-        uint256 collateralValue = _getCollateralValue(self);
-        if (collateralValue == 0) return 0;
-        if (debtValue == 0) return MAX_INT;
-
-        return _percent(collateralValue, debtValue, 18);
-    }
-
-    /**
      * @notice - computes the ratio of one value to another
                - e.g. _percent(100, 100, 18) = 1 ether = 100%
      * @param numerator - value to compare
@@ -103,7 +58,7 @@ library EscrowLib {
         uint256 numerator,
         uint256 denominator,
         uint256 precision
-    ) internal pure returns (uint256 quotient) {
+    ) external pure returns (uint256 quotient) {
         uint256 _numerator = numerator * 10**(precision + 1);
         // with rounding of last digit
         uint256 _quotient = ((_numerator / denominator) + 5) / 10;
@@ -115,14 +70,14 @@ library EscrowLib {
     * @dev calculate the USD value of all the collateral stored
     * @return - the collateral's USD value in 8 decimals
     */
-    function _getCollateralValue(EscrowState storage self)
-        internal
+    function _getCollateralValue(EscrowState storage self, address oracle)
+        external
         returns (uint256)
     {
         uint256 collateralValue = 0;
         // gas savings
         uint256 length = self.collateralTokens.length;
-        IOracle o = IOracle(self.oracle);
+        IOracle o = IOracle(oracle);
         Deposit memory d;
         for (uint256 i = 0; i < length; i++) {
             address token = self.collateralTokens[i];
@@ -154,47 +109,20 @@ library EscrowLib {
     }
 
     /**
-     * @notice add collateral to your position
-     * @dev updates cratio
-     * @dev requires that the token deposited can be valued by the escrow's oracle & the depositor has approved this contract
-     * @dev - callable by anyone
-     * @param amount - the amount of collateral to add
-     * @param token - the token address of the deposited token
-     * @return - the updated cratio
-     */
-    function addCollateral(
-        EscrowState storage self,
-        uint256 amount,
-        address token
-    ) external returns (uint256) {
-        require(amount > 0);
-        if (!self.enabled[token]) {
-            revert InvalidCollateral();
-        }
-
-        LineLib.receiveTokenOrETH(token, msg.sender, amount);
-
-        self.deposited[token].amount += amount;
-
-        emit AddCollateral(token, amount);
-
-        return _getLatestCollateralRatio(self);
-    }
-
-    /**
      * @notice - allows  the lines arbiter to  enable thdeposits of an asset
      *        - gives  better risk segmentation forlenders
      * @dev - whitelisting protects against malicious 4626 tokens and DoS attacks
      *       - only need to allow once. Can not disable collateral once enabled.
      * @param token - the token to all borrow to deposit as collateral
      */
-    function enableCollateral(EscrowState storage self, address token)
-        external
-        returns (bool)
-    {
+    function enableCollateral(
+        EscrowState storage self,
+        address token,
+        address oracle
+    ) external returns (bool) {
         require(msg.sender == ILineOfCredit(self.line).arbiter());
 
-        _enableToken(self, token);
+        EscrowLib._enableToken(self, token, oracle);
 
         return true;
     }
@@ -205,10 +133,11 @@ library EscrowLib {
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
     * return bool - if collateral is now enabled or not.
     */
-    function _enableToken(EscrowState storage self, address token)
-        internal
-        returns (bool)
-    {
+    function _enableToken(
+        EscrowState storage self,
+        address token,
+        address oracle
+    ) internal returns (bool) {
         bool isEnabled = self.enabled[token];
         Deposit memory deposit = self.deposited[token]; // gas savings
         if (!isEnabled) {
@@ -228,9 +157,7 @@ library EscrowLib {
                     ? token
                     : abi.decode(tokenAddrBytes, (address));
 
-                int256 price = IOracle(self.oracle).getLatestAnswer(
-                    deposit.asset
-                );
+                int256 price = IOracle(oracle).getLatestAnswer(deposit.asset);
                 if (price <= 0) {
                     revert InvalidCollateral();
                 }
@@ -253,71 +180,6 @@ library EscrowLib {
         }
 
         return isEnabled;
-    }
-
-    /**
-     * @notice remove collateral from your position. Must remain above min collateral ratio
-     * @dev callable by `borrower`
-     * @dev updates cratio
-     * @param amount - the amount of collateral to release
-     * @param token - the token address to withdraw
-     * @param to - who should receive the funds
-     * @return - the updated cratio
-     */
-    function releaseCollateral(
-        EscrowState storage self,
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (uint256) {
-        require(amount > 0);
-        if (msg.sender != self.borrower) {
-            revert CallerAccessDenied();
-        }
-        if (self.deposited[token].amount < amount) {
-            revert InvalidCollateral();
-        }
-        self.deposited[token].amount -= amount;
-
-        LineLib.sendOutTokenOrETH(token, to, amount);
-
-        uint256 cratio = _getLatestCollateralRatio(self);
-        // fail if reduces cratio below min
-        // but allow borrower to always withdraw if fully repaid
-        if (
-            cratio < self.minimumCollateralRatio && // if undercollateralized, revert;
-            ILineOfCredit(self.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
-        ) {
-            revert UnderCollateralized();
-        }
-
-        emit RemoveCollateral(token, amount);
-
-        return cratio;
-    }
-
-    /**
-     * @notice calculates the cratio
-     * @dev callable by anyone
-     * @return - the calculated cratio
-     */
-    function getCollateralRatio(EscrowState storage self)
-        external
-        returns (uint256)
-    {
-        return _getLatestCollateralRatio(self);
-    }
-
-    /**
-     * @notice calculates the collateral value in USD to 8 decimals
-     * @dev callable by anyone
-     * @return - the calculated collateral value to 8 decimals
-     */
-    function getCollateralValue(EscrowState storage self)
-        external
-        returns (uint256)
-    {
-        return _getCollateralValue(self);
     }
 
     /**

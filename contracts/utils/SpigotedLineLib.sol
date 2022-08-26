@@ -1,8 +1,8 @@
 pragma solidity 0.8.9;
 
+import { ISpigot } from "../interfaces/ISpigot.sol";
 import { ISpigotedLine } from "../interfaces/ISpigotedLine.sol";
 import { LineLib } from "../utils/LineLib.sol";
-import { SpigotLib, SpigotState } from "../utils/SpigotLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
@@ -42,15 +42,16 @@ library SpigotedLineLib {
      * @param claimToken - the token escrowed in spigot to sell in trade
      * @param targetToken - the token borrow owed debt in and needs to buy. Always `credits[ids[0]].token`
      * @param swapTarget  - 0x exchange router address to call for trades
+     * @param spigot      - spigot to claim from. Must be owned by adddress(this)
      * @param unused      - current amount of unused claimTokens
      * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for target
      * @return (uint, uint) - (amount of target tokens bought, total unused claim tokens after trade)
      */
     function claimAndTrade(
-        SpigotState storage self,
         address claimToken,
         address targetToken,
         address payable swapTarget,
+        address spigot,
         uint256 unused,
         bytes calldata zeroExTradeData
     )
@@ -65,7 +66,7 @@ library SpigotedLineLib {
         uint256 oldTargetTokens = LineLib.getBalance(targetToken);
         
         // claim has to be called after we get balance
-        uint256 claimed = SpigotLib.claimEscrow(self, claimToken);
+        uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
         trade(
             claimed + unused,
@@ -138,18 +139,18 @@ library SpigotedLineLib {
     /**
      * @notice cleanup function when borrower this line ends 
      */
-    function rollover(SpigotState storage self, address newLine) external returns(bool) {
-      require(SpigotLib.updateOwner(self, newLine));
+    function rollover(address spigot, address newLine) external returns(bool) {
+      require(ISpigot(spigot).updateOwner(newLine));
       return true;
     }
 
-    function canDeclareInsolvent(SpigotState storage self, address arbiter) external view returns (bool) {
+    function canDeclareInsolvent(address spigot, address arbiter) external view returns (bool) {
             // Must have called releaseSpigot() and sold off protocol / revenue streams already
-      address owner_ = SpigotLib.owner(self);
+      address owner_ = ISpigot(spigot).owner();
       if(
         address(this) == owner_ ||
         arbiter == owner_
-      ) { revert NotInsolvent(address(SpigotLib)); }
+      ) { revert NotInsolvent(spigot); }
       // no additional logic in LineOfCredit to include
       return true;
     }
@@ -161,17 +162,17 @@ library SpigotedLineLib {
      * @param revenueContract - spigot to update
      * @return whether or not split was updated
      */
-    function updateSplit(SpigotState storage self, address revenueContract, LineLib.STATUS status, uint8 defaultSplit) external returns (bool) {
-        (,uint8 split,  ,bytes4 transferFunc) = SpigotLib.getSetting(self, revenueContract);
+    function updateSplit(address spigot, address revenueContract, LineLib.STATUS status, uint8 defaultSplit) external returns (bool) {
+        (,uint8 split,  ,bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
 
         if(transferFunc == bytes4(0)) { revert NoSpigot(); }
 
         if(status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
             // if line is healthy set split to default take rate
-            return SpigotLib.updateOwnerSplit(self, revenueContract, defaultSplit);
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
         } else if (status == LineLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
             // if line is in distress take all revenue to repay line
-            return SpigotLib.updateOwnerSplit(self, revenueContract, MAX_SPLIT);
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, MAX_SPLIT);
         }
 
         return false;
@@ -185,16 +186,16 @@ library SpigotedLineLib {
    * @dev    - callable by anyone 
    * @return - whether or not spigot was released
   */
-    function releaseSpigot(SpigotState storage self, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
+    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
         if (status == LineLib.STATUS.REPAID) {
           if (msg.sender != borrower) { revert CallerAccessDenied(); } 
-          if(!SpigotLib.updateOwner(self, borrower)) { revert ReleaseSpigotFailed(); }
+          if(!ISpigot(spigot).updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
           return true;
         }
 
         if (status == LineLib.STATUS.LIQUIDATABLE) {
           if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
-          if(!SpigotLib.updateOwner(self, arbiter)) { revert ReleaseSpigotFailed(); }
+          if(!ISpigot(spigot).updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
           return true;
         }
 
