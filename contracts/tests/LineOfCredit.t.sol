@@ -550,14 +550,7 @@ contract LineTest is Test{
         line.borrow(bytes32(uint(12743134)), 1 ether);
     }
 
-    // function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
-         
-    //     _addCredit(address(supportedToken1), 100 ether);
-    //     bytes32 id = line.ids(0);
-    //     vm.expectRevert(); 
-    //     hoax(borrower);
-    //     line.borrow(id, 100 ether);
-    // }
+    
 
     function test_cannot_withdraw_if_all_lineed_out() public {
          
@@ -587,21 +580,6 @@ contract LineTest is Test{
         line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
     }
 
-    // function test_cannot_borrow_if_not_active() public {
-        
-
-    //     assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
-    //     console.log('check'); 
-    //     _addCredit(address(supportedToken1), 0.1 ether);
-    //     bytes32 id = line.ids(0);
-    //     hoax(borrower);
-    //     line.borrow(id, 0.1 ether);
-    //     oracle.changePrice(address(supportedToken2), 1);
-    //     assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
-    //     vm.expectRevert(ILineOfCredit.NotActive.selector); 
-    //     hoax(borrower);
-    //     line.borrow(id, 0.9 ether);
-    // }
 
     function test_cannot_borrow_against_closed_position() public {
          
@@ -716,59 +694,6 @@ contract LineTest is Test{
         line.setRates(id, uint128(1 ether), uint128(1 ether));
     }
 
-
-    // function test_cannot_liquidate_as_anon() public {
-    //     hoax(borrower);
-    //     line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     hoax(lender);
-    //     bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     hoax(borrower);
-    //     line.borrow(id, 1 ether);
-
-    //     hoax(address(0xdead));
-    //     vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
-    //     line.liquidate(1 ether, address(supportedToken2));
-    // }
-
-    // function test_health_becomes_liquidatable_when_cratio_below_min() public {
-    //     _addCredit(address(supportedToken1), 1 ether);
-    //     bytes32 id = line.ids(0);
-    //     hoax(borrower);
-    //     line.borrow(id, 1 ether);
-    //     oracle.changePrice(address(supportedToken2), 1);
-    //     assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
-    // }
-
-    // function test_health_is_not_liquidatable_if_cratio_above_min() public {
-    //     assertTrue(line.healthcheck() != LineLib.STATUS.LIQUIDATABLE);
-    // }
-
-    // function test_can_liquidate_if_debt_when_deadline_passes() public {
-    //     hoax(borrower);
-    //     line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     hoax(lender);
-    //     bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-    //     hoax(borrower);
-    //     line.borrow(id, 1 ether);
-
-    //     vm.warp(ttl + 1);
-    //     line.liquidate(0.9 ether, address(supportedToken2));
-    // }
-    // function test_must_be_in_debt_to_liquidate() public {
-    //     vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
-    //     line.liquidate(1 ether, address(supportedToken2));
-    // }
-
-    // function test_health_becomes_liquidatable_if_cratio_below_min() public {
-    //     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
-    //     _addCredit(address(supportedToken1), 1 ether);
-    //     bytes32 id = line.ids(0);
-    //     hoax(borrower);
-    //     line.borrow(id, 1 ether);
-    //     oracle.changePrice(address(supportedToken2), 1);
-    //     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.LIQUIDATABLE));
-    // }
-
     function test_health_becomes_liquidatable_if_debt_past_deadline() public {
         assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
         // add line otherwise no debt == passed
@@ -780,15 +705,5 @@ contract LineTest is Test{
         vm.warp(ttl+1);
         assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
     }
-
-    // function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
-    //     hoax(arbiter);
-    //     vm.warp(ttl+1);
-    //     vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
-    //     line.liquidate(1 ether, address(supportedToken2));
-    // }
-
-
-
 
 }
