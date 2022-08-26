@@ -9,6 +9,7 @@ contract InterestRateCreditTest is Test {
 
     function setUp() public {
         i = new InterestRateCredit();
+        vm.warp(0);
     }
 
     function test_can_add_different_rates() public {
@@ -25,15 +26,48 @@ contract InterestRateCreditTest is Test {
     }
 
     function test_can_accrue_interest_all_drawn() public {
-        i.setRate(bytes32(""), uint128(0), uint128(0));
-        uint256 accrued = i.accrueInterest(bytes32(0), 1, 1);
-        assertEq(accrued, 0); // TODO: figure out how to fast forward blocks in hevm to test real amounts
+        i.setRate(bytes32(""), uint128(1), uint128(1));
+        skip(3812);
+        uint256 accrued = i.accrueInterest(bytes32(0), 3, 3);
+        assertEq(accrued, 0);
     }
 
-    function test_can_accrue_interest_half_drawn() public {
-        i.setRate(bytes32(""), uint128(0), uint128(0));
-        uint256 accrued = i.accrueInterest(bytes32(0), 1, 2);
-        assertEq(accrued, 0); // TODO: figure out how to fast forward blocks in hevm to test real amounts
+    function test_accrue_interest_drawn_with_no_facility_rate(
+        uint128 drawnRate,
+        uint256 drawnBalance
+    ) public {
+        vm.assume(drawnRate > 0 && drawnRate <= 1e4);
+        vm.assume(
+            drawnBalance >= 1e4 &&
+                drawnBalance < 99999999999999999999999999999999999999
+        );
+        bytes32 id = bytes32("");
+        i.setRate(id, drawnRate, uint128(0));
+        skip(365.25 days);
+        uint256 accrued = i.accrueInterest(id, drawnBalance, drawnBalance);
+        assertEq(accrued, (drawnRate * drawnBalance) / 1e4);
+    }
+
+    function test_accrue_interest_drawn_half_drawn(uint256 balance) public {
+        vm.assume(
+            balance >= 2e4 && balance < 99999999999999999999999999999999999999
+        );
+
+        bytes32 id = bytes32("");
+        uint128 drawnRate = 603;
+        uint128 facilityRate = 118;
+        uint256 drawnBalance = balance / 2;
+        uint256 facilityBalance = balance;
+
+        i.setRate(id, drawnRate, facilityRate);
+        skip(365.25 days);
+        uint256 accrued = i.accrueInterest(id, drawnBalance, facilityBalance);
+
+        assertEq(
+            accrued,
+            (((drawnRate * drawnBalance) / 1e4) +
+                ((facilityRate * (facilityBalance - drawnBalance)) / 1e4))
+        );
     }
 
     function test_can_accrue_interest_none_drawn() public {
@@ -43,8 +77,8 @@ contract InterestRateCreditTest is Test {
     }
 
     function test_lastAccrued_update() public {
-        uint prevBlocktime = block.timestamp;
-        uint timeToSkip = 98381;
+        uint256 prevBlocktime = block.timestamp;
+        uint256 timeToSkip = 98381;
         bytes32 id = bytes32("");
         i.setRate(id, uint128(0), uint128(0));
         skip(timeToSkip);

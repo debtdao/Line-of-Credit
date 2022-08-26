@@ -2,6 +2,8 @@ pragma solidity ^0.8.9;
 
 import {IInterestRateCredit} from "../../interfaces/IInterestRateCredit.sol";
 
+import "forge-std/Test.sol";
+
 contract InterestRateCredit is IInterestRateCredit {
     uint256 constant ONE_YEAR = 365.25 days; // one year in sec to use in calculations for rates
     uint256 constant BASE_DENOMINATOR = 10000; // div 100 for %, div 100 for bps in numerator
@@ -53,6 +55,28 @@ contract InterestRateCredit is IInterestRateCredit {
         Rate memory rate = rates[id];
         uint256 timespan = block.timestamp - rate.lastAccrued;
         rates[id].lastAccrued = block.timestamp;
+
+        // uint256 firstPart = rate.drawnRate * drawnBalance * timespan;
+
+        // console2.log("firstPart:", firstPart);
+
+        // console2.log(
+        //     "firstPart / denominator:",
+        //     firstPart / INTEREST_DENOMINATOR
+        // );
+
+        // uint256 secondPart = rate.facilityRate *
+        //     (facilityBalance - drawnBalance) *
+        //     timespan;
+
+        // console2.log("secondPart:", secondPart);
+
+        // console2.log(
+        //     "secondPart / denominator:",
+        //     secondPart / INTEREST_DENOMINATOR
+        // );
+
+        // return 0;
 
         // r = APR in BPS, x = # tokens, t = time
         // interest = (r * x * t) / 1yr / 100
