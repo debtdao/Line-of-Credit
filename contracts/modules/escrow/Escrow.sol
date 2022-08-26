@@ -20,7 +20,7 @@ contract Escrow is IEscrow {
     // Stakeholders and contracts used in Escrow
     address public immutable oracle;
     address public immutable borrower;
-    
+
     EscrowState private state;
 
     constructor(
@@ -31,24 +31,16 @@ contract Escrow is IEscrow {
     ) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
-        borrower = _borrower;
         state.line = _line;
+        borrower = _borrower;
     }
 
     function line() external view override returns(address) {
-      return state.getLine();
+      return state.line;
     }
 
     function isLiquidatable() external returns(bool) {
-        return _getLatestCollateralRatio() < minimumCollateralRatio;
-    }
-
-    function deposited(address token)
-        external
-        view
-        returns (Deposit memory)
-    {
-        return state.getDeposited(token);
+      return state.isLiquidatable(oracle, minimumCollateralRatio);
     }
 
     function updateLine(address _line) external returns(bool) {
@@ -68,22 +60,18 @@ contract Escrow is IEscrow {
         external
         returns (uint256)
     {
-        require(amount > 0);
-        if (!state.enabled[token]) {
-            revert InvalidCollateral();
-        }
-
-        LineLib.receiveTokenOrETH(token, msg.sender, amount);
-
-        state.deposited[token].amount += amount;
-
-        emit AddCollateral(token, amount);
-
-        return _getLatestCollateralRatio();
+        return state.addCollateral(oracle, amount, token);
     }
 
+    /**
+     * @notice - allows  the lines arbiter to  enable thdeposits of an asset
+     *        - gives  better risk segmentation forlenders
+     * @dev - whitelisting protects against malicious 4626 tokens and DoS attacks
+     *       - only need to allow once. Can not disable collateral once enabled.
+     * @param token - the token to all borrow to deposit as collateral
+     */
     function enableCollateral(address token) external returns (bool) {
-        return state.enableCollateral(token, oracle);
+        return state.enableCollateral(oracle, token);
     }
 
     /**
@@ -100,46 +88,7 @@ contract Escrow is IEscrow {
         address token,
         address to
     ) external returns (uint256) {
-        require(amount > 0);
-        if (msg.sender != borrower) {
-            revert CallerAccessDenied();
-        }
-        if (state.deposited[token].amount < amount) {
-            revert InvalidCollateral();
-        }
-        state.deposited[token].amount -= amount;
-
-        LineLib.sendOutTokenOrETH(token, to, amount);
-
-        uint256 cratio = _getLatestCollateralRatio();
-        // fail if reduces cratio below min
-        // but allow borrower to always withdraw if fully repaid
-        if (
-            cratio < minimumCollateralRatio && // if undercollateralized, revert;
-            ILineOfCredit(state.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
-        ) {
-            revert UnderCollateralized();
-        }
-
-        emit RemoveCollateral(token, amount);
-
-        return cratio;
-    }
-
-    /**
-     * @notice updates the cratio according to the collateral value vs line value
-     * @dev calls accrue interest on the line contract to update the latest interest payable
-     * @return the updated collateral ratio in 18 decimals
-     */
-    function _getLatestCollateralRatio() internal returns (uint256) {
-        (uint256 principal, uint256 interest) = ILineOfCredit(state.line)
-            .updateOutstandingDebt();
-        uint256 debtValue = principal + interest;
-        uint256 collateralValue = state._getCollateralValue(oracle);
-        if (collateralValue == 0) return 0;
-        if (debtValue == 0) return EscrowLib.MAX_INT;
-
-        return EscrowLib._percent(collateralValue, debtValue, 18);
+        return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
     }
 
     /**
@@ -148,7 +97,7 @@ contract Escrow is IEscrow {
      * @return - the calculated cratio
      */
     function getCollateralRatio() external returns (uint256) {
-        return _getLatestCollateralRatio();
+        return state.getCollateralRatio(oracle);
     }
 
     /**
@@ -157,9 +106,19 @@ contract Escrow is IEscrow {
      * @return - the calculated collateral value to 8 decimals
      */
     function getCollateralValue() external returns (uint256) {
-        return state._getCollateralValue(oracle);
+        return state.getCollateralValue(oracle);
     }
 
+    /**
+     * @notice liquidates borrowers collateral by token and amount
+     *         line can liquidate at anytime based off other covenants besides cratio
+     * @dev requires that the cratio is at or below the liquidation threshold
+     * @dev callable by `line`
+     * @param amount - the amount of tokens to liquidate
+     * @param token - the address of the token to draw funds from
+     * @param to - the address to receive the funds
+     * @return - true if successful
+     */
     function liquidate(
         uint256 amount,
         address token,

@@ -25,25 +25,29 @@ library EscrowLib {
     uint256 constant MAX_INT =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    function getLine(EscrowState storage self) external view returns (address) {
-        return self.line;
+    function isLiquidatable(EscrowState storage self, address oracle, uint256 minimumCollateralRatio) external returns(bool) {
+      return _getLatestCollateralRatio(self, oracle) < minimumCollateralRatio;
     }
 
-    function getDeposited(EscrowState storage self, address token)
-        external
-        view
-        returns (IEscrow.Deposit memory)
-    {
-        return self.deposited[token];
+    function updateLine(EscrowState storage self, address _line) external returns(bool) {
+      require(msg.sender == self.line);
+      self.line = _line;
+      return true;
     }
 
-    function updateLine(EscrowState storage self, address _line)
-        external
-        returns (bool)
-    {
-        require(msg.sender == self.line);
-        self.line = _line;
-        return true;
+    /**
+     * @notice updates the cratio according to the collateral value vs line value
+     * @dev calls accrue interest on the line contract to update the latest interest payable
+     * @return the updated collateral ratio in 18 decimals
+     */
+    function _getLatestCollateralRatio(EscrowState storage self, address oracle) public returns (uint256) {
+        (uint256 principal, uint256 interest) = ILineOfCredit(self.line).updateOutstandingDebt();
+        uint256 debtValue =  principal + interest;
+        uint256 collateralValue = _getCollateralValue(self, oracle);
+        if (collateralValue == 0) return 0;
+        if (debtValue == 0) return MAX_INT;
+
+        return _percent(collateralValue, debtValue, 18);
     }
 
     /**
@@ -51,14 +55,14 @@ library EscrowLib {
                - e.g. _percent(100, 100, 18) = 1 ether = 100%
      * @param numerator - value to compare
      * @param denominator - value to compare against
-     * @param precision - number of decimal places of accuracy to return in answer
+     * @param precision - number of decimal places of accuracy to return in answer 
      * @return quotient -  the result of num / denom
     */
     function _percent(
         uint256 numerator,
         uint256 denominator,
         uint256 precision
-    ) external pure returns (uint256 quotient) {
+    ) public pure returns (uint256 quotient) {
         uint256 _numerator = numerator * 10**(precision + 1);
         // with rounding of last digit
         uint256 _quotient = ((_numerator / denominator) + 5) / 10;
@@ -70,19 +74,16 @@ library EscrowLib {
     * @dev calculate the USD value of all the collateral stored
     * @return - the collateral's USD value in 8 decimals
     */
-    function _getCollateralValue(EscrowState storage self, address oracle)
-        external
-        returns (uint256)
-    {
+    function _getCollateralValue(EscrowState storage self, address oracle) public returns (uint256) {
         uint256 collateralValue = 0;
         // gas savings
         uint256 length = self.collateralTokens.length;
-        IOracle o = IOracle(oracle);
+        IOracle o = IOracle(oracle); 
         IEscrow.Deposit memory d;
         for (uint256 i = 0; i < length; i++) {
             address token = self.collateralTokens[i];
             d = self.deposited[token];
-            // new var so we don't override original deposit amount for 4626 tokens
+             // new var so we don't override original deposit amount for 4626 tokens
             uint256 deposit = d.amount;
             if (deposit != 0) {
                 if (d.isERC4626) {
@@ -98,9 +99,9 @@ library EscrowLib {
                 }
 
                 collateralValue += CreditLib.calculateValue(
-                    o.getLatestAnswer(d.asset),
-                    deposit,
-                    d.assetDecimals
+                  o.getLatestAnswer(d.asset),
+                  deposit,
+                  d.assetDecimals
                 );
             }
         }
@@ -108,21 +109,26 @@ library EscrowLib {
         return collateralValue;
     }
 
-    /**
-     * @notice - allows  the lines arbiter to  enable thdeposits of an asset
-     *        - gives  better risk segmentation forlenders
-     * @dev - whitelisting protects against malicious 4626 tokens and DoS attacks
-     *       - only need to allow once. Can not disable collateral once enabled.
-     * @param token - the token to all borrow to deposit as collateral
-     */
-    function enableCollateral(
-        EscrowState storage self,
-        address token,
-        address oracle
-    ) external returns (bool) {
+    function addCollateral(EscrowState storage self, address oracle, uint256 amount, address token)
+        external
+        returns (uint256)
+    {
+        require(amount > 0);
+        if(!self.enabled[token])  { revert InvalidCollateral(); }
+
+        LineLib.receiveTokenOrETH(token, msg.sender, amount);
+
+        self.deposited[token].amount += amount;
+
+        emit AddCollateral(token, amount);
+
+        return _getLatestCollateralRatio(self, oracle);
+    }
+
+    function enableCollateral(EscrowState storage self, address oracle, address token) external returns (bool) {
         require(msg.sender == ILineOfCredit(self.line).arbiter());
 
-        EscrowLib._enableToken(self, token, oracle);
+        _enableToken(self, oracle, token);
 
         return true;
     }
@@ -133,11 +139,7 @@ library EscrowLib {
     * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
     * return bool - if collateral is now enabled or not.
     */
-    function _enableToken(
-        EscrowState storage self,
-        address token,
-        address oracle
-    ) internal returns (bool) {
+    function _enableToken(EscrowState storage self, address oracle, address token) public returns(bool) {
         bool isEnabled = self.enabled[token];
         IEscrow.Deposit memory deposit = self.deposited[token]; // gas savings
         if (!isEnabled) {
@@ -182,16 +184,43 @@ library EscrowLib {
         return isEnabled;
     }
 
-    /**
-     * @notice liquidates borrowers collateral by token and amount
-     *         line can liquidate at anytime based off other covenants besides cratio
-     * @dev requires that the cratio is at or below the liquidation threshold
-     * @dev callable by `line`
-     * @param amount - the amount of tokens to liquidate
-     * @param token - the address of the token to draw funds from
-     * @param to - the address to receive the funds
-     * @return - true if successful
-     */
+    function releaseCollateral(
+        EscrowState storage self,
+        address borrower,
+        address oracle,
+        uint256 minimumCollateralRatio,
+        uint256 amount,
+        address token,
+        address to
+    ) external returns (uint256) {
+        require(amount > 0);
+        if(msg.sender != borrower) { revert CallerAccessDenied(); }
+        if(self.deposited[token].amount < amount) { revert InvalidCollateral(); }
+        self.deposited[token].amount -= amount;
+        
+        LineLib.sendOutTokenOrETH(token, to, amount);
+
+        uint256 cratio = _getLatestCollateralRatio(self, oracle);
+        // fail if reduces cratio below min 
+        // but allow borrower to always withdraw if fully repaid
+        if(
+          cratio < minimumCollateralRatio &&         // if undercollateralized, revert;
+          ILineOfCredit(self.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
+        ) { revert UnderCollateralized(); }
+        
+        emit RemoveCollateral(token, amount);
+
+        return cratio;
+    }
+
+    function getCollateralRatio(EscrowState storage self, address oracle) external returns (uint256) {
+        return _getLatestCollateralRatio(self, oracle);
+    }
+
+    function getCollateralValue(EscrowState storage self, address oracle) external returns (uint256) {
+        return _getCollateralValue(self, oracle);
+    }
+
     function liquidate(
         EscrowState storage self,
         uint256 amount,
@@ -199,15 +228,11 @@ library EscrowLib {
         address to
     ) external returns (bool) {
         require(amount > 0);
-        if (msg.sender != self.line) {
-            revert CallerAccessDenied();
-        }
-        if (self.deposited[token].amount < amount) {
-            revert InvalidCollateral();
-        }
+        if(msg.sender != self.line) { revert CallerAccessDenied(); }
+        if(self.deposited[token].amount < amount) { revert InvalidCollateral(); }
 
         self.deposited[token].amount -= amount;
-
+        
         LineLib.sendOutTokenOrETH(token, to, amount);
 
         emit Liquidate(token, amount);
@@ -220,7 +245,7 @@ library EscrowLib {
     event RemoveCollateral(address indexed token, uint256 indexed amount);
 
     event EnableCollateral(address indexed token);
-
+    
     event Liquidate(address indexed token, uint256 indexed amount);
 
     error InvalidCollateral();
