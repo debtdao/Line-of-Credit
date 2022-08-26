@@ -482,6 +482,10 @@ contract SpigotedLineTest is Test {
     }
 
     function test_cant_claim_and_repay_not_borrowing() public {
+      vm.startPrank(borrower);
+      line.close(line.ids(0));
+      vm.stopPrank();
+
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),

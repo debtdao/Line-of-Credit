@@ -81,7 +81,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     modifier whileBorrowing() {
-        if(count == 0 || credits[ids[0]].principal == 0) { revert NotBorrowing(); }
+        if(count == 0) { revert NotBorrowing(); }
         _;
     }
 
