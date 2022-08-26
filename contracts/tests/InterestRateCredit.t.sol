@@ -1,9 +1,10 @@
 
 pragma solidity ^0.8.9;
 
-import { DSTest } from  "../../../lib/ds-test/src/test.sol";
 
-import { InterestRateCredit } from  "./InterestRateCredit.sol";
+import {DSTest} from "../../lib/ds-test/src/test.sol";
+
+import { InterestRateCredit } from  "../modules/interest-rate/InterestRateCredit.sol";
 
 /**
  * @notice

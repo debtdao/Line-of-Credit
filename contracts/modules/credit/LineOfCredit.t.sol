@@ -81,7 +81,6 @@ contract LineTest is Test{
         unsupportedToken.approve(address(escrow), MAX_INT);
         unsupportedToken.approve(address(line), MAX_INT);
         vm.stopPrank();
->>>>>>> 841fe2e9d254dcde1db16816df117ae390d20c8e
     }
 
 

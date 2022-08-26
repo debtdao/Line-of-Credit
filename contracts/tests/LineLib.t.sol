@@ -3,9 +3,9 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
-import { LineLib } from "./LineLib.sol";
-import { CreditLib } from "./CreditLib.sol";
-import { CreditListLib } from "./CreditListLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
+import { CreditLib } from "../utils/CreditLib.sol";
+import { CreditListLib } from "../utils/CreditListLib.sol";
 
 
 contract LineLibTest is Test {
