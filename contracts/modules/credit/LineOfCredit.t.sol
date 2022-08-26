@@ -26,18 +26,21 @@ contract LineTest is Test{
     uint ttl = 150 days;
     RevenueToken supportedToken1;
     RevenueToken supportedToken2;
+    RevenueToken unsupportedToken;
     LineOfCredit line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    address escrow;
 
     function setUp() public {
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
+        escrow = makeAddr("escrow"); // todo: create escrow instance
 
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
-        RevenueToken unsupportedToken;
+        unsupportedToken = new RevenueToken();
 
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
 
