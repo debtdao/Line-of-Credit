@@ -52,4 +52,34 @@ contract LineTest is Test{
 
     }
 
+    function _mintAndApprove() internal {
+        deal(lender, mintAmount);
+
+        supportedToken1.mint(borrower, mintAmount);
+        supportedToken1.mint(lender, mintAmount);
+        supportedToken2.mint(borrower, mintAmount);
+        supportedToken2.mint(lender, mintAmount);
+        unsupportedToken.mint(borrower, mintAmount);
+        unsupportedToken.mint(lender, mintAmount);
+
+        vm.startPrank(borrower);
+        supportedToken1.approve(address(escrow), MAX_INT);
+        supportedToken1.approve(address(line), MAX_INT);
+        supportedToken2.approve(address(escrow), MAX_INT);
+        supportedToken2.approve(address(line), MAX_INT);
+        unsupportedToken.approve(address(escrow), MAX_INT);
+        unsupportedToken.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        supportedToken1.approve(address(escrow), MAX_INT);
+        supportedToken1.approve(address(line), MAX_INT);
+        supportedToken2.approve(address(escrow), MAX_INT);
+        supportedToken2.approve(address(line), MAX_INT);
+        unsupportedToken.approve(address(escrow), MAX_INT);
+        unsupportedToken.approve(address(line), MAX_INT);
+        vm.stopPrank();
+    }
+
+
 }
