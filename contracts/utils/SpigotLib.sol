@@ -55,7 +55,7 @@ library SpigotLib {
 
         // cap so uint doesnt overflow in split calculations.
         // can sweep by "attaching" a push payment spigot with same token
-        if(claimed > SpigotLib.MAX_REVENUE) claimed = SpigotLib.MAX_REVENUE;
+        if(claimed > MAX_REVENUE) claimed = MAX_REVENUE;
 
         return claimed;
     }
@@ -141,7 +141,7 @@ library SpigotLib {
         
         // must set transfer func
         if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
-        if(setting.ownerSplit > SpigotLib.MAX_SPLIT) { revert BadSetting(); }
+        if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
         if(setting.token == address(0)) {  revert BadSetting(); }
         
         self.settings[revenueContract] = setting;
@@ -182,7 +182,7 @@ library SpigotLib {
         returns(bool)
     {
       if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-      if(ownerSplit > SpigotLib.MAX_SPLIT) { revert BadSetting(); }
+      if(ownerSplit > MAX_SPLIT) { revert BadSetting(); }
 
       self.settings[revenueContract].ownerSplit = ownerSplit;
       emit UpdateOwnerSplit(revenueContract, ownerSplit);
