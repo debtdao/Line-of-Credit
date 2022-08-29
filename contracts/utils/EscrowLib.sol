@@ -109,18 +109,6 @@ library EscrowLib {
     function enableCollateral(EscrowState storage self, address oracle, address token) external returns (bool) {
         require(msg.sender == ILineOfCredit(self.line).arbiter());
 
-        _enableToken(self, oracle, token);
-
-        return true;
-    }
-
-    /**
-    * @notice track the tokens used as collateral. Ensures uniqueness,
-              flags if its a EIP 4626 token, and gets its decimals
-    * @dev - if 4626 token then Deposit.asset s the underlying asset, not the 4626 token
-    * return bool - if collateral is now enabled or not.
-    */
-    function _enableToken(EscrowState storage self, address oracle, address token) public returns(bool) {
         bool isEnabled = self.enabled[token];
         IEscrow.Deposit memory deposit = self.deposited[token]; // gas savings
         if (!isEnabled) {
@@ -162,7 +150,7 @@ library EscrowLib {
             emit EnableCollateral(deposit.asset);
         }
 
-        return isEnabled;
+        return true;
     }
 
     function releaseCollateral(
