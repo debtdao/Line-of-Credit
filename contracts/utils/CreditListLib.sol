@@ -18,7 +18,7 @@ library CreditListLib {
     function removePosition(bytes32[] storage ids, bytes32 id) external returns(bool) {
       uint256 len = ids.length;
 
-      for(uint i = 0; i < len;) {
+      for(uint256 i; i < len;) {
           if(ids[i] == id) {
               delete ids[i];
               return true;
@@ -46,8 +46,9 @@ library CreditListLib {
         ids[1] = last;
       } else {
         // move all existing ids up in line
-        for(uint i = 1; i < len; i++) {
+        for(uint i = 1; i < len;) {
           ids[i - 1] = ids[i]; // could also clean arr here like in _SoritIntoQ
+          unchecked {  ++i; }
         }
         // cycle first el back to end of queue
         ids[len - 1] = last;
