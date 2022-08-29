@@ -62,7 +62,19 @@ library SpigotLib {
 
     function operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
         if(msg.sender != self.operator) { revert CallerAccessDenied(); }
-        return _operate(self, revenueContract, data);
+        bytes4 func = bytes4(data);
+        // extract function signature from tx data and check whitelist
+        if(!self.whitelistedFunctions[func]) { revert BadFunction(); }
+        // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
+        if(
+          func == self.settings[revenueContract].claimFunction ||
+          func == self.settings[revenueContract].transferOwnerFunction
+        ) { revert BadFunction(); }
+
+        (bool success,) = revenueContract.call(data);
+        if(!success) { revert BadFunction(); }
+
+        return true;
     }
 
     function claimRevenue(SpigotState storage self, address revenueContract, bytes calldata data)
@@ -107,34 +119,10 @@ library SpigotLib {
         return claimed;
     }
 
-    /**
-     * @notice - Checks that operation is whitelisted by Spigot Owner and calls revenue contract with supplied data
-     * @param revenueContract - smart contracts to call
-     * @param data - tx data, including function signature, to call contracts with
-     */
-    function _operate(SpigotState storage self, address revenueContract, bytes calldata data) public returns (bool) {
-        bytes4 func = bytes4(data);
-        // extract function signature from tx data and check whitelist
-        if(!self.whitelistedFunctions[func]) { revert BadFunction(); }
-        // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
-        if(
-          func == self.settings[revenueContract].claimFunction ||
-          func == self.settings[revenueContract].transferOwnerFunction
-        ) { revert BadFunction(); }
-
-        (bool success,) = revenueContract.call(data);
-        if(!success) { revert BadFunction(); }
-
-        return true;
-    }
-
-    /**
-     * @notice Checks  revenue contract doesn't already have spigot
-     *      then registers spigot configuration for revenue contract
-     * @param revenueContract - smart contract to claim tokens from
-     * @param setting - spigot configuration for smart contract   
-     */
-    function _addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) public returns (bool) {
+    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
+        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        
+        
         require(revenueContract != address(this));
         // spigot setting already exists
         require(self.settings[revenueContract].transferOwnerFunction == bytes4(0));
@@ -148,11 +136,6 @@ library SpigotLib {
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
 
         return true;
-    }
-
-    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-        return _addSpigot(self, revenueContract, setting);
     }
 
     function removeSpigot(SpigotState storage self, address revenueContract)

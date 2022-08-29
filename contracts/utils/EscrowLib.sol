@@ -47,30 +47,11 @@ library EscrowLib {
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
 
-        return _percent(collateralValue, debtValue, 18);
+        uint256 _numerator = collateralValue * 10**19;
+        return ((_numerator / debtValue) + 5) / 10;
     }
 
     /**
-     * @notice - computes the ratio of one value to another
-               - e.g. _percent(100, 100, 18) = 1 ether = 100%
-     * @param numerator - value to compare
-     * @param denominator - value to compare against
-     * @param precision - number of decimal places of accuracy to return in answer 
-     * @return quotient -  the result of num / denom
-    */
-    function _percent(
-        uint256 numerator,
-        uint256 denominator,
-        uint256 precision
-    ) public pure returns (uint256 quotient) {
-        uint256 _numerator = numerator * 10**(precision + 1);
-        // with rounding of last digit
-        uint256 _quotient = ((_numerator / denominator) + 5) / 10;
-        return (_quotient);
-    }
-
-    /**
-
     * @dev calculate the USD value of all the collateral stored
     * @return - the collateral's USD value in 8 decimals
     */
