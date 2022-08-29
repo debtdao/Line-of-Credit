@@ -18,26 +18,9 @@ library LineLib {
     error BadToken();
 
     enum STATUS {
-        // ¿hoo dis
-        // Line has been deployed but terms and conditions are still being signed off by parties
         UNINITIALIZED,
-        INITIALIZED,
-
-        // ITS ALLLIIIIVVEEE
-        // Line is operational and actively monitoring status
         ACTIVE,
-        UNDERCOLLATERALIZED,
-        LIQUIDATABLE, // [#X
-        DELINQUENT,
-
-        // Line is in distress and paused
-        LIQUIDATING,
-        OVERDRAWN,
-        DEFAULT,
-        ARBITRATION,
-
-        // Lön izz ded
-        // Line is no longer active, successfully repaid or insolvent
+        LIQUIDATABLE,
         REPAID,
         INSOLVENT
     }
@@ -82,7 +65,7 @@ library LineLib {
       returns (bool)
     {
         if(token == address(0)) { revert TransferFailed(); }
-        if(token!= Denominations.ETH) { // ERC20
+        if(token != Denominations.ETH) { // ERC20
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
             if(msg.value < amount) { revert TransferFailed(); }

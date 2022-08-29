@@ -1,6 +1,7 @@
 pragma solidity ^0.8.9;
 
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
@@ -11,7 +12,7 @@ import {ISpigotedLine} from "../../interfaces/ISpigotedLine.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract SpigotedLine is ISpigotedLine, LineOfCredit {
+contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     ISpigot public immutable spigot;
@@ -78,6 +79,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function claimAndRepay(address claimToken, bytes calldata zeroExTradeData)
         external
         whileBorrowing
+        nonReentrant
         returns (uint256)
     {
         bytes32 id = ids[0];
@@ -138,6 +140,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function claimAndTrade(address claimToken, bytes calldata zeroExTradeData)
         external
         whileBorrowing
+        nonReentrant
         returns (uint256)
     {
         require(msg.sender == borrower);
@@ -257,8 +260,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
    * @dev    - callable by anyone 
    * @param token - token to take out
   */
-    function sweep(address to, address token) external returns (uint256) {
+    function sweep(address to, address token) external nonReentrant returns (uint256) {
         uint256 amount = unusedTokens[token];
+        delete unusedTokens[token];
 
         bool success = SpigotedLineLib.sweep(
           to,
