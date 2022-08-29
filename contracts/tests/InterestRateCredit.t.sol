@@ -78,4 +78,13 @@ contract InterestRateCreditTest is Test {
         (, , uint256 lastAccrued) = i.rates(id);
         assertEq(lastAccrued, prevBlocktime + timeToSkip);
     }
+
+    function test_past_date() public {
+        bytes32 id = bytes32("");
+        i.setRate(id, uint128(3), uint128(51));
+        skip(630 days);
+        uint256 accrued = i.accrueInterest(id, 0, 393924332895329);
+        console2.log("accU:", accrued);
+        assertEq(accrued, 3465239922225);
+    }
 }
