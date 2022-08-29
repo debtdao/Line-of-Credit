@@ -3,9 +3,9 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
-import { LineLib } from "./LineLib.sol";
-import { CreditLib } from "./CreditLib.sol";
-import { CreditListLib } from "./CreditListLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
+import { CreditLib } from "../utils/CreditLib.sol";
+import { CreditListLib } from "../utils/CreditListLib.sol";
 
 
 contract LineLibTest is Test {
@@ -58,7 +58,8 @@ contract LineLibTest is Test {
     function test_can_properly_step_queue(uint256 length) public {
         uint l = 10;
         ids = new bytes32[](l);
-        if(length == 0 || length > ids.length) { return; } // ensure array is within reasonable bounds
+        // ensure array is within reasonable bounds
+        vm.assume(length != 0 && length < ids.length);
         if(length == 1) {
             ids[0] = bytes32(0);
             ids.stepQ();
@@ -91,7 +92,7 @@ contract LineLibTest is Test {
 
     function test_calculates_right_price_w_decimals(int256 price, uint256 amount) public {
         // no negative values, base 0 
-        if(price < 0) return;
+        vm.assume(price > 0);
         // TODO constrain params so price * amount doesn't overflow
 
         uint realPrice = uint256(price);

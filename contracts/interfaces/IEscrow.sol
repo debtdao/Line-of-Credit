@@ -1,8 +1,5 @@
 pragma solidity 0.8.9;
 
-interface IEscrowState {
-  
-}
 interface IEscrow {
     struct Deposit {
         uint amount;

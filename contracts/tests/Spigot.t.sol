@@ -1,13 +1,13 @@
 pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
-import { Spigot } from "./Spigot.sol";
+import { Spigot } from "../modules/spigot/Spigot.sol";
 
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleRevenueContract } from '../../mock/SimpleRevenueContract.sol';
+import { RevenueToken } from "../mock/RevenueToken.sol";
+import { SimpleRevenueContract } from '../mock/SimpleRevenueContract.sol';
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
-import { ISpigot } from '../../interfaces/ISpigot.sol';
+import { ISpigot } from '../interfaces/ISpigot.sol';
 
 contract SpigotTest is Test {
     // spigot contracts/configurations to test against
@@ -37,7 +37,7 @@ contract SpigotTest is Test {
 
     function setUp() public {
         owner = address(this);
-        operator = address(this);
+        operator = address(10);
         treasury = address(0xf1c0);
         token = new RevenueToken();
 
@@ -57,7 +57,7 @@ contract SpigotTest is Test {
         bytes4[] memory _whitelist
     ) internal {
         // deploy new revenue contract with settings
-        revenueContract = address(new SimpleRevenueContract(address(this), _token));
+        revenueContract = address(new SimpleRevenueContract(owner, _token));
 
         settings = ISpigot.Setting(_token, split, claimFunc, newOwnerFunc);
        
@@ -370,8 +370,10 @@ contract SpigotTest is Test {
         assertEq(split, split_);
     }
 
-    function testFail_updateOwnerSplit_AsNonOwner() public {
-        hoax(address(0xdebf));
+    function test_updateOwnerSplit_AsNonOwner() public {
+        
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+        hoax(address(40));
         spigot.updateOwnerSplit(revenueContract, 0);
     }
 
@@ -392,13 +394,18 @@ contract SpigotTest is Test {
     // Operate()
 
     function test_operate_NonWhitelistedFunction() public {
+        vm.prank(owner);
         assertTrue(spigot.updateWhitelistedFunction(opsFunc, false));
+        
         vm.expectRevert(ISpigot.BadFunction.selector);
+        vm.prank(operator);
         spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc));
     }
 
     function test_operate_OperatorCanOperate() public {
+        vm.prank(owner);
         assertTrue(spigot.updateWhitelistedFunction(opsFunc, true));
+        vm.prank(operator);
         assertTrue(spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc)));
     }
 
@@ -407,6 +414,7 @@ contract SpigotTest is Test {
         
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         vm.expectRevert(ISpigot.BadFunction.selector);
+        vm.prank(operator);
         spigot.operate(revenueContract, claimData);
     }
 
@@ -415,6 +423,7 @@ contract SpigotTest is Test {
         
         bytes memory transferData = abi.encodeWithSelector(transferOwnerFunc, address(operator));
         vm.expectRevert(ISpigot.BadFunction.selector);
+        vm.prank(operator);
         spigot.operate(revenueContract, transferData);
     }
     
@@ -428,6 +437,7 @@ contract SpigotTest is Test {
 
      function test_operate_NonWhitelistFunc() public {
         vm.expectRevert(ISpigot.BadFunction.selector);
+        vm.prank(operator);
         spigot.operate(revenueContract, abi.encodeWithSelector(opsFunc));
     }
 
@@ -458,14 +468,15 @@ contract SpigotTest is Test {
         spigot.updateOwner(address(0xdebf)); // random owner
         
         assertEq(spigot.owner(), address(0xdebf));
-        assertEq(spigot.operator(), address(this));
+        assertEq(spigot.operator(), operator);
 
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spigot.removeSpigot(revenueContract);
     }
 
-    function testFail_removeSpigot_AsNonOwner() public {
+    function test_removeSpigot_AsNonOwner() public {
         hoax(address(0xdebf));
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spigot.removeSpigot(revenueContract);
     }
 
@@ -484,6 +495,7 @@ contract SpigotTest is Test {
     }
 
     function test_updateOperator_AsOperator() public {
+        vm.prank(operator);
         spigot.updateOperator(address(0xdebf));
         assertEq(spigot.operator(), address(0xdebf));
     }
@@ -495,6 +507,7 @@ contract SpigotTest is Test {
     }
 
     function test_updateTreasury_AsOperator() public {
+        vm.prank(treasury);
         spigot.updateTreasury(address(0xdebf));
         assertEq(spigot.treasury(), address(0xdebf));
     }
@@ -502,7 +515,7 @@ contract SpigotTest is Test {
     function test_updateOwner_AsNonOwner() public {
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-        spigot.updateOwner(address(this));
+        spigot.updateOwner(owner);
     }
 
     function test_updateOwner_NullAddress() public {
@@ -513,18 +526,19 @@ contract SpigotTest is Test {
     function test_updateOperator_AsNonOperator() public {
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-        spigot.updateOperator(address(this));
+        spigot.updateOperator(operator);
     }
 
     function test_updateOperator_NullAddress() public {
         vm.expectRevert();
+        vm.prank(operator);
         spigot.updateOperator(address(0));
     }
 
     function test_updateTreasury_AsNonTreasuryOrOperator() public {
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-        spigot.updateTreasury(address(this));
+        spigot.updateTreasury(treasury);
     }
 
     function test_updateTreasury_NullAddress() public {
