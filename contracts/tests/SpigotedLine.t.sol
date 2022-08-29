@@ -449,7 +449,7 @@ contract SpigotedLineTest is Test {
 
       uint claimable = spigot.getEscrowed(address(revenueToken));
 
-      hoax(borrower);
+      vm.prank(borrower);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       // TODO this got merged in, maybe removable
@@ -547,7 +547,7 @@ contract SpigotedLineTest is Test {
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
       if(timespan > ttl) return;
       if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      if(buyAmount >= MAX_REVENUE || sellAmount >= MAX_REVENUE) return;
 
       _borrow(line.ids(0), lentAmount);
       
@@ -569,14 +569,21 @@ contract SpigotedLineTest is Test {
 
       uint claimable = spigot.getEscrowed(address(revenueToken));
 
+
+      vm.prank(borrower);
+      console.log(buyAmount);
+      console.log(sellAmount);
       line.claimAndRepay(address(revenueToken), tradeData);
-      vm.stopPrank();
+      
 
       // principal, interest, repaid
       (,uint p, uint i, uint r,,,) = line.credits(line.ids(0));
 
-      // outstanding credit = initial principal + accrued interest - tokens repaid
-      assertEq(p + i, lentAmount + interest - buyAmount);
+      // outstanding debt = initial principal + accrued interest - tokens repaid
+      uint _buyAmount = buyAmount > lentAmount + interest ? lentAmount + interest : buyAmount;
+      console.log(p + i);
+      console.log(lentAmount + interest);
+      assertEq(p + i, lentAmount + interest - _buyAmount, "first assert");
 
       if(interest > buyAmount) {
         // only interest paid
@@ -593,8 +600,10 @@ contract SpigotedLineTest is Test {
       emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
 
       uint unusedCreditToken =  buyAmount < lentAmount ? 0 : buyAmount - lentAmount;
-      assertEq(line.unused(address(creditToken)), unusedCreditToken);
-      assertEq(line.unused(address(revenueToken)), MAX_REVENUE + claimable - sellAmount);
+      uint unusedRevenueToken = sellAmount > claimable ? 0 : claimable - sellAmount;
+      assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");
+      
+      assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
     }
     
     // write tests for unused tokens
