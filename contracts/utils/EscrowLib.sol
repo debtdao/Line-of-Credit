@@ -47,7 +47,7 @@ library EscrowLib {
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
 
-        uint256 _numerator = collateralValue * 10**19;
+        uint256 _numerator = collateralValue * 10**5; // scale to 2 decimals
         return ((_numerator / debtValue) + 5) / 10;
     }
 

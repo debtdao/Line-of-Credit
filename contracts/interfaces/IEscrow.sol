@@ -32,7 +32,7 @@ interface IEscrow {
 
     function borrower() external returns(address);
 
-    function minimumCollateralRatio() external returns(uint256);
+    function minimumCollateralRatio() external returns(uint32);
 
     // Functions 
 
