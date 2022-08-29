@@ -57,7 +57,7 @@ contract Escrow is IEscrow {
      * @return - the updated cratio
      */
     function addCollateral(uint256 amount, address token)
-        external
+        external payable
         returns (uint256)
     {
         return state.addCollateral(oracle, amount, token);
