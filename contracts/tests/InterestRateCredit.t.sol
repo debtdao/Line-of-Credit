@@ -11,7 +11,7 @@ import { InterestRateCredit } from  "../modules/interest-rate/InterestRateCredit
  * @dev - does not test spigot integration e.g. claimEscrow() since that should already be covered in Spigot tests
  *      - these tests would fail if that assumption was wrong anyway
  */
-contract SpigotedLineTest is DSTest {
+contract InterestRateCreditTest is DSTest {
     InterestRateCredit i;
 
     function setUp() public {
