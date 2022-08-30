@@ -5,8 +5,8 @@ import { IEscrowedLine } from "../interfaces/IEscrowedLine.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {LineLib} from "../utils/LineLib.sol";
 import {IEscrow} from "../interfaces/IEscrow.sol";
-import {CreditLib} from "../../utils/CreditLib.sol";
-import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
+import {CreditLib} from "../utils/CreditLib.sol";
+import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 
 contract MockEscrowedLine is EscrowedLine, LineOfCredit {
     

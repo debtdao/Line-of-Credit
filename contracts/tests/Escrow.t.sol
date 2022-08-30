@@ -3,16 +3,16 @@ pragma solidity 0.8.9;
 import { Test } from "forge-std/Test.sol";
 import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
-import { IEscrow } from "../../interfaces/IEscrow.sol";
+import { IEscrow } from "../interfaces/IEscrow.sol";
 
-import { Escrow } from "./Escrow.sol";
+import { Escrow } from "../modules/escrow/Escrow.sol";
 
-import { LineLib } from "../../utils/LineLib.sol";
+import { LineLib } from "../utils/LineLib.sol";
 
-import { MockLine } from "../../mock/MockLine.sol";
-import { RevenueToken } from "../../mock/RevenueToken.sol";
-import { SimpleOracle } from "../../mock/SimpleOracle.sol";
-import { RevenueToken4626 } from "../../mock/RevenueToken4626.sol";
+import { MockLine } from "../mock/MockLine.sol";
+import { RevenueToken } from "../mock/RevenueToken.sol";
+import { SimpleOracle } from "../mock/SimpleOracle.sol";
+import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
 
 contract EscrowTest is Test {
 
