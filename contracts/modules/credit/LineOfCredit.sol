@@ -112,6 +112,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return (count, ids.length);
     }
 
+    /** 
+     * @notice - get available liquidity on position that can be pulled by borrower or lender.
+     * @return - (uint, uint) - headroom, interest
+    */
+    function available(bytes32 id) externalview returns(uint256, uint256) {
+      return (
+        credits[id].deposit - credits[id].principal ,
+        credits[id].interestRepaid
+      );
+    }
+
     function _healthcheck() internal virtual returns (LineLib.STATUS) {
         // if line is in a final end state then do not run _healthcheck()
         LineLib.STATUS s = status;
