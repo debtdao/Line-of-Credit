@@ -116,7 +116,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @notice - get available liquidity on position that can be pulled by borrower or lender.
      * @return - (uint, uint) - headroom, interest
     */
-    function available(bytes32 id) externalview returns(uint256, uint256) {
+    function available(bytes32 id) external view returns(uint256, uint256) {
       return (
         credits[id].deposit - credits[id].principal ,
         credits[id].interestRepaid
@@ -414,8 +414,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             revert NotActive();
         }
 
-        credits[id] = credit;
-
         LineLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
         emit Borrow(id, amount);
@@ -570,17 +568,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 lastSpot = ids.length - 1;
         uint256 nextQSpot = lastSpot;
         bytes32 id;
-        for (uint256 i; i <= lastSpot;) {
+        for (uint256 i; i <= lastSpot; ++i) {
             id = ids[i];
             if (p != id) {
-
-              // Since we aren't constantly trimming array size to to remove empty elements
-              // we should try moving elemtns to front of array in this func to reduce gas costs 
-              // only practical if > 10 lenders tho
-              // just inc an vacantSlots and push each id to i - vacantSlot and count = len - vacantSlot
-
                 if (
-                  id == bytes32(0) ||       // deleted element
                   nextQSpot != lastSpot ||  // position already found. skip to find `p` asap
                   credits[id].principal > 0 //`id` should be placed before `p` 
                 ) continue;
@@ -592,8 +583,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
                 ids[nextQSpot] = p;       // p put at target index
                 return true; 
             }
-
-          unchecked { ++i; }
         }
     }
 }

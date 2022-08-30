@@ -40,6 +40,9 @@ module.exports = {
       apiKey: '<API key>'
     }
   },
+  paths: {
+    sources: "./contracts/modules",
+  },
   networks: {
     mainnet: {
       url: process.env.MAINNET_ETH_RPC || "",

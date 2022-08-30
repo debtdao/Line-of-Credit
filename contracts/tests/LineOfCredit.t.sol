@@ -102,15 +102,8 @@ contract LineTest is Test{
         hoax(borrower);
         token.approve(address(line), mintAmount);
 
-        
-
-        
         oracle.changePrice(address(token), 1 ether);
-       
-
         // add collateral for each token so we can borrow it during tests
-        
-        
       }
       
       return tokens;
@@ -175,6 +168,7 @@ contract LineTest is Test{
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id4);
         hoax(borrower);
+
         line.borrow(id4, 1 ether);
 
         assertEq(line.ids(0), id2);
