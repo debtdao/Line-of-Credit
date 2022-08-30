@@ -24,17 +24,12 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
     
 
   function _init() internal override(EscrowedLine, LineOfCredit) returns(LineLib.STATUS) {
-    if(escrow.line() != address(this)) return LineLib.STATUS.UNINITIALIZED;
-    return LineLib.STATUS.ACTIVE;
+    return EscrowedLine._init();
   }
 
   /** @dev see BaseLine._healthcheck */
   function _healthcheck() override(EscrowedLine, LineOfCredit) internal returns(LineLib.STATUS) {
-    if(escrow.isLiquidatable()) {
-      return LineLib.STATUS.LIQUIDATABLE;
-    }
-
-    return LineLib.STATUS.ACTIVE;
+    return EscrowedLine._healthcheck();
   }
 
   /**
@@ -56,11 +51,7 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
     override internal
     returns(uint256)
   { 
-    require(escrow.liquidate(amount, targetToken, to));
-
-    emit Liquidate(positionId, amount, targetToken);
-
-    return amount;
+    return EscrowedLine._liquidate(positionId, amount, targetToken, to);
   }
 
   /**
@@ -69,13 +60,11 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
    * @return if line is insolvent or not
   */
   function _canDeclareInsolvent() internal override(EscrowedLine, LineOfCredit) returns(bool) {
-    if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
-    return true;
+    return EscrowedLine._canDeclareInsolvent();
   }
 
   function _rollover(address newLine) internal override returns(bool) {
-    require(escrow.updateLine(newLine));
-    return true;
+    return EscrowedLine._rollover(newLine);
   }
 
   function liquidate(

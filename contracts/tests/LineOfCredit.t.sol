@@ -140,33 +140,30 @@ contract LineTest is Test{
     }
 
     function test_positions_move_in_queue_of_4_random_active_line() public {
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        hoax(lender);
-        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
         
-        // create 3rd token to fully test array sorting
         address[] memory tokens = setupQueueTest(2);
         address token3 = tokens[0];
         address token4 = tokens[1];
 
-        hoax(borrower);
+        vm.startPrank(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
-        hoax(lender);
-        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
-        hoax(borrower);
         line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
-        hoax(lender);
+        vm.stopPrank();
+        
+        vm.startPrank(lender);
+        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
         bytes32 id4 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        vm.stopPrank();
 
         assertEq(line.ids(0), id);
         assertEq(line.ids(1), id2);
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id4);
+        
         hoax(borrower);
         line.borrow(id2, 1 ether);
         
@@ -175,8 +172,9 @@ contract LineTest is Test{
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id4);
         hoax(borrower);
+        
         line.borrow(id4, 1 ether);
-
+        
         assertEq(line.ids(0), id2);
         assertEq(line.ids(1), id4);
         assertEq(line.ids(2), id3);
