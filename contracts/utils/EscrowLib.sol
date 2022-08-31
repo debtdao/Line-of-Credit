@@ -61,7 +61,7 @@ library EscrowLib {
         uint256 length = self.collateralTokens.length;
         IOracle o = IOracle(oracle); 
         IEscrow.Deposit memory d;
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < length; ++i) {
             address token = self.collateralTokens[i];
             d = self.deposited[token];
              // new var so we don't override original deposit amount for 4626 tokens
