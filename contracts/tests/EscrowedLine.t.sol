@@ -35,7 +35,7 @@ contract EscrowedLineTest is Test {
 
     uint constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint constant MAX_REVENUE = MAX_INT / 100;
-    uint minCollateralRatio = 1 ether; // 100%
+    uint32 minCollateralRatio = 10000; // 100%
     uint mintAmount = 100 ether;
 
     // Line access control vars

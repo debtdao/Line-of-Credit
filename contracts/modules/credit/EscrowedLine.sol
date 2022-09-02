@@ -46,9 +46,10 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
     virtual internal
     returns(uint256)
   { 
-    require(escrow.liquidate(amount, targetToken, to));
+    IEscrow escrow_ = escrow; // gas savings
+    require(escrow_.liquidate(amount, targetToken, to));
 
-    emit Liquidate(positionId, amount, targetToken);
+    emit Liquidate(positionId, amount, targetToken, address(escrow_));
 
     return amount;
   }
