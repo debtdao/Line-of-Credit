@@ -56,12 +56,12 @@ library EscrowLib {
     * @return - the collateral's USD value in 8 decimals
     */
     function _getCollateralValue(EscrowState storage self, address oracle) public returns (uint256) {
-        uint256 collateralValue = 0;
+        uint256 collateralValue;
         // gas savings
         uint256 length = self.collateralTokens.length;
         IOracle o = IOracle(oracle); 
         IEscrow.Deposit memory d;
-        for (uint256 i = 0; i < length; ++i) {
+        for (uint256 i; i < length; ++i) {
             address token = self.collateralTokens[i];
             d = self.deposited[token];
              // new var so we don't override original deposit amount for 4626 tokens
