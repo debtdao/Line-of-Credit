@@ -204,8 +204,6 @@ library EscrowLib {
         
         LineLib.sendOutTokenOrETH(token, to, amount);
 
-        emit Liquidate(token, amount);
-
         return true;
     }
 
