@@ -313,7 +313,7 @@ contract LineTest is Test, Events{
         assertEq(lender.balance, mintAmount - 1 ether, "Lender should have initial mint balance minus 1e18");
     }
 
-    function test_can_borrow(uint amount) public {
+    function test_can_borrow_within_credit_limit(uint amount) public {
         vm.assume(amount >= 1 ether && amount <= mintAmount);
 
         _addCredit(address(supportedToken1), amount);
@@ -776,7 +776,7 @@ contract LineTest is Test, Events{
         assertEq(p + i, 0, "Line outstanding credit should be 0");
     }
 
-    function test_deposit_and_repay_less_than_debt_after_ttl(uint credit) public {
+    function test_deposit_and_repay_less_than_debt_becomes_liquidatable(uint credit) public {
         vm.assume(credit >= 1 ether && credit <= mintAmount);
         _addCredit(address(supportedToken1), credit);
         bytes32 id = line.ids(0);
@@ -794,7 +794,7 @@ contract LineTest is Test, Events{
         assertTrue(isSolvent);
     }
     
-    function test_deposit_and_repay_debt_after_ttl(uint256 credit) public {
+    function test_deposit_and_repay_debt_becomes_repaid(uint256 credit) public {
         vm.assume(credit >= 1 ether && credit <= mintAmount);
         _addCredit(address(supportedToken1), credit);
         bytes32 id = line.ids(0);
