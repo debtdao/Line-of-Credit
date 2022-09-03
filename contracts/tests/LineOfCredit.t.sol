@@ -705,4 +705,33 @@ contract LineTest is Test{
         assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
     }
 
+    function addNewCredit(uint256 i) public {
+        address newLender = makeAddr(vm.toString(i));
+        deal(address(supportedToken1), borrower, mintAmount);
+        vm.startPrank(borrower);
+        line.addCredit(drawnRate, facilityRate, mintAmount, address(supportedToken1), newLender);
+        vm.stopPrank();
+        
+        deal(address(supportedToken1), newLender, mintAmount);
+        vm.startPrank(newLender);
+        supportedToken1.approve(address(line), type(uint256).max);
+        line.addCredit(drawnRate, facilityRate, mintAmount, address(supportedToken1), newLender);
+        vm.stopPrank();
+    }
+
+    function checkGasLimitThreshholdForIds() private {
+        uint i;
+        for (i;;++i) {
+            addNewCredit(i);
+            bytes32 id = line.ids(i);
+            hoax(borrower);
+            line.borrow(id, 0.1 ether);
+            console2.log("i:", i);
+        }
+    }
+
+    /// Uncomment call to check gas limit threshhold for ids
+    function test_max_gas() public {
+        // checkGasLimitThreshholdForIds();
+    }
 }
