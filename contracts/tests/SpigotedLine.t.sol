@@ -940,7 +940,14 @@ contract SpigotedLineTest is Test {
 
     function test_cant_use_and_repay_if_unauthorized() public {
       _borrow(line.ids(0), lentAmount);
-      vm.prank(address(1));
+      
+      // random user
+      vm.prank(makeAddr("alice"));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.useAndRepay(1);
+      
+      // arbiter can't useAndRepay
+      vm.prank(arbiter);
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.useAndRepay(1);
     }
@@ -981,7 +988,13 @@ contract SpigotedLineTest is Test {
         lentAmount
       );
 
-      vm.prank(address(1));
+      // random user
+      vm.prank(makeAddr("alice"));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.claimAndRepay(address(revenueToken), tradeData);
+      
+      // arbiter can't claim and repay
+      vm.prank(arbiter);
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.claimAndRepay(address(revenueToken), tradeData);
     }
