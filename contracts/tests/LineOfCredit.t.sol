@@ -810,4 +810,30 @@ contract LineTest is Test, Events{
         line.close(id);
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.REPAID));
     }
+
+    // Uncomment to check gas limit threshhold for ids
+    // function test_max_lenders_can_exist_before_contract_gets_bricked() public {
+    //     for (uint maxPossible;; ++maxPossible) {
+    //         address lender = address(uint160(maxPossible + 1));
+    //         deal(lender, mintAmount);
+    //         supportedToken1.mint(lender, mintAmount);
+
+    //         vm.prank(borrower);
+    //         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+
+    //         vm.startPrank(lender);
+    //         supportedToken1.approve(address(line), MAX_INT);
+    //         bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //         vm.stopPrank();
+
+    //         vm.prank(borrower);
+    //         try line.borrow(id, 1 ether) { //_sortQ forces array op
+    //             emit log_named_bytes32('id', id);
+    //         } catch {
+    //             // position limit met
+    //             emit log_named_uint('MAX LENDERS', maxPossible);
+    //             return;
+    //         }
+    //     }
+    // }
 }
