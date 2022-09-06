@@ -86,7 +86,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
         Credit memory credit = credits[id];
         credit =  _accrue(credit, id);
 
-        require(msg.sender == borrower || msg.sender == arbiter || msg.sender == credit.lender, "Unauthorized");
+        if (msg.sender != borrower && msg.sender != arbiter && msg.sender != credit.lender) {
+            revert CallerAccessDenied();
+        }
 
         uint256 newTokens = claimToken == credit.token ?
           spigot.claimEscrow(claimToken) : // same asset. dont trade
@@ -120,7 +122,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     function useAndRepay(uint256 amount) external whileBorrowing returns(bool) {
       bytes32 id = ids[0];
       Credit memory credit = credits[id];
-      require(msg.sender == borrower || msg.sender == credit.lender, "Unauthorized");
+      if (msg.sender != borrower && msg.sender != credit.lender) {
+        revert CallerAccessDenied();
+      }
       require(amount <= unusedTokens[credit.token]);
       unusedTokens[credit.token] -= amount;
 

@@ -941,7 +941,7 @@ contract SpigotedLineTest is Test {
     function test_cant_use_and_repay_if_unauthorized() public {
       _borrow(line.ids(0), lentAmount);
       vm.prank(address(1));
-      vm.expectRevert("Unauthorized");
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.useAndRepay(1);
     }
     
@@ -982,7 +982,7 @@ contract SpigotedLineTest is Test {
       );
 
       vm.prank(address(1));
-      vm.expectRevert("Unauthorized");
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.claimAndRepay(address(revenueToken), tradeData);
     }
     
