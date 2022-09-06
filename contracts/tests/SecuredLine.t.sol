@@ -27,7 +27,7 @@ contract LineTest is Test {
     SecuredLine line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
-    uint minCollateralRatio = 1 ether; // 100%
+    uint32 minCollateralRatio = 10000; // 100%
     uint128 drawnRate = 100;
     uint128 facilityRate = 1;
     uint ttl = 150 days;

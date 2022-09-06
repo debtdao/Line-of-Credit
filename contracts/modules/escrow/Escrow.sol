@@ -15,7 +15,7 @@ contract Escrow is IEscrow {
     using EscrowLib for EscrowState;
 
     // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
-    uint256 public immutable minimumCollateralRatio;
+    uint32 public immutable minimumCollateralRatio;
 
     // Stakeholders and contracts used in Escrow
     address public immutable oracle;
@@ -24,7 +24,7 @@ contract Escrow is IEscrow {
     EscrowState private state;
 
     constructor(
-        uint256 _minimumCollateralRatio,
+        uint32 _minimumCollateralRatio,
         address _oracle,
         address _line,
         address _borrower

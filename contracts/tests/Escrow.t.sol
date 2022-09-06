@@ -25,7 +25,7 @@ contract EscrowTest is Test {
     MockLine line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
-    uint minCollateralRatio = 1 ether; // 100%
+    uint32 minCollateralRatio = 10000; // 100%
 
     address borrower = address(this);
     address arbiter = address(20);
@@ -72,7 +72,7 @@ contract EscrowTest is Test {
     }
 
     function _createEscrow(
-        uint _minimumCollateralRatio,
+        uint32 _minimumCollateralRatio,
         address _oracle,
         address _line,
         address _borrower
@@ -279,13 +279,13 @@ contract EscrowTest is Test {
     function test_cratio_values() public {
         escrow.addCollateral(1 ether, address(supportedToken1));
         line.setDebtValue(1000 * 1e8); // 1e18 of supportedToken1 == 1000 * 1e8 (1000 USD)
-        assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be at 100%"); // cratio is at 100%
+        assertEq(escrow.getCollateralRatio(), 10000, "cratio should be at 100%"); // cratio is at 100%
         line.setDebtValue(10 * (1000 * 1e8)); // 10x the collateral value (10000 USD)
-        assertEq(escrow.getCollateralRatio(), 0.1 ether, "cratio should be at 10%"); // 10%
+        assertEq(escrow.getCollateralRatio(), 1000, "cratio should be at 10%"); // 10%
         escrow.addCollateral(1 ether, address(supportedToken2)); // worth 2000 * 1e8 (2000 USD)
-        assertEq(escrow.getCollateralRatio(), 0.3 ether, "cratio should be at 30%"); // 30%
+        assertEq(escrow.getCollateralRatio(), 3000, "cratio should be at 30%"); // 30%
         escrow.addCollateral(10 ether, address(supportedToken2));
-        assertEq(escrow.getCollateralRatio(), 2.3 ether, "cratio should be at 230%"); // 230%
+        assertEq(escrow.getCollateralRatio(), 23000, "cratio should be at 230%"); // 230%
     }
 
     function test_cratio_should_be_0_if_no_collateral() public {
@@ -299,13 +299,13 @@ contract EscrowTest is Test {
         _enableCollateral(address(token4626)); // must enable after setAssetAddress for proper token to be used
         escrow.addCollateral(1 ether, address(token4626));
         line.setDebtValue(4000 * 1e8); // 1e18 of supportedToken2 * 2 == 4000 * 1e8 (4000 USD)
-        assertEq(escrow.getCollateralRatio(), 1 ether, "cratio should be 100%");
+        assertEq(escrow.getCollateralRatio(), 10000, "cratio should be 100%");
         line.setDebtValue(10 * (4000 * 1e8)); // 10x the collateral value (40000 USD)
-        assertEq(escrow.getCollateralRatio(), 0.1 ether, "cratio should be 10%");
+        assertEq(escrow.getCollateralRatio(), 1000, "cratio should be 10%");
         escrow.addCollateral(1 ether, address(supportedToken2)); // worth 2000 * 1e8 (2000 USD)
-        assertEq(escrow.getCollateralRatio(), 0.15 ether, "cratio should be 15%");
+        assertEq(escrow.getCollateralRatio(), 1500, "cratio should be 15%");
         escrow.addCollateral(10 ether, address(supportedToken2));
-        assertEq(escrow.getCollateralRatio(), 0.65 ether, "cratio should be 65%");
+        assertEq(escrow.getCollateralRatio(), 6500, "cratio should be 65%");
     }
 
     function test_can_remove_all_collateral_when_line_repaid() public {

@@ -16,7 +16,11 @@ import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
 
-contract LineTest is Test{
+interface Events {
+    event Borrow(bytes32 indexed id, uint256 indexed amount);
+}
+
+contract LineTest is Test, Events{
 
     SimpleOracle oracle;
     address borrower;
@@ -309,46 +313,50 @@ contract LineTest is Test{
         assertEq(lender.balance, mintAmount - 1 ether, "Lender should have initial mint balance minus 1e18");
     }
 
-    function test_can_borrow() public {
+    function test_can_borrow_within_credit_limit(uint amount) public {
+        vm.assume(amount >= 1 ether && amount <= mintAmount);
 
-        _addCredit(address(supportedToken1), 1 ether);
-        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+        _addCredit(address(supportedToken1), amount);
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - amount, "Contract should have initial mint balance minus 1e18");
         bytes32 id = line.ids(0);
 
-        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line balance should be 1e18");
+        assertEq(supportedToken1.balanceOf(address(line)), amount, "Line balance should be 1e18");
 
         hoax(borrower);
-        line.borrow(id, 1 ether);
+        line.borrow(id, amount);
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(borrower), mintAmount + 1 ether, "Contract should have initial mint balance");
+        assertEq(supportedToken1.balanceOf(borrower), mintAmount + amount, "Contract should have initial mint balance");
         int prc = oracle.getLatestAnswer(address(supportedToken1));
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         (uint p,) = line.updateOutstandingDebt();
-        assertEq(p, tokenPriceOneUnit, "Principal should be set as one full unit price in USD");
+        assertEq(p, (tokenPriceOneUnit * amount) / 1e18, "Principal should be set as one full unit price in USD");
     }
 
-    function test_can_borrow_ETH() public {
+    function test_can_borrow_ETH(uint128 amount) public {
+        vm.assume(amount >= 1 ether && amount <= mintAmount);
+
         vm.startPrank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        line.addCredit(drawnRate, facilityRate, amount, Denominations.ETH, lender);
         vm.stopPrank();
         vm.startPrank(lender);
-        line.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        line.addCredit{value: amount}(drawnRate, facilityRate, amount, Denominations.ETH, lender);
         vm.stopPrank();
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
-        assertEq(address(line).balance, 1 ether, "Line balance should be 1e18");
-        assertEq(lender.balance, mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
+        assertEq(address(line).balance, amount, "Line balance amount should be correct");
+        assertEq(lender.balance, mintAmount - amount, "Contract should have initial mint balance minus 1e18");
         
+        uint borrowAmount = amount * 25 / 1000;
         vm.startPrank(borrower);
-        line.borrow(id, 0.01 ether);
+        line.borrow(id, borrowAmount);
         vm.stopPrank();
-        assertEq(address(line).balance, 0.99 ether, "Line balance should be 0");
-        assertEq(borrower.balance,  0.01 ether, "Borrower should have initial mint balance");
+        assertEq(address(line).balance, amount - borrowAmount, "Line balance should be 0");
+        assertEq(borrower.balance, borrowAmount, "Borrower should have initial mint balance");
 
         int prc = oracle.getLatestAnswer(Denominations.ETH);
         uint tokenPriceOneUnit = prc < 0 ? 0 : uint(prc);
         (uint p,) = line.updateOutstandingDebt();
-        assertEq(p, tokenPriceOneUnit / 100, "Principal should be set as one full unit price in USD");
+        assertEq(p, (borrowAmount * tokenPriceOneUnit) / 1e18, "Principal should be set as one full unit price in USD");
 
     }
 
@@ -703,6 +711,104 @@ contract LineTest is Test{
 
         vm.warp(ttl+1);
         assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
+    }
+
+    function test_revert_if_borrowing_more_than_deposit(uint128 amount) public {
+        amount = amount / 1e18;
+        deal(address(supportedToken1), lender, amount);
+        _addCredit(address(supportedToken1), amount);
+        bytes32 id = line.ids(0);
+        vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
+        hoax(borrower);
+        line.borrow(id, amount + 1);
+    }
+    
+    function test_borrow_same_as_deposit(uint128 amount) public {
+        vm.assume(amount > 0);
+        amount /= 1e18;
+        deal(address(supportedToken1), lender, amount);
+        _addCredit(address(supportedToken1), amount);
+        bytes32 id = line.ids(0);
+        startHoax(borrower);
+        vm.expectEmit(true, true, true, true);
+        emit Borrow(id, amount);
+        line.borrow(id, amount);
+        vm.stopPrank();
+    }
+
+    function test_revert_no_token_price() public {
+        oracle.changePrice(address(supportedToken1), -1);
+        vm.startPrank(borrower);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        vm.stopPrank();
+        vm.prank(lender);
+        vm.expectRevert(CreditLib.NoTokenPrice.selector);
+        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        vm.stopPrank();
+    }
+
+    function test_can_deposit_and_repay_from_multiple_accounts(uint256 credit) public {
+        vm.assume(credit >= 1 ether && credit <= mintAmount);
+        _addCredit(address(supportedToken1), credit);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, credit);
+        uint256 repayAmount = (credit * 50) / 100;
+        
+        // bob repays
+        address bob = makeAddr("bob");
+        deal(address(supportedToken1), bob, repayAmount);
+        startHoax(bob);
+        supportedToken1.approve(address(line), repayAmount);
+        line.depositAndRepay(repayAmount);
+        vm.stopPrank();
+        
+        // sally repays
+        address sally = makeAddr("sally");
+        deal(address(supportedToken1), sally, repayAmount);
+        startHoax(sally);
+        supportedToken1.approve(address(line), repayAmount);
+        line.depositAndRepay(repayAmount);
+        vm.stopPrank();
+        
+        
+        (uint256 p, uint256 i) = line.updateOutstandingDebt();
+        assertEq(p + i, 0, "Line outstanding credit should be 0");
+    }
+
+    function test_deposit_and_repay_less_than_debt_becomes_liquidatable(uint credit) public {
+        vm.assume(credit >= 1 ether && credit <= mintAmount);
+        _addCredit(address(supportedToken1), credit);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, credit);
+
+        hoax(borrower);
+        line.depositAndRepay(credit - 1);
+
+        vm.warp(line.deadline());
+
+        assertEq(uint256(line.status()), uint256(LineLib.STATUS.ACTIVE));
+        bool isSolvent = line.declareInsolvent();
+        assertEq(uint256(line.status()), uint256(LineLib.STATUS.INSOLVENT));
+        assertTrue(isSolvent);
+    }
+    
+    function test_deposit_and_repay_debt_becomes_repaid(uint256 credit) public {
+        vm.assume(credit >= 1 ether && credit <= mintAmount);
+        _addCredit(address(supportedToken1), credit);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, credit);
+
+        hoax(borrower);
+        line.depositAndRepay(credit);
+
+        vm.warp(line.deadline());
+
+        hoax(borrower);
+        line.close(id);
+        assertEq(uint256(line.status()), uint256(LineLib.STATUS.REPAID));
     }
 
     // Uncomment to check gas limit threshhold for ids
