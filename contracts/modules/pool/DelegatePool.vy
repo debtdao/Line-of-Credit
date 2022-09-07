@@ -5,6 +5,10 @@ interface ERC2612:
   def nonces(address owner) external view returns (uint)
   def DOMAIN_SEPARATOR() external view returns (bytes32)
 
+interface ERC4626:
+  def deposit(assets: uint256, to: address) external returns(bool)
+  def withdraw(assets: uint256, to: address) external returns(bool)
+
 implements: ERC20, ERC2612
 
 contract LineOfCredit:
@@ -35,13 +39,19 @@ totalDeployed: public(uint256)
 impaired: public(HashMap[address, uint256])
 # LineLib.STATUS.INSOLVENT
 INSOLVENT_STATUS: constant(4)
-
+# shares earned by Delegate for managing pool
+delegateFees: uint256
+# % of profit that delegate keeps as incentives
+performanceFeeNumerator: uint8
+# % of performance fee to give to caller for automated collections
+collectorFeeNumerator: uint8
 
 #ERC20 vars
-totalSupply: public(uint256)
 name: string[50]
 symbol: string[10]
-
+# total amount of shares in pool
+totalSupply: public(uint256)
+# balance of pool vault shares
 balances: HashMap[address, uint256]
 # owner -> spender -> amount approved
 allowances: HashMap[address, HashMap[address, uint256]]
@@ -57,7 +67,7 @@ totalAssets: public(uint256)
 # TODO add permit
 
 @external
-def __init__
+def __init__(
   delegate_: address,
   asset_: address,
   name_: string[50],
@@ -82,17 +92,24 @@ def __init__
 
 @external
 def impair(line: address, id: bytes32):
+  """
+    @notice     - allows Delegate to markdown the value of a defaulted loan reducing vault share price.
+    @param line - line of credit contract to call
+    @param id   - credit position on line controlled by this pool 
+  """
   assert LineOfCredit(line).status() == INSOLVENT_STATUS
 
   (uint256 principal, uint256 deposit,, uint256 interestPaid,,,) = LineOfCredit(line).credits(id)
 
-  claimable: uint256 = interestPaid + (deposit - principal)
+  claimable: uint256 = interestPaid + (deposit - principal) # all funds let in line
   impaired[line] += principal  # write down lost principal
   
   if claimable > 0:
     LineOfCredit(line).withdraw(claimable)
     diff = principal - interestPaid  # reduce diff by recovered funds
 
+  # TODO take profermanceFee  from delegate to offset impairment and reduce diff
+  # TODO currently callable by anyone. Should we give % of delegates fees to caller?
   self._updateShares(diff, True)
 
 @external
@@ -103,18 +120,26 @@ def addCredit(
   amount: uint256
 ):
   assert msg.sender is delegate
-  self.deployed += amount
+  self.totalDeployed += amount
   LineOfCredit(line).addCredit(drate, frate, amount, token, self.address)
 
 @external
-def increastCredit(
+def increaseCredit(
   line: address,
   id: bytes32,
   amount: uint256
 ):
   assert msg.sender is delegate
-  self.deployed += amount
+  self.totalDeployed += amount
   LineOfCredit(line).increaseCredit(id, amount)
+
+@external
+def invest4626(vault: address, amount: uint256):
+  assert msg.sender is delegate
+  self.totalDeployed += amount
+  # TODO check previewDeposit expected vs deposit actual for slippage
+  ERC4626(vault).deposit(amount, self.address)
+
 
 @external
 def reduceCredit(
@@ -129,12 +154,25 @@ def reduceCredit(
   LineOfCredit(line).withdraw(id, amount)
 
   # LoC always sends profits before principal so will always have a value
-  collected = amount if amount < interest else interest 
+  interestCollected = amount if amount < interest else interest 
+  
   # update share price with new profits
-  self._updateShares(collected, false)
+  self._updateShares(interestCollected, False)
+
+  # payout fees with new share price
+  self._takeFees(interestCollected)
 
   # assume principal was also drawn otherwise they would call collect()
-  self.deployed -= amount - collected
+  self.totalDeployed -= amount - interestCollected
+
+
+@external
+def divest4626(vault: address, amount: uint256):
+  assert msg.sender is delegate
+  self.totalDeployed -= amount
+  # TODO check previewWithdraw expected vs withdraw actual for slippage
+  ERC4626(vault).withdraw(amount, self.address)
+  # delegate doesnt earn fees on 4626 strategies to incentivize line investment
 
 
 @external
@@ -149,25 +187,26 @@ def setRates(
 
 
 @external
-def collect(
+def collectInterest(
   line: address,
   id: bytes32
 ):
-  (,amount: uint256) = LineOfCredit(line).available(id)
-  LineOfCredit(line).withdraw(id, amount)
-  # TODO add compounder fee
-  self._updateShares(amount, false)
-  # emit deposit
+  (,interest: uint256) = LineOfCredit(line).available(id)
+  LineOfCredit(line).withdraw(id, interest)
+  # update share price with new profits
+  self._updateShares(interest, False)
+  # payout fees with new share price
+  self._takeFees(interest)
 
+
+# 4626 action functions
 
 @external
 def deposit(assets: uint256, to: address):
   """
     adds assets
   """
-  # TODO convert assets
   self._deposit(amount / self._getSharePrice(), amount, to)
-  # emit deposit
 
 @external
 def mint(shares: uint256, to: address):
@@ -175,7 +214,6 @@ def mint(shares: uint256, to: address):
     adds shares
   """
   self._deposit(shares, amount * self._getSharePrice(), to)
-  # emit deposit
 
 @external
 def withdraw(
@@ -183,7 +221,7 @@ def withdraw(
   receiver: address,
   owner: address
 ):
-  assert reciever == owner or allowances[owner][msg.sender] >= amount
+  assert msg.sender == owner or allowances[owner][msg.sender] >= amount
   allowances[owner][msg.sender] -= amount
   self._withdraw(amount / self._getSharePrice(), amount, to)
 
@@ -196,7 +234,6 @@ def redeem(shares: uint256, to: address, owner: address):
   assert msg.sender == owner or allowances[owner][msg.sender] >= amount
   allowances[owner][msg.sender] -= amount
   self._withdraw(shares, amount * self._getSharePrice(), to)
-  # emit deposit
 
 
 # pool interals
@@ -210,6 +247,7 @@ def _deposit(
   totalAssets += amount
   balances[to] += shares
   assert ERC20(asset).transferFrom(msg.sender, self.address, amount)     
+  # emit deposit
 
 @internal
 def _withdraw(
@@ -222,7 +260,39 @@ def _withdraw(
   totalAssets -= amount
   balances[to] -= shares
   assert ERC20(asset).transfer(to, amount)     
+  # emit withdraw
 
+@internal
+def _takeFees(interestEarned: uint256):
+  """
+    @notice takes total profits earned and takes fees for delegate and compounder
+    @dev fees are stored as shares but input/ouput assets
+    @return total amount of assets taken as fees
+  """
+  if performanceFeeNumerator is 0:
+    return 0
+
+  totalFees: uint256 = interest * performanceFeeNumerator / 100
+  collectorFee: uint256 = 0 if (
+    collectorFeeNumerator is 0 or
+    msg.sender is delegate
+  ) else totalFees * collectorFeeNumerator / 100
+
+  # caller gets collector fees in raw asset for easier mev
+  ERC20(asset).transfer(msg.sender, collectorFee)
+  totalAssets -= collectorFee
+
+  # delegate gets performance fee.
+  # Not stored in balance so we can differentiate fees earned vs their won deposits, letting us slash fees on impariment.
+  # earn fees in shares, not raw asset, so profit is vested like other users
+  sharePrice = self._getSharePrice()
+  delegateFee: uint256 += (totalFees - collectorFee) / sharePrice
+  self.delegateFees += delegateFee
+
+  # inflate supply to reduce user share price
+  self.totalSupply += delegateFee
+  
+  return totalFees
 
 # ERC20 view functions
 
