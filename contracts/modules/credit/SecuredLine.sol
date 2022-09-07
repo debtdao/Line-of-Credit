@@ -50,13 +50,15 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     // require all debt successfully paid already
     if(status != LineLib.STATUS.REPAID) { revert DebtOwed(); }
     // require new line isn't activated yet
-    if(ILineOfCredit(newLine).init() != LineLib.STATUS.UNINITIALIZED) { revert AlreadyInitialized(); }
+    if(ILineOfCredit(newLine).status() != LineLib.STATUS.UNINITIALIZED) { revert BadNewLine(); }
     // we dont check borrower is same on both lines because borrower might want new address managing new line
+    EscrowedLine._rollover(newLine);
+    SpigotedLineLib.rollover(address(spigot), newLine);
 
-    return (
-      EscrowedLine._rollover(newLine) &&
-      SpigotedLineLib.rollover(address(spigot), newLine)
-    );
+    // ensure that line we are sending can accept them. There is no recovery option.
+    if(ILineOfCredit(newLine).init() != LineLib.STATUS.ACTIVE) { revert BadRollover(); }
+
+    return true;
   }
 
 

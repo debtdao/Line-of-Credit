@@ -179,11 +179,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         address oracle_ = address(oracle);  // gas savings
         address interestRate_ = address(interestRate);
         
-        for (uint256 i = 0; i < len;) {
+        for (uint256 i; i < len; ++i) {
             id = ids[i];
 
             // gas savings. capped to len. inc before early continue
-            unchecked { ++i; }
+            
 
             // null element in array
             if(id == bytes32(0)) { continue; }
@@ -209,11 +209,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function accrueInterest() external override returns(bool) {
         uint256 len = ids.length;
         bytes32 id;
-        for (uint256 i = 0; i < len;) {
+        for (uint256 i; i < len; ++i) {
           id = ids[i];
           Credit memory credit = credits[id];
           credits[id] = _accrue(credit, id);
-          unchecked { ++i; }
+          
         }
         
         return true;
@@ -559,7 +559,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 lastSpot = ids.length - 1;
         uint256 nextQSpot = lastSpot;
         bytes32 id;
-        for (uint256 i = 0; i <= lastSpot; i++) {
+        for (uint256 i; i <= lastSpot; ++i) {
             id = ids[i];
             if (p != id) {
 
@@ -581,6 +581,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
                 ids[nextQSpot] = p;       // p put at target index
                 return true; 
             }
+          
         }
     }
 }

@@ -27,7 +27,7 @@ contract LineTest is Test {
     SecuredLine line;
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
-    uint minCollateralRatio = 1 ether; // 100%
+    uint32 minCollateralRatio = 10000; // 100%
     uint128 drawnRate = 100;
     uint128 facilityRate = 1;
     uint ttl = 150 days;
@@ -348,11 +348,15 @@ contract LineTest is Test {
     }
 
     function test_cannot_liquidate_as_borrower() public {
-        
+        // borrow so we can be liqudiated
+        _addCredit(address(supportedToken1), 1 ether);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0), 1 ether);
+
         vm.warp(ttl+1);
         vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
-        hoax(borrower);
         line.liquidate(1 ether, address(supportedToken2));
+        vm.stopPrank();
     }
 
 
@@ -481,7 +485,7 @@ contract LineTest is Test {
       line.depositAndClose();
       
       // REPAID (test passes if next error)
-      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      vm.expectRevert(ISecuredLine.BadNewLine.selector);
       hoax(borrower);
       line.rollover(address(line));
     }
@@ -513,7 +517,7 @@ contract LineTest is Test {
       l.init();
 
       // giving our modules should fail because taken already
-      vm.expectRevert(ILineOfCredit.AlreadyInitialized.selector);
+      vm.expectRevert(ISecuredLine.BadNewLine.selector);
       hoax(borrower);
       line.rollover(address(l));
     }
@@ -529,6 +533,35 @@ contract LineTest is Test {
       vm.expectRevert(); // evm revert, .init() does not exist on address(this)
       hoax(borrower);
       line.rollover(address(this));
+    }
+
+
+    function test_cant_rollover_if_newLine_not_expeciting_modules() public {
+      _addCredit(address(supportedToken1), 1 ether);
+      bytes32 id = line.ids(0);
+      hoax(borrower);
+      line.borrow(id, 1 ether);
+      hoax(borrower);
+      line.depositAndClose();
+      
+      // create and init new line with new modules
+      Spigot s = new Spigot(arbiter, borrower, borrower);
+      Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
+      SecuredLine l = new SecuredLine(
+        address(oracle),
+        arbiter,
+        borrower,
+        payable(address(0)),
+        address(s),
+        address(e),
+        150 days,
+        0
+      );
+
+      // giving our modules should fail because taken already
+      vm.expectRevert(ISecuredLine.BadRollover.selector);
+      hoax(borrower);
+      line.rollover(address(l));
     }
 
 

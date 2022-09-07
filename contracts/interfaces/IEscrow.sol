@@ -1,8 +1,5 @@
 pragma solidity 0.8.9;
 
-interface IEscrowState {
-  
-}
 interface IEscrow {
     struct Deposit {
         uint amount;
@@ -16,8 +13,6 @@ interface IEscrow {
     event RemoveCollateral(address indexed token, uint indexed amount);
 
     event EnableCollateral(address indexed token);
-    
-    event Liquidate(address indexed token, uint indexed amount);
 
     error InvalidCollateral();
 
@@ -35,7 +30,7 @@ interface IEscrow {
 
     function borrower() external returns(address);
 
-    function minimumCollateralRatio() external returns(uint256);
+    function minimumCollateralRatio() external returns(uint32);
 
     // Functions 
 
@@ -49,7 +44,7 @@ interface IEscrow {
 
     function enableCollateral(address token) external returns(bool);
 
-    function addCollateral(uint amount, address token) external returns(uint);
+    function addCollateral(uint amount, address token) external payable returns(uint);
 
     function releaseCollateral(uint amount, address token, address to) external returns(uint);
     
