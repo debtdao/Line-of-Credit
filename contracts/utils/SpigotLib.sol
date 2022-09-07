@@ -16,7 +16,6 @@ struct SpigotState {
     mapping(address => ISpigot.Setting) settings; // revenue contract -> settings
 }
 
-
 library SpigotLib {
     // Maximum numerator for Setting.ownerSplit param
     uint8 constant MAX_SPLIT = 100;
@@ -38,41 +37,57 @@ library SpigotLib {
         returns (uint256 claimed)
     {
         uint256 existingBalance = LineLib.getBalance(token);
-        if(self.settings[revenueContract].claimFunction == bytes4(0)) {
+        if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
             // claimed = total balance - already accounted for balance
             claimed = existingBalance - self.escrowed[token];
         } else {
             // pull payments
-            if(bytes4(data) != self.settings[revenueContract].claimFunction) { revert BadFunction(); }
+            if (bytes4(data) != self.settings[revenueContract].claimFunction) {
+                revert BadFunction();
+            }
             (bool claimSuccess,) = revenueContract.call(data);
-            if(!claimSuccess) { revert ClaimFailed(); }
+            if (!claimSuccess) {
+                revert ClaimFailed();
+            }
             // claimed = total balance - existing balance
             claimed = LineLib.getBalance(token) - existingBalance;
         }
 
-        if(claimed == 0) { revert NoRevenue(); }
+        if (claimed == 0) {
+            revert NoRevenue();
+        }
 
         // cap so uint doesnt overflow in split calculations.
         // can sweep by "attaching" a push payment spigot with same token
-        if(claimed > MAX_REVENUE) claimed = MAX_REVENUE;
+        if (claimed > MAX_REVENUE) {
+            claimed = MAX_REVENUE;
+        }
 
         return claimed;
     }
 
     function operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
-        if(msg.sender != self.operator) { revert CallerAccessDenied(); }
+        if (msg.sender != self.operator) {
+            revert CallerAccessDenied();
+        }
         bytes4 func = bytes4(data);
         // extract function signature from tx data and check whitelist
-        if(!self.whitelistedFunctions[func]) { revert BadFunction(); }
+        if (!self.whitelistedFunctions[func]) {
+            revert BadFunction();
+        }
         // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
-        if(
-          func == self.settings[revenueContract].claimFunction ||
-          func == self.settings[revenueContract].transferOwnerFunction
-        ) { revert BadFunction(); }
+        if (
+            func == self.settings[revenueContract].claimFunction
+                || func == self.settings[revenueContract].transferOwnerFunction
+        ) {
+            revert BadFunction();
+        }
 
         (bool success,) = revenueContract.call(data);
-        if(!success) { revert BadFunction(); }
+        if (!success) {
+            revert BadFunction();
+        }
 
         return true;
     }
@@ -88,27 +103,31 @@ library SpigotLib {
         uint256 escrowedAmount = claimed * self.settings[revenueContract].ownerSplit / 100;
         // update escrowed balance
         self.escrowed[token] = self.escrowed[token] + escrowedAmount;
-        
+
         // send non-escrowed tokens to Treasury if non-zero
-        if(claimed > escrowedAmount) {
+        if (claimed > escrowedAmount) {
             require(LineLib.sendOutTokenOrETH(token, self.treasury, claimed - escrowedAmount));
         }
 
         emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
-        
+
         return claimed;
     }
 
-     function claimEscrow(SpigotState storage self, address token)
+    function claimEscrow(SpigotState storage self, address token)
         external
         whileNoUnclaimedRevenue(self, token)
-        returns (uint256 claimed) 
+        returns (uint256 claimed)
     {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-        
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
+
         claimed = self.escrowed[token];
 
-        if(claimed == 0) { revert ClaimFailed(); }
+        if (claimed == 0) {
+            revert ClaimFailed();
+        }
 
         LineLib.sendOutTokenOrETH(token, self.owner, claimed);
 
@@ -119,19 +138,29 @@ library SpigotLib {
         return claimed;
     }
 
-    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-        
-        
+    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting)
+        external
+        returns (bool)
+    {
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
+
         require(revenueContract != address(this));
         // spigot setting already exists
         require(self.settings[revenueContract].transferOwnerFunction == bytes4(0));
-        
+
         // must set transfer func
-        if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
-        if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
-        if(setting.token == address(0)) {  revert BadSetting(); }
-        
+        if (setting.transferOwnerFunction == bytes4(0)) {
+            revert BadSetting();
+        }
+        if (setting.ownerSplit > MAX_SPLIT) {
+            revert BadSetting();
+        }
+        if (setting.token == address(0)) {
+            revert BadSetting();
+        }
+
         self.settings[revenueContract] = setting;
         emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
 
@@ -143,12 +172,14 @@ library SpigotLib {
         whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
         returns (bool)
     {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
 
         (bool success,) = revenueContract.call(
             abi.encodeWithSelector(
                 self.settings[revenueContract].transferOwnerFunction,
-                self.operator    // assume function only takes one param that is new owner address
+                self.operator // assume function only takes one param that is new owner address
             )
         );
         require(success);
@@ -162,19 +193,25 @@ library SpigotLib {
     function updateOwnerSplit(SpigotState storage self, address revenueContract, uint8 ownerSplit)
         external
         whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
-        returns(bool)
+        returns (bool)
     {
-      if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-      if(ownerSplit > MAX_SPLIT) { revert BadSetting(); }
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
+        if (ownerSplit > MAX_SPLIT) {
+            revert BadSetting();
+        }
 
-      self.settings[revenueContract].ownerSplit = ownerSplit;
-      emit UpdateOwnerSplit(revenueContract, ownerSplit);
-      
-      return true;
+        self.settings[revenueContract].ownerSplit = ownerSplit;
+        emit UpdateOwnerSplit(revenueContract, ownerSplit);
+
+        return true;
     }
 
     function updateOwner(SpigotState storage self, address newOwner) external returns (bool) {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
         require(newOwner != address(0));
         self.owner = newOwner;
         emit UpdateOwner(newOwner);
@@ -182,7 +219,9 @@ library SpigotLib {
     }
 
     function updateOperator(SpigotState storage self, address newOperator) external returns (bool) {
-        if(msg.sender != self.operator) { revert CallerAccessDenied(); }
+        if (msg.sender != self.operator) {
+            revert CallerAccessDenied();
+        }
         require(newOperator != address(0));
         self.operator = newOperator;
         emit UpdateOperator(newOperator);
@@ -190,8 +229,8 @@ library SpigotLib {
     }
 
     function updateTreasury(SpigotState storage self, address newTreasury) external returns (bool) {
-        if(msg.sender != self.operator && msg.sender != self.treasury) {
-          revert CallerAccessDenied();
+        if (msg.sender != self.operator && msg.sender != self.treasury) {
+            revert CallerAccessDenied();
         }
 
         require(newTreasury != address(0));
@@ -201,7 +240,9 @@ library SpigotLib {
     }
 
     function updateWhitelistedFunction(SpigotState storage self, bytes4 func, bool allowed) external returns (bool) {
-        if(msg.sender != self.owner) { revert CallerAccessDenied(); }
+        if (msg.sender != self.owner) {
+            revert CallerAccessDenied();
+        }
         self.whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, allowed);
         return true;
@@ -211,13 +252,14 @@ library SpigotLib {
         return self.escrowed[token];
     }
 
-    function isWhitelisted(SpigotState storage self, bytes4 func) external view returns(bool) {
-      return self.whitelistedFunctions[func];
+    function isWhitelisted(SpigotState storage self, bytes4 func) external view returns (bool) {
+        return self.whitelistedFunctions[func];
     }
 
     function getSetting(SpigotState storage self, address revenueContract)
-        external view
-        returns(address, uint8, bytes4, bytes4)
+        external
+        view
+        returns (address, uint8, bytes4, bytes4)
     {
         return (
             self.settings[revenueContract].token,
@@ -227,36 +269,19 @@ library SpigotLib {
         );
     }
 
-
     // Spigot Events
 
-    event AddSpigot(
-        address indexed revenueContract,
-        address token,
-        uint256 ownerSplit
-    );
+    event AddSpigot(address indexed revenueContract, address token, uint256 ownerSplit);
 
     event RemoveSpigot(address indexed revenueContract, address token);
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
-    event UpdateOwnerSplit(
-        address indexed revenueContract,
-        uint8 indexed split
-    );
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
 
-    event ClaimRevenue(
-        address indexed token,
-        uint256 indexed amount,
-        uint256 escrowed,
-        address revenueContract
-    );
+    event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
-    event ClaimEscrow(
-        address indexed token,
-        uint256 indexed amount,
-        address owner
-    );
+    event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);
 
     // Stakeholder Events
 

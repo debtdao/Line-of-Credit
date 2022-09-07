@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import {Denominations} from "@chainlink/contracts/src/v0.8/Denominations.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
@@ -23,28 +23,23 @@ contract Escrow is IEscrow {
 
     EscrowState private state;
 
-    constructor(
-        uint32 _minimumCollateralRatio,
-        address _oracle,
-        address _line,
-        address _borrower
-    ) {
+    constructor(uint32 _minimumCollateralRatio, address _oracle, address _line, address _borrower) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
         state.line = _line;
         borrower = _borrower;
     }
 
-    function line() external view override returns(address) {
-      return state.line;
+    function line() external view override returns (address) {
+        return state.line;
     }
 
-    function isLiquidatable() external returns(bool) {
-      return state.isLiquidatable(oracle, minimumCollateralRatio);
+    function isLiquidatable() external returns (bool) {
+        return state.isLiquidatable(oracle, minimumCollateralRatio);
     }
 
-    function updateLine(address _line) external returns(bool) {
-      return state.updateLine(_line);
+    function updateLine(address _line) external returns (bool) {
+        return state.updateLine(_line);
     }
 
     /**
@@ -56,18 +51,15 @@ contract Escrow is IEscrow {
      * @param token - the token address of the deposited token
      * @return - the updated cratio
      */
-    function addCollateral(uint256 amount, address token)
-        external payable
-        returns (uint256)
-    {
+    function addCollateral(uint256 amount, address token) external payable returns (uint256) {
         return state.addCollateral(oracle, amount, token);
     }
 
     /**
      * @notice - allows  the lines arbiter to  enable thdeposits of an asset
-     *        - gives  better risk segmentation forlenders
+     * - gives  better risk segmentation forlenders
      * @dev - whitelisting protects against malicious 4626 tokens and DoS attacks
-     *       - only need to allow once. Can not disable collateral once enabled.
+     * - only need to allow once. Can not disable collateral once enabled.
      * @param token - the token to all borrow to deposit as collateral
      */
     function enableCollateral(address token) external returns (bool) {
@@ -83,11 +75,7 @@ contract Escrow is IEscrow {
      * @param to - who should receive the funds
      * @return - the updated cratio
      */
-    function releaseCollateral(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (uint256) {
+    function releaseCollateral(uint256 amount, address token, address to) external returns (uint256) {
         return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
     }
 
@@ -111,7 +99,7 @@ contract Escrow is IEscrow {
 
     /**
      * @notice liquidates borrowers collateral by token and amount
-     *         line can liquidate at anytime based off other covenants besides cratio
+     * line can liquidate at anytime based off other covenants besides cratio
      * @dev requires that the cratio is at or below the liquidation threshold
      * @dev callable by `line`
      * @param amount - the amount of tokens to liquidate
@@ -119,11 +107,7 @@ contract Escrow is IEscrow {
      * @param to - the address to receive the funds
      * @return - true if successful
      */
-    function liquidate(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (bool) {
+    function liquidate(uint256 amount, address token, address to) external returns (bool) {
         return state.liquidate(amount, token, to);
     }
 }

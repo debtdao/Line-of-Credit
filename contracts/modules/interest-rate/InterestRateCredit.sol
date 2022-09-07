@@ -20,10 +20,7 @@ contract InterestRateCredit is IInterestRateCredit {
     ///////////  MODIFIERS  ///////////
 
     modifier onlyLineContract() {
-        require(
-            msg.sender == lineContract,
-            "InterestRateCred: only line contract."
-        );
+        require(msg.sender == lineContract, "InterestRateCred: only line contract.");
         _;
     }
 
@@ -37,19 +34,16 @@ contract InterestRateCredit is IInterestRateCredit {
      * @return repayBalance amount to be repaid for this interest period
      *
      */
-    function accrueInterest(
-        bytes32 id,
-        uint256 drawnBalance,
-        uint256 facilityBalance
-    ) external override onlyLineContract returns (uint256) {
+    function accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance)
+        external
+        override
+        onlyLineContract
+        returns (uint256)
+    {
         return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
-    function _accrueInterest(
-        bytes32 id,
-        uint256 drawnBalance,
-        uint256 facilityBalance
-    ) internal returns (uint256) {
+    function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal returns (uint256) {
         Rate memory rate = rates[id];
         uint256 timespan = block.timestamp - rate.lastAccrued;
         rates[id].lastAccrued = block.timestamp;
@@ -57,10 +51,10 @@ contract InterestRateCredit is IInterestRateCredit {
         // r = APR in BPS, x = # tokens, t = time
         // interest = (r * x * t) / 1yr / 100
         // facility = deposited - drawn (aka undrawn balance)
-        return (((rate.drawnRate * drawnBalance * timespan) /
-            INTEREST_DENOMINATOR) +
-            ((rate.facilityRate * (facilityBalance - drawnBalance) * timespan) /
-                INTEREST_DENOMINATOR));
+        return (
+            ((rate.drawnRate * drawnBalance * timespan) / INTEREST_DENOMINATOR)
+                + ((rate.facilityRate * (facilityBalance - drawnBalance) * timespan) / INTEREST_DENOMINATOR)
+        );
     }
 
     /**
@@ -68,16 +62,8 @@ contract InterestRateCredit is IInterestRateCredit {
      * @dev - Line contract responsible for calling accrueInterest() before updateInterest() if necessary
      * @dev    - callable by `line`
      */
-    function setRate(
-        bytes32 id,
-        uint128 drawnRate,
-        uint128 facilityRate
-    ) external onlyLineContract returns (bool) {
-        rates[id] = Rate({
-            drawnRate: drawnRate,
-            facilityRate: facilityRate,
-            lastAccrued: block.timestamp
-        });
+    function setRate(bytes32 id, uint128 drawnRate, uint128 facilityRate) external onlyLineContract returns (bool) {
+        rates[id] = Rate({drawnRate: drawnRate, facilityRate: facilityRate, lastAccrued: block.timestamp});
 
         return true;
     }

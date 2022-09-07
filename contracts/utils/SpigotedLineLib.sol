@@ -1,14 +1,13 @@
 pragma solidity 0.8.9;
 
-import { ISpigot } from "../interfaces/ISpigot.sol";
-import { ISpigotedLine } from "../interfaces/ISpigotedLine.sol";
-import { LineLib } from "../utils/LineLib.sol";
+import {ISpigot} from "../interfaces/ISpigot.sol";
+import {ISpigotedLine} from "../interfaces/ISpigotedLine.sol";
+import {LineLib} from "../utils/LineLib.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import {Denominations} from "@chainlink/contracts/src/v0.8/Denominations.sol";
 
 library SpigotedLineLib {
-
     // max revenue to take from spigot if line is in distress
     uint8 constant MAX_SPLIT = 100;
 
@@ -19,13 +18,12 @@ library SpigotedLineLib {
     error BadTradingPair();
 
     error CallerAccessDenied();
-    
+
     error ReleaseSpigotFailed();
 
     error NotInsolvent(address module);
 
     error UsedExcessTokens(address token, uint256 amountAvailable);
-
 
     event TradeSpigotRevenue(
         address indexed revenueToken,
@@ -33,7 +31,6 @@ library SpigotedLineLib {
         address indexed debtToken,
         uint256 indexed debtTokensBought
     );
-
 
     /**
      * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
@@ -55,106 +52,96 @@ library SpigotedLineLib {
         uint256 unused,
         bytes calldata zeroExTradeData
     )
-        external 
-        returns(uint256, uint256)
+        external
+        returns (uint256, uint256)
     {
         // can not trade into same token. causes double count for unused tokens
-        if(claimToken == targetToken) { revert BadTradingPair(); }
+        if (claimToken == targetToken) {
+            revert BadTradingPair();
+        }
 
         // snapshot token balances now to diff after trade executes
         uint256 oldClaimTokens = LineLib.getBalance(claimToken);
         uint256 oldTargetTokens = LineLib.getBalance(targetToken);
-        
+
         // claim has to be called after we get balance
         uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
-        trade(
-            claimed + unused,
-            claimToken,
-            swapTarget,
-            zeroExTradeData
-        );
-        
+        trade(claimed + unused, claimToken, swapTarget, zeroExTradeData);
+
         // underflow revert ensures we have more tokens than we started with
         uint256 tokensBought = LineLib.getBalance(targetToken) - oldTargetTokens;
 
-        if(tokensBought == 0) { revert TradeFailed(); } // ensure tokens bought
+        if (tokensBought == 0) {
+            revert TradeFailed();
+        } // ensure tokens bought
 
         uint256 newClaimTokens = LineLib.getBalance(claimToken);
 
         // ideally we could use oracle to calculate # of tokens to receive
         // but sellToken might not have oracle. buyToken must have oracle
 
-        emit TradeSpigotRevenue(
-            claimToken,
-            claimed,
-            targetToken,
-            tokensBought
-        );
+        emit TradeSpigotRevenue(claimToken, claimed, targetToken, tokensBought);
 
         // used reserve revenue to repay debt
-        if(oldClaimTokens > newClaimTokens) {
-          uint256 diff = oldClaimTokens - newClaimTokens;
+        if (oldClaimTokens > newClaimTokens) {
+            uint256 diff = oldClaimTokens - newClaimTokens;
 
-          // used more tokens than we had in revenue reserves.
-          // prevent borrower from pulling idle lender funds to repay other lenders
-          if(diff > unused) revert UsedExcessTokens(claimToken,  unused); 
-          // reduce reserves by consumed amount
-          else return (
-            tokensBought,
-            unused - diff
-          );
-        } else { unchecked {
-          // excess revenue in trade. store in reserves
-          return (
-            tokensBought,
-            unused + (newClaimTokens - oldClaimTokens)
-          );
-        } }
+            // used more tokens than we had in revenue reserves.
+            // prevent borrower from pulling idle lender funds to repay other lenders
+            if (diff > unused) {
+                revert UsedExcessTokens(claimToken, unused);
+            }
+            // reduce reserves by consumed amount
+            else {
+                return (tokensBought, unused - diff);
+            }
+        } else {
+            unchecked {
+                // excess revenue in trade. store in reserves
+                return (tokensBought, unused + (newClaimTokens - oldClaimTokens));
+            }
+        }
     }
 
-    function trade(
-        uint256 amount,
-        address sellToken,
-        address payable swapTarget,
-        bytes calldata zeroExTradeData
-    ) 
+    function trade(uint256 amount, address sellToken, address payable swapTarget, bytes calldata zeroExTradeData)
         public
-        returns(bool)
+        returns (bool)
     {
         if (sellToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData);
-            if(!success) { revert TradeFailed(); }
+            (bool success,) = swapTarget.call{value: amount}(zeroExTradeData);
+            if (!success) {
+                revert TradeFailed();
+            }
         } else {
             IERC20(sellToken).approve(swapTarget, amount);
-            (bool success, ) = swapTarget.call(zeroExTradeData);
-            if(!success) { revert TradeFailed(); }
+            (bool success,) = swapTarget.call(zeroExTradeData);
+            if (!success) {
+                revert TradeFailed();
+            }
         }
 
         return true;
     }
 
-
     /**
-     * @notice cleanup function when borrower this line ends 
+     * @notice cleanup function when borrower this line ends
      */
-    function rollover(address spigot, address newLine) external returns(bool) {
-      require(ISpigot(spigot).updateOwner(newLine));
-      return true;
+    function rollover(address spigot, address newLine) external returns (bool) {
+        require(ISpigot(spigot).updateOwner(newLine));
+        return true;
     }
 
     function canDeclareInsolvent(address spigot, address arbiter) external view returns (bool) {
-            // Must have called releaseSpigot() and sold off protocol / revenue streams already
-      address owner_ = ISpigot(spigot).owner();
-      if(
-        address(this) == owner_ ||
-        arbiter == owner_
-      ) { revert NotInsolvent(spigot); }
-      // no additional logic in LineOfCredit to include
-      return true;
+        // Must have called releaseSpigot() and sold off protocol / revenue streams already
+        address owner_ = ISpigot(spigot).owner();
+        if (address(this) == owner_ || arbiter == owner_) {
+            revert NotInsolvent(spigot);
+        }
+        // no additional logic in LineOfCredit to include
+        return true;
     }
-
 
     /**
      * @notice changes the revenue split between borrower treasury and lan repayment based on line health
@@ -162,12 +149,17 @@ library SpigotedLineLib {
      * @param revenueContract - spigot to update
      * @return whether or not split was updated
      */
-    function updateSplit(address spigot, address revenueContract, LineLib.STATUS status, uint8 defaultSplit) external returns (bool) {
-        (,uint8 split,  ,bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
+    function updateSplit(address spigot, address revenueContract, LineLib.STATUS status, uint8 defaultSplit)
+        external
+        returns (bool)
+    {
+        (, uint8 split,, bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
 
-        if(transferFunc == bytes4(0)) { revert NoSpigot(); }
+        if (transferFunc == bytes4(0)) {
+            revert NoSpigot();
+        }
 
-        if(status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
+        if (status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
             // if line is healthy set split to default take rate
             return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
         } else if (status == LineLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
@@ -178,49 +170,64 @@ library SpigotedLineLib {
         return false;
     }
 
-
     /**
-
-   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
-             -  doesnt transfer out if line is unpaid and/or healthy
-   * @dev    - callable by anyone 
-   * @return - whether or not spigot was released
-  */
-    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
+     * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
+     * -  doesnt transfer out if line is unpaid and/or healthy
+     * @dev    - callable by anyone
+     * @return - whether or not spigot was released
+     */
+    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter)
+        external
+        returns (bool)
+    {
         if (status == LineLib.STATUS.REPAID) {
-          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
-          if(!ISpigot(spigot).updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
-          return true;
+            if (msg.sender != borrower) {
+                revert CallerAccessDenied();
+            }
+            if (!ISpigot(spigot).updateOwner(borrower)) {
+                revert ReleaseSpigotFailed();
+            }
+            return true;
         }
 
         if (status == LineLib.STATUS.LIQUIDATABLE) {
-          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
-          if(!ISpigot(spigot).updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
-          return true;
+            if (msg.sender != arbiter) {
+                revert CallerAccessDenied();
+            }
+            if (!ISpigot(spigot).updateOwner(arbiter)) {
+                revert ReleaseSpigotFailed();
+            }
+            return true;
         }
 
         return false;
     }
 
-
-        /**
-
-   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
-             -  doesnt transfer out if line is unpaid and/or healthy
-   * @dev    - callable by anyone 
-   * @return - whether or not spigot was released
-  */
-    function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
-        if(amount == 0) { revert UsedExcessTokens(token, 0); }
+    /**
+     * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
+     * -  doesnt transfer out if line is unpaid and/or healthy
+     * @dev    - callable by anyone
+     * @return - whether or not spigot was released
+     */
+    function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter)
+        external
+        returns (bool)
+    {
+        if (amount == 0) {
+            revert UsedExcessTokens(token, 0);
+        }
 
         if (status == LineLib.STATUS.REPAID) {
-            if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+            if (msg.sender != borrower) {
+                revert CallerAccessDenied();
+            }
             return LineLib.sendOutTokenOrETH(token, to, amount);
-
         }
 
         if (status == LineLib.STATUS.LIQUIDATABLE) {
-            if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+            if (msg.sender != arbiter) {
+                revert CallerAccessDenied();
+            }
             return LineLib.sendOutTokenOrETH(token, to, amount);
         }
 

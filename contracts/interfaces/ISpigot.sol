@@ -1,19 +1,18 @@
 pragma solidity ^0.8.9;
 
 interface ISpigot {
-
     struct Setting {
-        address token;                // token to claim as revenue from contract
-        uint8 ownerSplit;             // x/100 % to Owner, rest to Treasury
-        bytes4 claimFunction;         // function signature on contract to call and claim revenue
-        bytes4 transferOwnerFunction; // function signature on conract to call and transfer ownership 
+        address token; // token to claim as revenue from contract
+        uint8 ownerSplit; // x/100 % to Owner, rest to Treasury
+        bytes4 claimFunction; // function signature on contract to call and claim revenue
+        bytes4 transferOwnerFunction; // function signature on conract to call and transfer ownership
     }
 
     // Spigot Events
 
     event AddSpigot(address indexed revenueContract, address token, uint256 ownerSplit);
 
-    event RemoveSpigot (address indexed revenueContract, address token);
+    event RemoveSpigot(address indexed revenueContract, address token);
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
@@ -31,7 +30,7 @@ interface ISpigot {
 
     event UpdateTreasury(address indexed newTreasury);
 
-    // Errors 
+    // Errors
     error BadFunction();
 
     error ClaimFailed();
@@ -43,42 +42,40 @@ interface ISpigot {
     error CallerAccessDenied();
 
     error BadSetting();
-    
 
-    // ops funcs 
+    // ops funcs
 
     function claimRevenue(address revenueContract, bytes calldata data) external returns (uint256 claimed);
- 
+
     function operate(address revenueContract, bytes calldata data) external returns (bool);
 
+    // owner funcs
+    function claimEscrow(address token) external returns (uint256 claimed);
 
-    // owner funcs  
-    function claimEscrow(address token) external returns (uint256 claimed) ;
- 
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
- 
-    function removeSpigot(address revenueContract) external returns (bool);
-        
-  
-    // stakeholder funcs 
 
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns(bool);
+    function removeSpigot(address revenueContract) external returns (bool);
+
+    // stakeholder funcs
+
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool);
 
     function updateOwner(address newOwner) external returns (bool);
- 
+
     function updateOperator(address newOperator) external returns (bool);
- 
+
     function updateTreasury(address newTreasury) external returns (bool);
- 
+
     function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool);
 
-    // Getters 
+    // Getters
     function owner() external view returns (address);
     function treasury() external view returns (address);
     function operator() external view returns (address);
-    function isWhitelisted(bytes4 func) external view returns(bool);
-    function getEscrowed(address token) external view returns(uint256);
-    function getSetting(address revenueContract) external view
-      returns (address token, uint8 split, bytes4 claimFunc, bytes4 transferFunc);
-
+    function isWhitelisted(bytes4 func) external view returns (bool);
+    function getEscrowed(address token) external view returns (uint256);
+    function getSetting(address revenueContract)
+        external
+        view
+        returns (address token, uint8 split, bytes4 claimFunc, bytes4 transferFunc);
 }
