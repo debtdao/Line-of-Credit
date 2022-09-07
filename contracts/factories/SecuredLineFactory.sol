@@ -1,9 +1,9 @@
 pragma solidity 0.8.9;
 
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
-import {Factory} from "./Factory.sol";
 
-contract SecuredLineFactory is Factory {
+
+contract SecuredLineFactory {
 
     SecuredLine[] public SecuredLineArray;
   
