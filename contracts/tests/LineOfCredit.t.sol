@@ -836,4 +836,20 @@ contract LineTest is Test, Events{
     //         }
     //     }
     // }
+
+    function test_can_accrue_interest_after_deadline() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+        (,,uint interestAccruedBefore,,,,) = line.credits(id);
+
+        vm.warp(ttl+10 days);
+        // accrue interest can be called after deadline
+        line.accrueInterest();
+
+        // check that accrued interest is saved to line credits
+        (,,uint interestAccruedAfter,,,,) = line.credits(id);
+        assertGt(interestAccruedAfter, interestAccruedBefore);
+    }
 }
