@@ -9,7 +9,7 @@ import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { Escrow } from "../modules/escrow/Escrow.sol";
 import { MockEscrowedLine } from '../mock/MockEscrowedLine.sol';
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 import { ZeroEx } from "../mock/ZeroEx.sol";
 import { MockLine } from "../mock/MockLine.sol";
 

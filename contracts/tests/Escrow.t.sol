@@ -1,7 +1,7 @@
 pragma solidity 0.8.9;
 
 import { Test } from "forge-std/Test.sol";
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 
 import { IEscrow } from "../interfaces/IEscrow.sol";
 

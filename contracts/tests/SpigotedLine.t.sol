@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 
 import { ZeroEx } from "../mock/ZeroEx.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
