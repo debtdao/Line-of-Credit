@@ -937,5 +937,81 @@ contract SpigotedLineTest is Test {
     function test_can_whitelist_as_arbiter() public {
       assertTrue(line.updateWhitelist(bytes4("0000"), true));
     }
+
+    function test_cant_use_and_repay_if_unauthorized() public {
+      _borrow(line.ids(0), lentAmount);
+      
+      // random user
+      vm.prank(makeAddr("alice"));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.useAndRepay(1);
+      
+      // arbiter can't useAndRepay
+      vm.prank(arbiter);
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.useAndRepay(1);
+    }
+    
+    
+    function test_lender_can_use_and_repay() public {
+      deal(address(lender), lentAmount + 1 ether);
+      deal(address(revenueToken), MAX_REVENUE);
+      address revenueC = address(0xbeef); // need new spigot for testing
+      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      _borrow(id, lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        Denominations.ETH,
+        1 gwei,
+        lentAmount
+      );
+
+      hoax(borrower);
+      line.claimAndTrade(address(revenueToken), tradeData);
+
+      vm.prank(lender); // prank lender
+      line.useAndRepay(lentAmount);
+      (, uint256 principal,,,,,) = line.credits(line.ids(0));
+      assertEq(principal, 0);
+    }
+    
+    function test_cant_claim_and_repay_if_unauthorized() public {
+      _borrow(line.ids(0), lentAmount);
+      
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        lentAmount,
+        lentAmount
+      );
+
+      // random user
+      vm.prank(makeAddr("alice"));
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.claimAndRepay(address(revenueToken), tradeData);
+      
+      // arbiter can't claim and repay
+      vm.prank(arbiter);
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.claimAndRepay(address(revenueToken), tradeData);
+    }
+    
+    function test_lender_can_claim_and_repay() public {
+      _borrow(line.ids(0), lentAmount);
+      
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        lentAmount,
+        lentAmount
+      );
+
+      vm.prank(lender);
+      line.claimAndRepay(address(revenueToken), tradeData);
+    }
 }
 
