@@ -16,7 +16,11 @@ remappings = [
     'hardhat-deploy/=node_modules/hardhat-deploy/',
     'hardhat/=node_modules/hardhat/',
 ]
-libraries = []
+libraries = [
+    "contracts/utils/CreditLib:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
+    "contracts/utils/CreditListLib:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
+    "contracts/utils/LineLib:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66"
+]
 cache = true
 cache_path = 'cache'
 broadcast = 'broadcast'
