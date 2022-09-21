@@ -4,22 +4,23 @@ test = 'test'
 script = 'script'
 out = 'out'
 libs = [
-    'lib',
-    'node_modules',
+    'lib'
 ]
+
 remappings = [
-    '@chainlink/=node_modules/@chainlink/',
-    '@ensdomains/=node_modules/@ensdomains/',
-    '@openzeppelin/=node_modules/@openzeppelin/',
-    'ds-test/=lib/ds-test/src/',
-    'forge-std/=lib/forge-std/src/',
-    'hardhat-deploy/=node_modules/hardhat-deploy/',
-    'hardhat/=node_modules/hardhat/',
+    "forge-std/=lib/forge-std/src/",
+    "chainlink/=lib/chainlink/contracts/src/v0.8/",
+    "openzeppelin/=lib/openzeppelin-contracts/contracts/"
 ]
+
 libraries = [
-    "contracts/utils/CreditLib:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
-    "contracts/utils/CreditListLib:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
-    "contracts/utils/LineLib:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66"
+    "contracts/utils/CreditLib.sol:CreditLib:0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+    "contracts/utils/LineLib.sol:LineLib:0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+    "contracts/utils/MutualConsent.sol:MutualConsent:0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0x0165878A594ca255338adfa4d48449f69242Eb8F"
 ]
 cache = true
 cache_path = 'cache'

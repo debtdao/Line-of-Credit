@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@chainlink/contracts/src/v0.8/interfaces/FeedRegistryInterface.sol";
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import "chainlink/interfaces/FeedRegistryInterface.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 import "../../interfaces/IOracle.sol";
 
 contract Oracle is IOracle {

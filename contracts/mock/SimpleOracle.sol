@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 import { LineLib } from "../utils/LineLib.sol";
 
