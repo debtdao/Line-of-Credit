@@ -1,19 +1,18 @@
-import ERC20 from vyper.interfaces
+from vyper.interfaces import ERC20 
 
 interface ERC2612:
-  def permit(owner: address, spender: address, value: uint256, deadline: uint256, v: uint8, r: bytes32, s: bytes32) external
-  def nonces(address owner) external view returns (uint)
-  def DOMAIN_SEPARATOR() external view returns (bytes32)
+  def permit(owner: address, spender: address, value: uint256, deadline: uint256, v: uint8, r: bytes32, s: bytes32): view
+  def nonces(owner: address ) -> uint256: view
+  def DOMAIN_SEPARATOR() -> bytes32: view
 
 interface ERC4626:
-  def deposit(assets: uint256, to: address) external returns(bool)
-  def withdraw(assets: uint256, to: address) external returns(bool)
+  def deposit(assets: uint256, to: address)  -> bool: payable
+  def withdraw(assets: uint256, to: address) -> bool: payable
 
-implements: ERC20, ERC2612
 
-contract LineOfCredit:
+interface LineOfCredit:
     def status() -> uint256: constant
-    def credits(id: bytes32) constant
+    def credits(id: bytes32): constant
 
     def addCredit(
       drate: uint128,
@@ -22,9 +21,10 @@ contract LineOfCredit:
       token: address,
       lender: address
     ): modifying
-    def setRates(id: bytes32 , drate: uint128, frate: uint128) modifying
-    def increaseCredit(id: bytes32,  amount: uint25) modifying
+    def setRates(id: bytes32 , drate: uint128, frate: uint128): modifying
+    def increaseCredit(id: bytes32,  amount: uint25): modifying
     
+implements: [ERC20, ERC2612, ERC4626]
 
 # Pool vars
 
@@ -59,7 +59,9 @@ allowances: HashMap[address, HashMap[address, uint256]]
 # ERC20 Events
 
 # ERC4626 vars
+# underlying token for pool/vault
 asset: immutable(address)
+# total notional amount of underlying token held in pool
 totalAssets: public(uint256)
 
 # ERC4626 Events
