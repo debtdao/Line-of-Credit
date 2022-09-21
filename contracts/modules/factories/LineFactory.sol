@@ -105,9 +105,6 @@ contract LineFactory is ILineFactory {
         uint8 split = SecuredLine(oldLine).defaultRevenueSplit();
         SecuredLine line = new SecuredLine(oracle, arbiter, borrower, st, s, e, ttl, split);
         emit DeployedSecuredLine(address(line), s, e, st);
-        if(line.init() != LineLib.STATUS.ACTIVE) {
-          revert InitNewLineFailed(address(line), s, e);
-        }
         return address(line);
     }
 
