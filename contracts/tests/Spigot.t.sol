@@ -5,7 +5,7 @@ import { Spigot } from "../modules/spigot/Spigot.sol";
 
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { SimpleRevenueContract } from '../mock/SimpleRevenueContract.sol';
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 
 import { ISpigot } from '../interfaces/ISpigot.sol';
 

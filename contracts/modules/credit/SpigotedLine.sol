@@ -1,7 +1,7 @@
 pragma solidity ^0.8.9;
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { Denominations } from "chainlink/Denominations.sol";
+import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
@@ -9,8 +9,8 @@ import {SpigotedLineLib} from "../../utils/SpigotedLineLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 import {ISpigotedLine} from "../../interfaces/ISpigotedLine.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     using SafeERC20 for IERC20;
