@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
 import { LineLib } from  "../../utils/LineLib.sol";
 import { SpigotState, SpigotLib } from  "../../utils/SpigotLib.sol";
 

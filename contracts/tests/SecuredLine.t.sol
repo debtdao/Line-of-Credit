@@ -1,7 +1,7 @@
 pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 
 import { Spigot } from "../modules/spigot/Spigot.sol";
 import { Escrow } from "../modules/escrow/Escrow.sol";

@@ -1,6 +1,6 @@
 pragma solidity 0.8.9;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin/token/ERC20/ERC20.sol";
 
 contract RevenueToken is ERC20("Token earned as revenue", "BRRRR") {
 

@@ -3,9 +3,9 @@ pragma solidity 0.8.9;
 import { ISpigot } from "../interfaces/ISpigot.sol";
 import { ISpigotedLine } from "../interfaces/ISpigotedLine.sol";
 import { LineLib } from "../utils/LineLib.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 
-import { Denominations } from "@chainlink/contracts/src/v0.8/Denominations.sol";
+import { Denominations } from "chainlink/Denominations.sol";
 
 library SpigotedLineLib {
 
