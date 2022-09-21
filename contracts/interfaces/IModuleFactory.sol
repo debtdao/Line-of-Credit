@@ -3,15 +3,17 @@ pragma solidity 0.8.9;
 interface IModuleFactory {
 
     event DeployedSpigot(
-        address indexed spigotAddress,
+        address indexed deployedAt,
         address indexed owner,
-        address indexed treasury
+        address indexed treasury,
+        address operator
     );
 
     event DeployedEscrow(
-        address indexed escrowAddress,
+        address indexed deployedAt,
         uint32 indexed minCRatio,
-        address indexed borrower
+        address indexed oracle,
+        address owner
     );
 
     function DeploySpigot(address owner, address treasury, address operator) external returns(address);
