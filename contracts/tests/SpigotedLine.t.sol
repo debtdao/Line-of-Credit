@@ -732,7 +732,7 @@ contract SpigotedLineTest is Test {
         lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
       );
 
-
+      vm.prank(borrower);
       line.claimAndRepay(address(revenueToken), tradeData);
       
       bytes32 id = line.ids(0);
