@@ -230,22 +230,7 @@ contract LineLibTest is Test {
         }
     }
 
-    function test_calculates_right_price_w_decimals(int256 price, uint256 amount) public {
-        // no negative values, base 0 
-        vm.assume(price > 0);
-        // TODO constrain params so price * amount doesn't overflow
-
-        uint realPrice = uint256(price);
-        uint8 decimals = 18;
-        uint8 decimals2 = 1;
-        
-
-        uint val = CreditLib.calculateValue(price, amount, decimals);
-        assertEq(val,  realPrice * amount * ( 1 * 10 ** decimals));
-
-        uint val2 = CreditLib.calculateValue(price, amount, decimals2);
-        assertEq(val2,  realPrice * amount * ( 1 * 10 ** decimals2));
-    }
+    
 
     receive() external payable {} // can receive ETH from tests
 }
