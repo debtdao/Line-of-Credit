@@ -15,13 +15,11 @@ contract Factory is IModuleFactory {
     
     function DeploySpigot(address owner, address treasury, address operator) external returns (address){
         spigot = new Spigot(owner, treasury, operator);
-        emit DeployedSpigot(address(spigot), owner, treasury);
         return address(spigot);
     }
 
     function DeployEscrow(uint32 minCRatio, address oracle, address owner, address borrower) external returns(address){
         escrow = new Escrow(minCRatio, oracle, owner, borrower);
-        emit DeployedEscrow(address(escrow), minCRatio, borrower);
         return address(escrow);
     }  
     

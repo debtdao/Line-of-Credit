@@ -7,7 +7,7 @@ import {IModuleFactory} from "./IModuleFactory.sol";
 
 contract LineFactory is IModuleFactory {
    
-    address factory;
+    address immutable factory;
     constructor (
         address moduleFactory
     ) {
