@@ -68,5 +68,20 @@ library LineFactoryLib {
         }
     }
 
+    function deploySecuredLine(
+        address oracle, 
+        address arbiter,
+        address borrower, 
+        address payable swapTarget,
+        address s,
+        address e,
+        uint ttl, 
+        uint8 revenueSplit
+        ) external returns(SecuredLine){
+
+      SecuredLine line = new SecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, revenueSplit);
+      return line;
+    }
+
 
 }

@@ -15,6 +15,8 @@ interface ILineFactory is IModuleFactory {
     error InitNewLineFailed(address line, address spigot, address escrow);
 
     function DeploySecuredLine(
+        address oracle,
+        address arbiter,
         address borrower, 
         address owner, 
         uint ttl,
@@ -23,6 +25,7 @@ interface ILineFactory is IModuleFactory {
 
     function deploySecuredLineWithConfig(
         address oracle, 
+        address arbiter,
         address borrower, 
         address operator, 
         address owner, 
