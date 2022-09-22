@@ -6,6 +6,7 @@ import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 
 import {SecuredLine} from "../credit/SecuredLine.sol";
+import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
 
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
