@@ -14,7 +14,7 @@ interface ILineFactory is IModuleFactory {
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InitNewLineFailed(address line, address spigot, address escrow);
 
-    function DeploySecuredLine(
+    function deploySecuredLine(
         address oracle,
         address arbiter,
         address borrower, 
