@@ -4,34 +4,26 @@ import { IModuleFactory } from "./IModuleFactory.sol";
 
 interface ILineFactory is IModuleFactory {
 
-    event DeployedSecuredLine(
-        address indexed deployedAt,
-        address indexed escrow,
-        address indexed spigot,
-        address swapTarget
-    );
-
-    error ModuleTransferFailed(address line, address spigot, address escrow);
-    error InitNewLineFailed(address line, address spigot, address escrow);
-
-    function DeploySecuredLine(
-        address oracle,
-        address arbiter,
-        address borrower, 
-        address owner, 
+    function deploySecuredLine(
         uint ttl,
-        address payable swapTarget
-    ) external returns(bool);
+        address borrower
+    ) external returns(address, address, address);
 
     function deploySecuredLineWithConfig(
+        uint ttl, 
         address oracle, 
         address arbiter,
         address borrower, 
-        address operator, 
-        address owner, 
-        uint ttl, 
+        address payable swapTarget,
         uint8 revenueSplit,
-        uint32 cratio,
-        address payable swapTarget
-    ) external returns(bool);
+        uint32 cratio
+    ) external returns(address, address, address);
+
+    function deploySecuredLineWithModules(
+        uint ttl, 
+        address borrower, 
+        address spigot,
+        address escrow,
+        uint8 revenueSplit
+    ) external returns(address, address, address);
 }
