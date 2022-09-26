@@ -4,17 +4,18 @@ import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
+import {SecuredLine} from "../credit/SecuredLine.sol";
 
 contract LineFactory is ILineFactory {
 
     IModuleFactory immutable factory;
-    address immutable factory;
+   
     uint8 constant defaultRevenueSplit = 90; // 90% to debt repayment
     uint32 constant defaultMinCRatio = 3000; // 30.00% minimum collateral ratio
  
 
     constructor (address factory_) {
-        factory = factory_;
+        factory = IModuleFactory(factory_);
     }    
     
    

@@ -53,7 +53,7 @@ library LineFactoryLib {
         return address(line);
     }
 
-    function _transferModulesToLine(address line, address spigot, address escrow) external {
+    function transferModulesToLine(address line, address spigot, address escrow) external {
         (bool success, bytes memory returnVal) = spigot.call(
           abi.encodeWithSignature("updateOwner(address)",
           address(line)
