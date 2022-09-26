@@ -8,7 +8,8 @@ library LineFactoryLib {
         address indexed deployedAt,
         address indexed escrow,
         address indexed spigot,
-        address swapTarget
+        address swapTarget,
+        uint8 revenueSplit
     );
 
     event DeployedSpigot(
@@ -48,7 +49,7 @@ library LineFactoryLib {
         address payable st = SecuredLine(oldLine).swapTarget();
         uint8 split = SecuredLine(oldLine).defaultRevenueSplit();
         SecuredLine line = new SecuredLine(oracle, arbiter, borrower, st, s, e, ttl, split);
-        emit DeployedSecuredLine(address(line), s, e, st);
+        emit DeployedSecuredLine(address(line), s, e, st, split);
         return address(line);
     }
 

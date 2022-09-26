@@ -8,25 +8,23 @@ import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
 contract LineFactory is ILineFactory {
 
     IModuleFactory immutable factory;
-
+    address immutable factory;
     uint8 constant defaultRevenueSplit = 90; // 90% to debt repayment
     uint32 constant defaultMinCRatio = 3000; // 30.00% minimum collateral ratio
  
 
-    constructor (address moduleFactory, address arbiter_, address oracle_) {
-        factory = IModuleFactory(moduleFactory);
-        
+    constructor (address factory_) {
+        factory = factory_;
     }    
-
-   
+    
    
     function deployEscrow(uint32 minCRatio, address oracle_, address owner, address borrower)  external returns(address){
-        address escrow = factory.deployEscrow(minCRatio, oracle_, owner, borrower);
+        address escrow = IModuleFactory(factory).deployEscrow(minCRatio, oracle_, owner, borrower);
         return escrow;
     }
 
     function deploySpigot(address owner, address borrower, address operator) external returns(address){
-        address spigot = factory.deploySpigot(owner, borrower, operator);
+        address spigot = IModuleFactory(factory).deploySpigot(owner, borrower, operator);
         return spigot;
     }
     
@@ -40,8 +38,8 @@ contract LineFactory is ILineFactory {
     ) external returns(bool) {
         address oracle_ = oracle; // gas savings
         // deploy new modules
-        address s = factory.deploySpigot(address(this), borrower, borrower);
-        address e = factory.deployEscrow(defaultMinCRatio, oracle, address(this), borrower);
+        address s = IModuleFactory(factory).deploySpigot(address(this), borrower, borrower);
+        address e = IModuleFactory(factory).deployEscrow(defaultMinCRatio, oracle, address(this), borrower);
         SecuredLine line = LineFactoryLib.deploySecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, defaultRevenueSplit);
         // give modules from address(this) to line so we can run line.init()
         LineFactoryLib.transferModulesToLine(address(line), s, e);
@@ -89,11 +87,6 @@ contract LineFactory is ILineFactory {
         uint ttl
     ) external returns(address) {
         LineFactoryLib.rolloverSecuredLine(oldLine, borrower, ttl, oracle, arbiter);
-    }
-
-    function _transferModulesToLine(address line, address spigot, address escrow) internal {
-        LineFactoryLib._transferModulesToLine(line, spigot, escrow);
-        
     }
 
 }
