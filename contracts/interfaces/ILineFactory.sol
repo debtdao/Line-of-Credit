@@ -14,24 +14,21 @@ interface ILineFactory is IModuleFactory {
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InitNewLineFailed(address line, address spigot, address escrow);
 
-    function DeploySecuredLine(
+    function deploySecuredLine(
         address oracle,
         address arbiter,
         address borrower, 
-        address owner, 
         uint ttl,
         address payable swapTarget
-    ) external returns(bool);
+    ) external returns(address);
 
     function deploySecuredLineWithConfig(
         address oracle, 
         address arbiter,
         address borrower, 
-        address operator, 
-        address owner, 
         uint ttl, 
         uint8 revenueSplit,
         uint32 cratio,
         address payable swapTarget
-    ) external returns(bool);
+    ) external returns(address);
 }

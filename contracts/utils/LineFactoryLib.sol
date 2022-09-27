@@ -1,6 +1,7 @@
 pragma solidity 0.8.9;
 
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
+import {LineLib} from "./LineLib.sol";
 
 
 library LineFactoryLib {
@@ -65,6 +66,10 @@ library LineFactoryLib {
         (bool res2) = abi.decode(returnVal2, (bool));
         if(!(success && res && success2 && res2)) {
           revert ModuleTransferFailed(line, spigot, escrow);
+        }
+
+        if(SecuredLine(payable(line)).init() != LineLib.STATUS.ACTIVE) {
+          revert InitNewLineFailed(address(line), spigot, escrow);
         }
     }
 
