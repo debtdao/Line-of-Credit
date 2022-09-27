@@ -1,6 +1,7 @@
 pragma solidity 0.8.9;
 
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
+import {LineLib} from "./LineLib.sol";
 
 
 library LineFactoryLib {
@@ -40,9 +41,9 @@ library LineFactoryLib {
     function rolloverSecuredLine(
         address payable oldLine,
         address borrower, 
-        uint ttl,
         address oracle,
-        address arbiter
+        address arbiter,
+        uint ttl
     ) external returns(address) {
         address s = address(SecuredLine(oldLine).spigot());
         address e = address(SecuredLine(oldLine).escrow());
@@ -67,6 +68,10 @@ library LineFactoryLib {
         if(!(success && res && success2 && res2)) {
           revert ModuleTransferFailed(line, spigot, escrow);
         }
+
+        if(SecuredLine(payable(line)).init() != LineLib.STATUS.ACTIVE) {
+          revert InitNewLineFailed(address(line), spigot, escrow);
+        }
     }
 
     function deploySecuredLine(
@@ -78,10 +83,8 @@ library LineFactoryLib {
         address e,
         uint ttl, 
         uint8 revenueSplit
-        ) external returns(SecuredLine){
-
-      SecuredLine line = new SecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, revenueSplit);
-      return line;
+    ) external returns(address){
+      return address(new SecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, revenueSplit));
     }
 
 
