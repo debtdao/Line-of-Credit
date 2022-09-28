@@ -2,88 +2,67 @@ pragma solidity 0.8.9;
 
 import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
-
 import {LineLib} from "../../utils/LineLib.sol";
-
+import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
 import {SecuredLine} from "../credit/SecuredLine.sol";
 
 contract LineFactory is ILineFactory {
+
     IModuleFactory immutable factory;
-
+   
     uint8 constant defaultRevenueSplit = 90; // 90% to debt repayment
+    uint8 constant MAX_SPLIT = 100;          // max % to take
     uint32 constant defaultMinCRatio = 3000; // 30.00% minimum collateral ratio
-    address arbiter;
-    address oracle;
-
-    constructor (address moduleFactory, address arbiter_, address oracle_) {
+ 
+    constructor (address moduleFactory) {
         factory = IModuleFactory(moduleFactory);
-        arbiter = arbiter_;
-        oracle = oracle_;
-    }    
-
-    function updateArbiter(address arbiter_) external {
-      require(msg.sender == arbiter);
-      arbiter = arbiter_;
-    }
-
-    function updateOracle(address oracle_) external {
-      require(msg.sender == arbiter);
-      oracle = oracle_;
+        
     }
    
-    function DeployEscrow(uint32 minCRatio, address oracle_, address owner, address borrower)  external returns(address){
-        address escrow = factory.DeployEscrow(minCRatio, oracle_, owner, borrower);
-        emit DeployedEscrow(escrow, minCRatio, oracle_, owner);
-        return escrow;
+    function deployEscrow(uint32 minCRatio, address oracle_, address owner, address borrower) external returns(address){
+        return factory.deployEscrow(minCRatio, oracle_, owner, borrower);
     }
 
-    function DeploySpigot(address owner, address borrower, address operator) external returns(address){
-        address spigot = factory.DeploySpigot(owner, borrower, operator);
-        emit DeployedSpigot(spigot, owner, borrower, operator);
-        return spigot;
+    function deploySpigot(address owner, address borrower, address operator) external returns(address){
+        return factory.deploySpigot(owner, borrower, operator);
     }
     
-    function DeploySecuredLine(
+    function deploySecuredLine(
+        address oracle,
+        address arbiter,
         address borrower, 
-        address owner, 
         uint ttl,
         address payable swapTarget
-    ) external returns(bool) {
-        address oracle_ = oracle; // gas savings
+    ) external  returns(address line) {
         // deploy new modules
-        address s = factory.DeploySpigot(address(this), borrower, borrower);
-        address e = factory.DeployEscrow(defaultMinCRatio, oracle_, address(this), borrower);
-        SecuredLine line = new SecuredLine(oracle_, arbiter, borrower, swapTarget, s, e, ttl, defaultRevenueSplit);
+        address s = factory.deploySpigot(address(this), borrower, borrower);
+        address e = factory.deployEscrow(defaultMinCRatio, oracle, address(this), borrower);
+        uint8 split = defaultRevenueSplit; // gas savings
+        line = LineFactoryLib.deploySecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, split);
         // give modules from address(this) to line so we can run line.init()
-        _transferModulesToLine(address(line), s, e);
-        
-        emit DeployedSpigot(s, address(this), borrower, borrower);
-        emit DeployedEscrow(e, defaultMinCRatio, oracle_, owner);
-        emit DeployedSecuredLine(address(line), s, e, swapTarget);
-        if(line.init() != LineLib.STATUS.ACTIVE) {
-          revert InitNewLineFailed(address(line), s, e);
-        }
-        return true;
+        LineFactoryLib.transferModulesToLine(address(line), s, e);
+        emit DeployedSecuredLine(address(line), s, e, swapTarget, split);
+        return line;
     }
 
     function deploySecuredLineWithConfig(
         address oracle, 
+        address arbiter,
         address borrower, 
-        address operator, 
-        address owner, 
         uint ttl, 
         uint8 revenueSplit,
         uint32 cratio,
         address payable swapTarget
-    ) external returns(bool) {
-        address s = factory.DeploySpigot(owner, borrower, operator);
-        address e = factory.DeployEscrow(cratio, oracle, owner, borrower);
-        SecuredLine line = new SecuredLine(oracle, arbiter, borrower, swapTarget, address(s), address(e), ttl, revenueSplit);
-        emit DeployedSecuredLine(address(line), s, e, swapTarget);
-        if(line.init() != LineLib.STATUS.ACTIVE) {
-          revert InitNewLineFailed(address(line), s, e);
-        }
-        return true;
+    ) external returns(address line) {
+        if(revenueSplit > MAX_SPLIT) { revert InvalidRevenueSplit(); }
+        // deploy new modules
+        address s = factory.deploySpigot(address(this), borrower, borrower);
+        address e = factory.deployEscrow(cratio, oracle, address(this), borrower);
+        line = LineFactoryLib.deploySecuredLine(oracle, arbiter, borrower, swapTarget, s, e, ttl, revenueSplit);
+        // give modules from address(this) to line so we can run line.init()
+        LineFactoryLib.transferModulesToLine(address(line), s, e);
+        emit DeployedSecuredLine(address(line), s, e, swapTarget, revenueSplit);
+        return line;
     }
 
     /**
@@ -97,31 +76,11 @@ contract LineFactory is ILineFactory {
     function rolloverSecuredLine(
         address payable oldLine,
         address borrower, 
+        address oracle,
+        address arbiter,
         uint ttl
     ) external returns(address) {
-        address s = address(SecuredLine(oldLine).spigot());
-        address e = address(SecuredLine(oldLine).escrow());
-        address payable st = SecuredLine(oldLine).swapTarget();
-        uint8 split = SecuredLine(oldLine).defaultRevenueSplit();
-        SecuredLine line = new SecuredLine(oracle, arbiter, borrower, st, s, e, ttl, split);
-        emit DeployedSecuredLine(address(line), s, e, st);
-        return address(line);
-    }
-
-    function _transferModulesToLine(address line, address spigot, address escrow) internal {
-        (bool success, bytes memory returnVal) = spigot.call(
-          abi.encodeWithSignature("updateOwner(address)",
-          address(line)
-        ));
-        (bool success2, bytes memory returnVal2) = escrow.call(
-          abi.encodeWithSignature("updateLine(address)",
-          address(line)
-        ));
-        (bool res) = abi.decode(returnVal, (bool));
-        (bool res2) = abi.decode(returnVal2, (bool));
-        if(!(success && res && success2 && res2)) {
-          revert ModuleTransferFailed(line, spigot, escrow);
-        }
+        LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
     }
 
 }
