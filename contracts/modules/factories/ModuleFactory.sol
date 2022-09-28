@@ -5,13 +5,15 @@ import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {Spigot} from "../spigot/Spigot.sol";
 import {Escrow} from "../escrow/Escrow.sol";
 
-contract Factory is IModuleFactory {    
-    function DeploySpigot(address owner, address treasury, address operator) external returns (address){
-        return address(new Spigot(owner, treasury, operator));
+contract ModuleFactory is IModuleFactory {    
+    function deploySpigot(address owner, address treasury, address operator) external returns (address module){
+        module = address(new Spigot(owner, treasury, operator));
+        emit DeployedSpigot(module, owner, treasury, operator);
     }
 
-    function DeployEscrow(uint32 minCRatio, address oracle, address owner, address borrower) external returns(address){
-        return address(new Escrow(minCRatio, oracle, owner, borrower));   
+    function deployEscrow(uint32 minCRatio, address oracle, address owner, address borrower) external returns(address module){
+        module = address(new Escrow(minCRatio, oracle, owner, borrower));
+        emit DeployedEscrow(module, minCRatio, borrower, owner);
     }
     
 }
