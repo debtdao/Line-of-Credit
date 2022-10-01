@@ -7,13 +7,13 @@ interface ILineOfCredit {
   // Lender data
   struct Credit {
     //  all denominated in token, not USD
-    uint256 deposit;          // total liquidity provided by lender for token
-    uint256 principal;        // amount actively lent out
-    uint256 interestAccrued;  // interest accrued but not repaid
-    uint256 interestRepaid;   // interest repaid by borrower but not withdrawn by lender
-    uint8 decimals;           // decimals of credit token for calcs
-    address token;            // token being lent out
-    address lender;           // person to repay
+    uint256 deposit;          // The total liquidity provided by a Lender in a given token on a Line of Credit
+    uint256 principal;        // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (USD)
+    uint256 interestAccrued;  // Interest due by a Borrower but not yet repaid to the Line of Credit contract
+    uint256 interestRepaid;   // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
+    uint8 decimals;           // Decimals of Credit Token for calcs
+    address token;            // The token being lent out (Credit Token)
+    address lender;           // The person to repay
   }
   // General Events
   event UpdateStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
@@ -30,37 +30,43 @@ interface ILineOfCredit {
     address indexed lender,
     address indexed token,
     uint256 indexed deposit,
-    bytes32 positionId
+    bytes32 id
   );
-  // can reference only id once AddCredit is emitted because it will be indexed offchain
+  // can only reference id once AddCredit is emitted because it will be indexed offchain
 
-  event SetRates(bytes32 indexed id, uint128 indexed drawnRate, uint128 indexed facilityRate);
+  event SetRates(bytes32 indexed id, uint128 indexed dRate, uint128 indexed fRate);
 
   event IncreaseCredit (bytes32 indexed id, uint256 indexed deposit);
 
   // Lender Events
 
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // lender removing funds from Line  principal
+  // Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
+  
   event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
-  // lender taking interest earned out of contract
+  // Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
 
   event CloseCreditPosition(bytes32 indexed id);
-  // lender officially repaid in full. if Credit then facility has also been closed.
+  /** Emitted when a credit line is officially repaid in full to a Lender. 
+  If Credit then facility has also been closed [Bob - I don't understand the 2nd comment + maybe change name to CloseId?]
+  */
 
   event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
-  // interest added to borrowers outstanding balance
-
+  /** After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due
+  but not yet repaid to the Line of Credit contract
+  */
 
   // Borrower Events
 
   event Borrow(bytes32 indexed id, uint256 indexed amount);
-  // receive full line or drawdown on credit
+  // Emits notice that a Borrower has drawn down an amount on a credit line
 
   event RepayInterest(bytes32 indexed id, uint256 indexed amount);
-
+  // Emits that a Borrower has repaid an amount of interest (N.B. results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function
+  
   event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
-
+  // Emits that a Borrower has repaid an amount of principal - there is no corresponding function
+  
   event Default(bytes32 indexed id);
 
   // Access Errors
