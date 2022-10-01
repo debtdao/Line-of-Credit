@@ -28,8 +28,8 @@ contract EscrowedLineTest is Test {
     address constant revenueContract = address(0xdebf);
     uint lentAmount = 1 ether;
     
-    uint128 constant drawnRate = 100;
-    uint128 constant facilityRate = 1;
+    uint128 constant dRate = 100;
+    uint128 constant fRate = 1;
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
@@ -106,10 +106,10 @@ contract EscrowedLineTest is Test {
 
     function _addCredit(address token, uint256 amount) public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
         hoax(lender);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
     }
 
@@ -117,9 +117,9 @@ contract EscrowedLineTest is Test {
 
    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
         line.borrow(id, 1 ether);
 
