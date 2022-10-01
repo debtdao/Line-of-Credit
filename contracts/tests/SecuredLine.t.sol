@@ -28,8 +28,8 @@ contract LineTest is Test {
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint32 minCollateralRatio = 10000; // 100%
-    uint128 drawnRate = 100;
-    uint128 facilityRate = 1;
+    uint128 dRate = 100;
+    uint128 fRate = 1;
     uint ttl = 150 days;
 
     address borrower;
@@ -106,10 +106,10 @@ contract LineTest is Test {
 
     function _addCredit(address token, uint256 amount) public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
         hoax(lender);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
     }
 
@@ -275,9 +275,9 @@ contract LineTest is Test {
 
     function test_can_liquidate_if_debt_when_deadline_passes() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
         line.borrow(id, 1 ether);
 
@@ -294,9 +294,9 @@ contract LineTest is Test {
 
     function test_cannot_liquidate_escrow_if_cratio_above_min() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
         line.borrow(id, 1 ether);
 
@@ -336,9 +336,9 @@ contract LineTest is Test {
 
     function test_cannot_liquidate_as_anon() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
         line.borrow(id, 1 ether);
 
