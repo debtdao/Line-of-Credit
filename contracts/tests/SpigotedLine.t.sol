@@ -35,8 +35,8 @@ contract SpigotedLineTest is Test {
     address constant revenueContract = address(0xdebf);
     uint lentAmount = 1 ether;
     
-    uint128 constant drawnRate = 100;
-    uint128 constant facilityRate = 1;
+    uint128 constant dRate = 100;
+    uint128 constant fRate = 1;
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
@@ -94,7 +94,7 @@ contract SpigotedLineTest is Test {
       oracle.changePrice(creditT, int(1 ether)); // whitelist token
 
       startHoax(borrower);
-      line.addCredit(drawnRate, facilityRate, lentAmount, creditT, lender);
+      line.addCredit(dRate, fRate, lentAmount, creditT, lender);
       line.addSpigot(revenueC, setting);
       vm.stopPrank();
       
@@ -102,9 +102,9 @@ contract SpigotedLineTest is Test {
       if(creditT != Denominations.ETH) {
         deal(creditT, lender, MAX_REVENUE);
         RevenueToken(creditT).approve(address(line), MAX_INT);
-        id = line.addCredit(drawnRate, facilityRate, lentAmount, creditT, lender);
+        id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
       } else {
-        id = line.addCredit{value: lentAmount}(drawnRate, facilityRate, lentAmount, creditT, lender);
+        id = line.addCredit{value: lentAmount}(dRate, fRate, lentAmount, creditT, lender);
       }
       vm.stopPrank();
 
