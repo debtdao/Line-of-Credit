@@ -59,7 +59,7 @@ contract SpigotTest is Test {
         // deploy new revenue contract with settings
         revenueContract = address(new SimpleRevenueContract(owner, _token));
 
-        settings = ISpigot.Setting(_token, split, claimFunc, newOwnerFunc);
+        settings = ISpigot.Setting(split, claimFunc, newOwnerFunc);
        
         spigot = new Spigot(owner, treasury, operator);
         
@@ -78,7 +78,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         vm.expectRevert(ISpigot.NoRevenue.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
     function test_claimRevenue_PushPaymentNoTokenRevenue() public {
@@ -86,7 +86,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData;
         vm.expectRevert(ISpigot.NoRevenue.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
     function test_claimRevenue_PushPaymentNoETHRevenue() public {
@@ -94,7 +94,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData;
         vm.expectRevert(ISpigot.NoRevenue.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
     function test_claimRevenue_PullPaymentNoETHRevenue() public {
@@ -102,7 +102,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
         vm.expectRevert(ISpigot.NoRevenue.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
     /**
@@ -113,7 +113,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData = abi.encodeWithSelector(bytes4(0xdebfda05));
         vm.expectRevert(ISpigot.BadFunction.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
     function test_claimRevenue_MaliciousClaimFunction() public {
@@ -121,7 +121,7 @@ contract SpigotTest is Test {
 
         bytes memory claimData = abi.encodeWithSelector(transferOwnerFunc);
         vm.expectRevert(ISpigot.BadFunction.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
     }
 
 
@@ -174,7 +174,7 @@ contract SpigotTest is Test {
         assertEq(token.balanceOf(address(spigot)), totalRevenue);
         
         bytes memory claimData;
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
 
         assertSpigotSplits(address(token), totalRevenue);
     }
@@ -185,7 +185,7 @@ contract SpigotTest is Test {
         
         token.mint(revenueContract, totalRevenue); // send revenue
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
         
         assertSpigotSplits(address(token), totalRevenue);
         assertEq(token.balanceOf(revenueContract), 0, 'All revenue not siphoned into Spigot');
@@ -199,14 +199,12 @@ contract SpigotTest is Test {
         if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(Denominations.ETH, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
-        payable(address(spigot)).transfer(totalRevenue);
+        vm.deal((address(spigot)), totalRevenue);
         assertEq(totalRevenue, address(spigot).balance); // ensure spigot received revenue
         
         bytes memory claimData;
-        uint256 revenueClaimed = spigot.claimRevenue(revenueContract, claimData); 
+        uint256 revenueClaimed = spigot.claimRevenue(revenueContract, Denominations.ETH, claimData); 
         assertEq(totalRevenue, revenueClaimed, 'Improper revenue amount claimed');
-        emit log_named_uint("escrowdAmount", spigot.getEscrowed(Denominations.ETH));
-
         
         assertSpigotSplits(Denominations.ETH, totalRevenue);
     }
@@ -215,13 +213,49 @@ contract SpigotTest is Test {
         if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(Denominations.ETH, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
-        payable(revenueContract).transfer(totalRevenue);
+        vm.deal(revenueContract, totalRevenue);
 
         bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
-        assertEq(totalRevenue, spigot.claimRevenue(revenueContract, claimData), 'invalid revenue amount claimed');
+        assertEq(totalRevenue, spigot.claimRevenue(revenueContract, Denominations.ETH, claimData), 'invalid revenue amount claimed');
 
         assertSpigotSplits(Denominations.ETH, totalRevenue);
     }
+
+
+    function test_claimRevenue_pushPaymentMultipleTokensPerContract(uint96 tokenRevenue, uint96 ethRevenue) public {
+        if(tokenRevenue == 0 || tokenRevenue > MAX_REVENUE) return;
+        if(ethRevenue == 0 || ethRevenue > MAX_REVENUE) return;
+
+        _initSpigot(Denominations.ETH, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
+
+        deal(address(spigot), ethRevenue);
+        deal(address(token), address(spigot), tokenRevenue);
+
+        bytes memory claimData = abi.encodeWithSelector(claimPushPaymentFunc);
+        assertEq(ethRevenue, spigot.claimRevenue(revenueContract, Denominations.ETH, claimData), 'invalid revenue amount claimed');
+        assertEq(tokenRevenue, spigot.claimRevenue(revenueContract, address(token), claimData), 'invalid revenue amount claimed');
+
+        assertSpigotSplits(Denominations.ETH, ethRevenue);
+        assertSpigotSplits(address(token), tokenRevenue);
+    }
+
+    // function test_claimRevenue_pullPaymentMultipleTokensPerContract(uint96 tokenRevenue, uint96 ethRevenue) public {
+    //     if(tokenRevenue == 0 || tokenRevenue > MAX_REVENUE) return;
+    //     if(ethRevenue == 0 || ethRevenue > MAX_REVENUE) return;
+
+    //     _initSpigot(Denominations.ETH, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
+    //     _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
+
+    //     deal(revenueContract, ethRevenue);
+    //     deal(address(token), revenueContract, tokenRevenue);
+
+    //     bytes memory claimData = abi.encodeWithSelector(claimPullPaymentFunc);
+    //     assertEq(ethRevenue, spigot.claimRevenue(revenueContract, Denominations.ETH, claimData), 'invalid revenue amount claimed');
+    //     assertEq(tokenRevenue, spigot.claimRevenue(revenueContract, address(token), claimData), 'invalid revenue amount claimed');
+
+    //     assertSpigotSplits(Denominations.ETH, ethRevenue);
+    //     assertSpigotSplits(address(token), tokenRevenue);
+    // }
 
     
     // Claim escrow 
@@ -231,7 +265,7 @@ contract SpigotTest is Test {
         // send revenue and claim it
         token.mint(address(spigot), totalRevenue);
         bytes memory claimData;
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
         assertSpigotSplits(address(token), totalRevenue);
 
         uint256 claimed = spigot.claimEscrow(address(token));
@@ -245,7 +279,7 @@ contract SpigotTest is Test {
         // send revenue and claim it
         token.mint(address(spigot), 10**10);
         bytes memory claimData;
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
 
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
@@ -254,22 +288,23 @@ contract SpigotTest is Test {
         spigot.claimEscrow(address(token));
     }
 
+    // Unclaimed Revenue no longer affectbs Spigot behaviour. Keep for docs
     function test_claimEscrow_UnclaimedRevenue() public {
         // send revenue and claim it
-        token.mint(address(spigot), MAX_REVENUE + 1);
-        bytes memory claimData;
-        spigot.claimRevenue(revenueContract, claimData);
+        // token.mint(address(spigot), MAX_REVENUE + 1);
+        // bytes memory claimData;
+        // spigot.claimRevenue(revenueContract, address(token), claimData);
         
-        vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
-        spigot.claimEscrow(address(token));       // reverts because excess tokens
+        // vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
+        // spigot.claimEscrow(address(token));       // reverts because excess tokens
     }
 
     function test_claimEscrow_AllRevenueClaimed() public {
         // send revenue and claim it
         token.mint(address(spigot), MAX_REVENUE + 1);
         bytes memory claimData;
-        spigot.claimRevenue(revenueContract, claimData); // collect majority of revenue
-        spigot.claimRevenue(revenueContract, claimData); // collect remained
+        spigot.claimRevenue(revenueContract, address(token), claimData); // collect majority of revenue
+        spigot.claimRevenue(revenueContract, address(token), claimData); // collect remained
 
         spigot.claimEscrow(address(token));       // should pass bc no unlciamed revenue
     }
@@ -281,22 +316,20 @@ contract SpigotTest is Test {
 
         bytes memory claimData;
         vm.expectRevert(ISpigot.NoRevenue.selector);
-        spigot.claimRevenue(revenueContract, claimData);
+        spigot.claimRevenue(revenueContract, address(token), claimData);
         
         // will always return 0 if you can't claim revenue for token
         // spigot.claimEscrow(address(fakeToken));
     }
-
   
     
     // Spigot initialization
     
-
     function test_addSpigot_ProperSettings() public {
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
-        (address _token, uint8 _split, bytes4 _claim, bytes4 _transfer) = spigot.getSetting(revenueContract);
+        (uint8 _split, bytes4 _claim, bytes4 _transfer) = spigot.getSetting(revenueContract);
 
-        assertEq(settings.token, _token);
+        // assertEq(settings.token, _token);
         assertEq(settings.ownerSplit, _split);
         assertEq(settings.claimFunction, _claim);
         assertEq(settings.transferOwnerFunction, _transfer);
@@ -305,7 +338,6 @@ contract SpigotTest is Test {
     function test_addSpigot_OwnerSplit0To100(uint8 split) public {
         // Split can only be 0-100 for numerator in percent calculation
         if(split > 100 || split == 0) return;
-        // emit log_named_uint("owner split", split);
         _initSpigot(address(token), split, claimPullPaymentFunc, transferOwnerFunc, whitelist);
         // assertEq(spigot.getSetting(revenueContract).ownerSplit, split);
     }
@@ -316,7 +348,7 @@ contract SpigotTest is Test {
 
         revenueContract = address(new SimpleRevenueContract(address(this), address(token)));
 
-        settings = ISpigot.Setting(address(token), split, claimPushPaymentFunc, transferOwnerFunc);
+        settings = ISpigot.Setting(split, claimPushPaymentFunc, transferOwnerFunc);
       
         vm.expectRevert(ISpigot.BadSetting.selector);
 
@@ -326,7 +358,7 @@ contract SpigotTest is Test {
     function test_addSpigot_NoTransferFunc() public {
         revenueContract = address(new SimpleRevenueContract(address(this), address(token)));
 
-        settings = ISpigot.Setting(address(token), 100, claimPullPaymentFunc, bytes4(0));
+        settings = ISpigot.Setting(100, claimPullPaymentFunc, bytes4(0));
       
         vm.expectRevert(ISpigot.BadSetting.selector);
 
@@ -337,7 +369,7 @@ contract SpigotTest is Test {
         if(func == claimPushPaymentFunc) return;
         _initSpigot(address(token), 100, claimPushPaymentFunc, func, whitelist);
 
-        (,,, bytes4 _transfer) = spigot.getSetting(address(revenueContract));
+        (,, bytes4 _transfer) = spigot.getSetting(address(revenueContract));
         assertEq(_transfer, func);
     }
 
@@ -366,7 +398,7 @@ contract SpigotTest is Test {
     function test_updateOwnerSplit_0To100(uint8 split) public {
         if(split > 100) return;
         assertTrue(spigot.updateOwnerSplit(revenueContract, split));
-        (,uint8 split_,,) = spigot.getSetting(revenueContract);
+        (uint8 split_,,) = spigot.getSetting(revenueContract);
         assertEq(split, split_);
     }
 
@@ -383,11 +415,12 @@ contract SpigotTest is Test {
         spigot.updateOwnerSplit(revenueContract, split);
     }
 
+    // Unclaimed Revenue no longer affectbs Spigot behaviour. Keep for docs
     function test_updateOwnerSplit_UnclaimedRevenue() public {
         // send revenue and dont claim
-        token.mint(address(spigot), type(uint).max);
-        vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
-        spigot.updateOwnerSplit(revenueContract, 0);     // reverts because excess tokens
+        // token.mint(address(spigot), type(uint).max);
+        // // vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
+        // spigot.updateOwnerSplit(revenueContract, 0);     // reverts because excess tokens
     }
 
 
@@ -454,13 +487,13 @@ contract SpigotTest is Test {
     // Release
 
     function test_removeSpigot() public {
-        (address token_,,,) = spigot.getSetting(revenueContract);
-        assertEq(address(token), token_);
+        (,,bytes4 transferOwnerFunc_) = spigot.getSetting(revenueContract);
+        assertEq(bytes4(transferOwnerFunc), transferOwnerFunc_);
 
         spigot.removeSpigot(revenueContract);
 
-        (address token__,,,) = spigot.getSetting(revenueContract);
-        assertEq(address(0), token__);
+        (,,bytes4 transferOwnerFunc__) = spigot.getSetting(revenueContract);
+        assertEq(bytes4(0), transferOwnerFunc__);
     }
 
 
@@ -480,11 +513,12 @@ contract SpigotTest is Test {
         spigot.removeSpigot(revenueContract);
     }
 
+    // Unclaimed Revenue no longer affectbs Spigot behaviour. Keep for docs
     function test_removeSpigot_UnclaimedRevenue() public {
-        // send revenue and dont claim
-        token.mint(address(spigot), type(uint).max);
-        vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
-        spigot.claimEscrow(address(token));       // reverts because excess tokens
+        // // send revenue and dont claim
+        // token.mint(address(spigot), type(uint).max);
+        // vm.expectRevert(ISpigot.UnclaimedRevenue.selector);
+        // spigot.claimEscrow(address(token));       // reverts because excess tokens
     }
 
 

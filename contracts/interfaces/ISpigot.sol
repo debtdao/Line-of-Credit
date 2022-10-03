@@ -3,7 +3,6 @@ pragma solidity ^0.8.9;
 interface ISpigot {
 
     struct Setting {
-        address token;                // token to claim as revenue from contract (revenue token)
         uint8 ownerSplit;             // x/100 % to Owner, rest to Treasury
         bytes4 claimFunction;         // function signature on contract to call and claim revenue
         bytes4 transferOwnerFunction; // function signature on contract to call and transfer ownership 
@@ -11,7 +10,7 @@ interface ISpigot {
 
     // Spigot Events
 
-    event AddSpigot(address indexed revenueContract, address token, uint256 ownerSplit);
+    event AddSpigot(address indexed revenueContract, uint256 ownerSplit);
 
     event RemoveSpigot (address indexed revenueContract, address token);
 
@@ -47,7 +46,7 @@ interface ISpigot {
 
     // ops funcs 
 
-    function claimRevenue(address revenueContract, bytes calldata data) external returns (uint256 claimed);
+    function claimRevenue(address revenueContract, address token, bytes calldata data) external returns (uint256 claimed);
  
     function operate(address revenueContract, bytes calldata data) external returns (bool);
 
@@ -79,6 +78,6 @@ interface ISpigot {
     function isWhitelisted(bytes4 func) external view returns(bool);
     function getEscrowed(address token) external view returns(uint256);
     function getSetting(address revenueContract) external view
-      returns (address token, uint8 split, bytes4 claimFunc, bytes4 transferFunc);
+      returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc);
 
 }

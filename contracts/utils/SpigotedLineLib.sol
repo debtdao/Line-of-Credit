@@ -135,7 +135,6 @@ library SpigotedLineLib {
         return true;
     }
 
-
     /**
      * @notice cleanup function when borrower this line ends 
      */
@@ -163,7 +162,7 @@ library SpigotedLineLib {
      * @return whether or not split was updated
      */
     function updateSplit(address spigot, address revenueContract, LineLib.STATUS status, uint8 defaultSplit) external returns (bool) {
-        (,uint8 split,  ,bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
+        (uint8 split,, bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
 
         if(transferFunc == bytes4(0)) { revert NoSpigot(); }
 
