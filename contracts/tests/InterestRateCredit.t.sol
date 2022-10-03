@@ -26,46 +26,46 @@ contract InterestRateCreditTest is Test {
     }
 
     function test_can_accrue_interest_all_drawn(
-        uint128 drawnRate,
+        uint128 dRate,
         uint64 drawnBalance
     ) public {
-        vm.assume(drawnRate > 0 && drawnRate <= 1e4);
+        vm.assume(dRate > 0 && dRate <= 1e4);
         vm.assume(drawnBalance >= 1e4);
         bytes32 id = bytes32("");
-        i.setRate(id, drawnRate, uint128(3));
+        i.setRate(id, dRate, uint128(3));
         skip(365.25 days);
         uint256 accrued = i.accrueInterest(id, drawnBalance, drawnBalance);
-        assertEq(accrued, (drawnRate * drawnBalance) / 1e4);
+        assertEq(accrued, (dRate * drawnBalance) / 1e4);
     }
 
     function test_accrue_interest_drawn_half_drawn(uint200 balance) public {
         vm.assume(balance >= 2e4);
 
         bytes32 id = bytes32("");
-        uint128 drawnRate = 603;
-        uint128 facilityRate = 118;
+        uint128 dRate = 603;
+        uint128 fRate = 118;
         uint256 drawnBalance = balance / 2;
         uint256 facilityBalance = balance;
 
-        i.setRate(id, drawnRate, facilityRate);
+        i.setRate(id, dRate, fRate);
         skip(365.25 days);
         uint256 accrued = i.accrueInterest(id, drawnBalance, facilityBalance);
 
         assertEq(
             accrued,
-            (((drawnRate * drawnBalance) / 1e4) +
-                ((facilityRate * (facilityBalance - drawnBalance)) / 1e4))
+            (((dRate * drawnBalance) / 1e4) +
+                ((fRate * (facilityBalance - drawnBalance)) / 1e4))
         );
     }
 
     function test_can_accrue_interest_none_drawn(uint200 balance) public {
         bytes32 id = bytes32("");
-        uint128 facilityRate = 71;
+        uint128 fRate = 71;
         uint256 facilityBalance = balance;
-        i.setRate(id, uint128(3), uint128(facilityRate));
+        i.setRate(id, uint128(3), uint128(fRate));
         skip(365.25 days);
         uint256 accrued = i.accrueInterest(id, 0, facilityBalance);
-        assertEq(accrued, (facilityRate * facilityBalance) / 1e4);
+        assertEq(accrued, (fRate * facilityBalance) / 1e4);
     }
 
     function test_lastAccrued_update() public {
