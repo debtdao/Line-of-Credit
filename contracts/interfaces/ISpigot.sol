@@ -3,10 +3,10 @@ pragma solidity ^0.8.9;
 interface ISpigot {
 
     struct Setting {
-        address token;                // token to claim as revenue from contract
+        address token;                // token to claim as revenue from contract (revenue token)
         uint8 ownerSplit;             // x/100 % to Owner, rest to Treasury
         bytes4 claimFunction;         // function signature on contract to call and claim revenue
-        bytes4 transferOwnerFunction; // function signature on conract to call and transfer ownership 
+        bytes4 transferOwnerFunction; // function signature on contract to call and transfer ownership 
     }
 
     // Spigot Events
