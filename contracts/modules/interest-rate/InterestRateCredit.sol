@@ -11,7 +11,7 @@ contract InterestRateCredit is IInterestRateCredit {
     mapping(bytes32 => Rate) public rates; // id -> lending rates
 
     /**
-     * @notice Interest contract for line of credit contracts
+     * @notice Interest rate / acrrued interest calculation contract for Line of Credit contracts
      */
     constructor() {
         lineContract = msg.sender;
@@ -30,11 +30,11 @@ contract InterestRateCredit is IInterestRateCredit {
     ///////////  FUNCTIONS  ///////////
 
     /**
-     * @dev accrueInterest function for revolver line
+     * @dev accrueInterest function for Line of Credit contracts
      * @dev    - callable by `line`
-     * @param drawnBalance balance of drawn funds
-     * @param facilityBalance balance of facility funds
-     * @return repayBalance amount to be repaid for this interest period
+     * @param drawnBalance (the balance of funds that a Borrower has drawn down on the credit line)
+     * @param facilityBalance (the remaining balance of funds that a Borrower can still drawn down on a credit line (aka headroom))
+     * @return repayBalance (the amount of interest to be repaid for this interest period)
      *
      */
     function accrueInterest(
@@ -57,25 +57,25 @@ contract InterestRateCredit is IInterestRateCredit {
         // r = APR in BPS, x = # tokens, t = time
         // interest = (r * x * t) / 1yr / 100
         // facility = deposited - drawn (aka undrawn balance)
-        return (((rate.drawnRate * drawnBalance * timespan) /
+        return (((rate.dRate * drawnBalance * timespan) /
             INTEREST_DENOMINATOR) +
-            ((rate.facilityRate * (facilityBalance - drawnBalance) * timespan) /
+            ((rate.fRate * (facilityBalance - drawnBalance) * timespan) /
                 INTEREST_DENOMINATOR));
     }
 
     /**
-     * @notice update interest rates for a position
+     * @notice update interest rates for a credit line
      * @dev - Line contract responsible for calling accrueInterest() before updateInterest() if necessary
      * @dev    - callable by `line`
      */
     function setRate(
         bytes32 id,
-        uint128 drawnRate,
-        uint128 facilityRate
+        uint128 dRate,
+        uint128 fRate
     ) external onlyLineContract returns (bool) {
         rates[id] = Rate({
-            drawnRate: drawnRate,
-            facilityRate: facilityRate,
+            dRate: dRate,
+            fRate: fRate,
             lastAccrued: block.timestamp
         });
 
