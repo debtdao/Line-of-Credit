@@ -30,7 +30,7 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
   /**
    * @notice sends escrowed tokens to liquidation. 
    *(@dev priviliegad function. Do checks before calling.
-   * @param positionId - position being repaid in liquidation
+   * @param id - The credit line being repaid via the liquidation
    * @param amount - amount of tokens to take from escrow and liquidate
    * @param targetToken - the token to take from escrow
    * @param to - the liquidator to send tokens to. could be OTC address or smart contract
@@ -38,7 +38,7 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
    *  
   */
   function _liquidate(
-    bytes32 positionId,
+    bytes32 id,
     uint256 amount,
     address targetToken,
     address to
@@ -49,7 +49,7 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
     IEscrow escrow_ = escrow; // gas savings
     require(escrow_.liquidate(amount, targetToken, to));
 
-    emit Liquidate(positionId, amount, targetToken, address(escrow_));
+    emit Liquidate(id, amount, targetToken, address(escrow_));
 
     return amount;
   }
