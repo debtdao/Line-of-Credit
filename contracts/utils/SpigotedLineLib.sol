@@ -40,7 +40,7 @@ library SpigotedLineLib {
      * @dev MUST trade all available claim tokens to target
      * @dev    priviliged internal function
      * @param claimToken - the token escrowed in spigot to sell in trade
-     * @param targetToken - the token borrow owed debt in and needs to buy. Always `credits[ids[0]].token`
+     * @param targetToken - The credit token that needs to be bought in order to pay down debt. Always `credits[ids[0]].token`
      * @param swapTarget  - 0x exchange router address to call for trades
      * @param spigot      - spigot to claim from. Must be owned by adddress(this)
      * @param unused      - current amount of unused claimTokens
@@ -206,7 +206,6 @@ library SpigotedLineLib {
 
    * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
              -  doesnt transfer out if line is unpaid and/or healthy
-   * @dev    - callable by anyone 
    * @return - whether or not spigot was released
   */
     function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
