@@ -52,8 +52,6 @@ contract SpigotedLineTest is Test {
     SimpleOracle private oracle;
 
     function setUp() public {
-
-        console.log(testaddr);
         dex = new ZeroEx();
         creditToken = new RevenueToken();
         revenueToken = new RevenueToken();
@@ -79,13 +77,13 @@ contract SpigotedLineTest is Test {
         
         _createCredit(address(revenueToken), address(creditToken), revenueContract);
         // revenue go brrrrrrr
-        spigot.claimRevenue(address(revenueContract), "");
+        spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
     }
 
     function _createCredit(address revenueT, address creditT, address revenueC) public returns(bytes32 id) {
 
       ISpigot.Setting memory setting = ISpigot.Setting({
-        token: revenueT,
+        // token: revenueT,
         ownerSplit: ownerSplit,
         claimFunction: bytes4(0),
         transferOwnerFunction: bytes4("1234")
@@ -222,8 +220,9 @@ contract SpigotedLineTest is Test {
       bytes32 id = _createCredit(creditT, address(revenueToken), revenueC);
       // generate revenue in credit token
       deal(creditT, address(spigot), 100 ether);
-      spigot.claimRevenue(revenueC, "");
-      uint claimable = spigot.getEscrowed(address(creditT));
+      spigot.claimRevenue(revenueC, address(creditT),  "");
+
+      uint claimable = spigot.getEscrowed(address(revenueToken));
       
       // no extra tokens besides claimable
       assertEq(line.unused(creditT), 0);
@@ -260,7 +259,7 @@ contract SpigotedLineTest is Test {
 
       // if(claimable == 0) { // ensure claimAndRepay doesnt fail from claimEscrow()
         deal(address(revenueToken), address(spigot),  MAX_REVENUE);
-        spigot.claimRevenue(revenueContract, "");
+        spigot.claimRevenue(revenueContract, address(revenueToken),  "");
         claimable = spigot.getEscrowed(address(revenueToken));
       // }
       
@@ -340,7 +339,7 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(address(revenueToken)), 1);
 
       revenueToken.mint(address(spigot), MAX_REVENUE);
-      spigot.claimRevenue(address(revenueContract), "");
+      spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
 
       bytes memory tradeData2 = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -411,7 +410,7 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(address(creditToken)), lentAmount / 2);
 
       revenueToken.mint(address(spigot), MAX_REVENUE);
-      spigot.claimRevenue(address(revenueContract), "");
+      spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
 
       bytes memory repayData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -503,7 +502,7 @@ contract SpigotedLineTest is Test {
       deal(address(spigot), ethRevenue);
       deal(creditT, address(dex), MAX_REVENUE);
 
-      spigot.claimRevenue(revenueC, "");
+      spigot.claimRevenue(revenueC, address(Denominations.ETH), "");
 
       _borrow(id, lentAmount);
 
@@ -527,7 +526,7 @@ contract SpigotedLineTest is Test {
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
       address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      bytes32 id = _createCredit(address(Denominations.ETH), Denominations.ETH, revenueC);
       _borrow(id, lentAmount);
 
       bytes memory tradeData = abi.encodeWithSignature(
@@ -821,7 +820,6 @@ contract SpigotedLineTest is Test {
           ttl,
           proposedSplit
         );
-        
     }
 
     function test_update_split_no_action_on_active() public {
@@ -831,20 +829,20 @@ contract SpigotedLineTest is Test {
 
     function test_update_split_no_action_on_already_liquidated() public {
       // validate original settings
-      (,uint8 split,,) = spigot.getSetting(revenueContract);
+      (uint8 split,,) = spigot.getSetting(revenueContract);
       assertEq(split, ownerSplit);
       
       // fast forward to past deadline
       vm.warp(ttl+1);
 
       assertTrue(line.updateOwnerSplit(revenueContract));
-      (,uint8 split2,,) = spigot.getSetting(revenueContract);
+      (uint8 split2,,) = spigot.getSetting(revenueContract);
       assertEq(split2, 100); // to 100 since LIQUIDATABLE
 
       // second run shouldnt updte
       assertFalse(line.updateOwnerSplit(revenueContract));
       // split should still be 100%
-      (,uint8 split3,,) = spigot.getSetting(revenueContract);
+      (uint8 split3,,) = spigot.getSetting(revenueContract);
       assertEq(split3, 100);
     }
 
@@ -859,13 +857,13 @@ contract SpigotedLineTest is Test {
 
       assertTrue(line.updateOwnerSplit(revenueContract));
       assertEq(uint(line.status()), uint(LineLib.STATUS.LIQUIDATABLE));
-      (,uint8 split,,) = spigot.getSetting(revenueContract);
+      (uint8 split,,) = spigot.getSetting(revenueContract);
       assertEq(split, 100);
     }
 
     function test_update_split_to_default_on_active_from_liquidate() public {
       // validate original settings
-      (,uint8 split,,) = spigot.getSetting(revenueContract);
+      (uint8 split,,) = spigot.getSetting(revenueContract);
       assertEq(split, ownerSplit);
       
       // fast forward to past deadline
@@ -873,12 +871,12 @@ contract SpigotedLineTest is Test {
 
       assertTrue(line.updateOwnerSplit(revenueContract));
       assertEq(uint(line.status()), uint(LineLib.STATUS.LIQUIDATABLE));
-      (,uint8 split2,,) = spigot.getSetting(revenueContract);
+      (uint8 split2,,) = spigot.getSetting(revenueContract);
       assertEq(split2, 100); // to 100 since LIQUIDATABLE
 
       vm.warp(1);            // sstatus = LIQUIDTABLE but healthcheck == ACTIVE
       assertTrue(line.updateOwnerSplit(revenueContract));
-      (,uint8 split3,,) = spigot.getSetting(revenueContract);
+      (uint8 split3,,) = spigot.getSetting(revenueContract);
       assertEq(split3, ownerSplit); // to default since ACTIVE
     }
 
@@ -887,23 +885,20 @@ contract SpigotedLineTest is Test {
     function test_cant_add_spigot_without_consent() public {
       address rev = address(0xf1c0);
       ISpigot.Setting memory setting = ISpigot.Setting({
-        token: address(revenueToken),
         ownerSplit: ownerSplit,
         claimFunction: bytes4(0),
         transferOwnerFunction: bytes4("1234")
       });
 
       line.addSpigot(rev, setting);
-      (address token,,,bytes4 transferFunc) = spigot.getSetting(rev);
+      (,,bytes4 transferFunc) = spigot.getSetting(rev);
       // settings not saved on spigot contract
       assertEq(transferFunc, bytes4(0));
-      assertEq(token, address(0));
     }
 
     function test_can_add_spigot_with_consent() public {
       address rev = address(0xf1c0);
       ISpigot.Setting memory setting = ISpigot.Setting({
-        token: address(revenueToken),
         ownerSplit: ownerSplit,
         claimFunction: bytes4(0),
         transferOwnerFunction: bytes4("1234")
@@ -913,11 +908,10 @@ contract SpigotedLineTest is Test {
       hoax(borrower);
       line.addSpigot(rev, setting);
 
-      (address token,uint8 split,bytes4 claim,bytes4 transfer) = spigot.getSetting(rev);
+      (uint8 split,bytes4 claim,bytes4 transfer) = spigot.getSetting(rev);
       // settings not saved on spigot contract
       assertEq(transfer, setting.transferOwnerFunction);
       assertEq(claim, setting.claimFunction);
-      assertEq(token, setting.token);
       assertEq(split, setting.ownerSplit);
     }
 
