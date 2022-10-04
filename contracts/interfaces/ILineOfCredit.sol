@@ -40,22 +40,24 @@ interface ILineOfCredit {
 
   // Lender Events
 
+  // Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // lender removing funds from Line  principal
+  
+  // Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
   event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
-  // lender taking interest earned out of contract
-
+  
+  // Emitted when any credit line is repaid in full to a Lender 
+  // If Credit then facility has also been closed [Bob - I don't understand the 2nd comment + maybe change name to CloseId since it's for any id]
   event CloseCreditPosition(bytes32 indexed id);
-  // lender officially repaid in full. if Credit then facility has also been closed.
 
+ // interest added to borrowers outstanding balance
   event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
-  // interest added to borrowers outstanding balance
-
+ 
 
   // Borrower Events
 
-  event Borrow(bytes32 indexed id, uint256 indexed amount);
   // receive full line or drawdown on credit
+  event Borrow(bytes32 indexed id, uint256 indexed amount);
 
   event RepayInterest(bytes32 indexed id, uint256 indexed amount);
 
