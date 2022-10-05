@@ -207,13 +207,11 @@ library SpigotedLineLib {
     }
 
 
-        /**
-
+  /**
    * @notice -  Sends any remaining tokens (revenue or credit tokens) in the Spigot to the Borrower after the loan has been repaid.
-             -  In case of a Borrower default (loan status = liquidatable), this is a fallback mechanism to withdraw all the tokens
-             from a Spigot and send them to the Arbiter"
-   * @dev    - callable by anyone 
-   * @return - the amounts sent to either the Borrower or the Arbiter
+             -  In case of a Borrower default (loan status = liquidatable), this is a fallback mechanism to withdraw all the tokens and send them to the Arbiter
+             -  Does not transfer anything if line is healthy
+   * @return - whether or not spigot was released
   */
     function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
         if(amount == 0) { revert UsedExcessTokens(token, 0); }
