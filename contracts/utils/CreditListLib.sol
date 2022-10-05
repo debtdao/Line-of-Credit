@@ -3,18 +3,19 @@ import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 import { CreditLib } from "./CreditLib.sol";
 /**
-  * @title Debt DAO P2P Loan Library
+  * @title Debt DAO Line of Credit Library
   * @author Kiba Gateaux
-  * @notice Core logic and variables to be reused across all Debt DAO Marketplace loans
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
 library CreditListLib {
     /**
-     * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array since there's no reason for 
-     them to be stored multiple times.
+     * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array 
+     since there's no reason for them to be stored multiple times.
      * This means cleanup on _close() and checks on addCredit() are CRITICAL. If `id` is duplicated then the position can't be closed
      * @param ids - all current credit lines on the Line of Credit facility
-     * @param id - the hash id that must be removed from active positions after removePosition() has run, i.e. the position being removed
-     * @return newPositions - all active positions on loan after `id` is removed
+     * @param id - the hash id of the credit line to be removed from active ids after removePosition() has run
+     * @return newPositions - all active credit lines on the Line of Credit facility after the `id` has been removed [Bob - consider renaming to newIds
+     * Bob - consider renaming this function removeId()
      */
     function removePosition(bytes32[] storage ids, bytes32 id) external returns(bool) {
       uint256 len = ids.length;
@@ -31,7 +32,7 @@ library CreditListLib {
     }
 
     /**
-     * @notice - removes the individual credit line ID from the head of the repayment queue and puts it at end of line
+     * @notice - removes the individual credit line id from the head of the repayment queue and puts it at end of queue
      *         - moves 2nd in queue to first position in queue
      * @param ids - all current credit lines on the Line of Credit facility
      * @return newPositions - remaining credit lines after moving first to last in array
@@ -46,12 +47,12 @@ library CreditListLib {
         ids[0] = ids[1];
         ids[1] = last;
       } else {
-        // move all existing ids up in line
+        // move all existing ids up in the queue
         for(uint i = 1; i < len; ++i) {
-          ids[i - 1] = ids[i]; // could also clean arr here like in _SoritIntoQ
+          ids[i - 1] = ids[i]; // could also clean arr here like in _SortIntoQ
           
         }
-        // cycle first el back to end of queue
+        // cycle first id back to end of queue
         ids[len - 1] = last;
       }
       
