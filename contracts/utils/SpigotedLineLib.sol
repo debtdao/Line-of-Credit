@@ -9,7 +9,7 @@ import { Denominations } from "chainlink/Denominations.sol";
 
 library SpigotedLineLib {
 
-    // max revenue to take from spigot if line is in distress
+    // max revenue to take from Spigot if line is in distress
     uint8 constant MAX_SPLIT = 100;
 
     error NoSpigot();
@@ -36,16 +36,19 @@ library SpigotedLineLib {
 
 
     /**
-     * @notice allows tokens in escrow to be sold immediately but used to pay down credit later
-     * @dev MUST trade all available claim tokens to target
-     * @dev    priviliged internal function
-     * @param claimToken - the token escrowed in spigot to sell in trade
-     * @param targetToken - The credit token that needs to be bought in order to pay down debt. Always `credits[ids[0]].token`
-     * @param swapTarget  - 0x exchange router address to call for trades
-     * @param spigot      - spigot to claim from. Must be owned by adddress(this)
-     * @param unused      - current amount of unused claimTokens
+     * @notice              Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt. 
+                            The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay 
+                            This feature allows a Borrower to take advantage of an increase in the value of the revenue token compared 
+                            to the credit token and to in effect use less revenue tokens to be later used to repay the same amount of debt.
+     * @dev                 MUST trade all available claimTokens to targetTokens
+     * @dev                 priviliged internal function
+     * @param claimToken    - The revenue token escrowed in the Spigot to sell in trade
+     * @param targetToken   - The credit token that needs to be bought in order to pat down debt. Always `credits[ids[0]].token`
+     * @param swapTarget    - The 0x exchange router address to call for trades
+     * @param spigot        - The Spigot to claim from. Must be owned by adddress(this)
+     * @param unused        - Current amount of unused claimTokens
      * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for target
-     * @return (uint, uint) - (amount of target tokens bought, total unused claim tokens after trade)
+     * @return (uint, uint) - amount of targetTokens bought, total unused claimTokens after trade
      */
     function claimAndTrade(
         address claimToken,
@@ -58,7 +61,7 @@ library SpigotedLineLib {
         external 
         returns(uint256, uint256)
     {
-        // can not trade into same token. causes double count for unused tokens
+        // can't trade into same token. causes double count for unused tokens
         if(claimToken == targetToken) { revert BadTradingPair(); }
 
         // snapshot token balances now to diff after trade executes
@@ -136,7 +139,8 @@ library SpigotedLineLib {
     }
 
     /**
-     * @notice cleanup function when borrower this line ends 
+     * @notice cleanup function when a Line of Credit facility has expired.
+        Used in the event that we want to reuse a Spigot instead of starting from scratch
      */
     function rollover(address spigot, address newLine) external returns(bool) {
       require(ISpigot(spigot).updateOwner(newLine));
@@ -156,7 +160,7 @@ library SpigotedLineLib {
 
 
     /**
-     * @notice changes the revenue split between borrower treasury and lan repayment based on line health
+     * @notice Changes the revenue split between a Borrower's treasury and the LineOfCredit based on line health, runs with updateOwnerSplit()
      * @dev    - callable `arbiter` + `borrower`
      * @param revenueContract - spigot to update
      * @return whether or not split was updated
@@ -167,10 +171,10 @@ library SpigotedLineLib {
         if(transferFunc == bytes4(0)) { revert NoSpigot(); }
 
         if(status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
-            // if line is healthy set split to default take rate
+            // if Line of Credit is healthy then set the split to the prior agreed default split of revenue tokens
             return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
         } else if (status == LineLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
-            // if line is in distress take all revenue to repay line
+            // if the Line of Credit is in distress then take all revenue to repay debt
             return ISpigot(spigot).updateOwnerSplit(revenueContract, MAX_SPLIT);
         }
 
@@ -180,10 +184,11 @@ library SpigotedLineLib {
 
     /**
 
-   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
-             -  doesnt transfer out if line is unpaid and/or healthy
+   * @notice -  Transfers ownership of the entire Spigot and its revenuw streams from its then Owner to either 
+                the Borrower (if a Line of Credit has been been fully repaid) or 
+                to the Arbiter (if the Line of Credit is liquidatable).
    * @dev    - callable by anyone 
-   * @return - whether or not spigot was released
+   * @return - whether or not Spigot was released
   */
     function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
         if (status == LineLib.STATUS.REPAID) {
@@ -202,10 +207,10 @@ library SpigotedLineLib {
     }
 
 
-        /**
-
-   * @notice -  transfers revenue streams to borrower if repaid or arbiter if liquidatable
-             -  doesnt transfer out if line is unpaid and/or healthy
+  /**
+   * @notice -  Sends any remaining tokens (revenue or credit tokens) in the Spigot to the Borrower after the loan has been repaid.
+             -  In case of a Borrower default (loan status = liquidatable), this is a fallback mechanism to withdraw all the tokens and send them to the Arbiter
+             -  Does not transfer anything if line is healthy
    * @return - whether or not spigot was released
   */
     function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {

@@ -7,9 +7,9 @@ import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { Denominations } from "chainlink/Denominations.sol";
 
 /**
-  * @title Debt DAO P2P Line Library
+  * @title Debt DAO Line of Credit Library
   * @author Kiba Gateaux
-  * @notice Core logic and variables to be reused across all Debt DAO Marketplace lines
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
 library LineLib {
     using SafeERC20 for IERC20;
@@ -51,9 +51,9 @@ library LineLib {
     }
 
     /**
-     * @notice - Send ETH or ERC20 token from this contract to an external contract
-     * @param token - address of token to send out. Denominations.ETH for raw ETH
-     * @param sender - address that is giving us tokens/ETH
+     * @notice - Receive ETH or ERC20 token at this contract from an external contract
+     * @param token - address of token to receive. Denominations.ETH for raw ETH
+     * @param sender - address that is sendingtokens/ETH
      * @param amount - amount of tokens to send
      */
     function receiveTokenOrETH(
