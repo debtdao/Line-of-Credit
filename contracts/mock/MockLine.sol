@@ -35,7 +35,7 @@ contract MockLine {
         status = _status;
     }
 
-    function liquidate(uint positionId, uint amount, address token, address to) external {
+    function liquidate(uint id, uint amount, address token, address to) external {
         require(msg.sender == arbiter);
         IEscrow(escrow).liquidate(amount, token, to);
     }

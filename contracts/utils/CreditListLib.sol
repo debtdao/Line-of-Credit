@@ -9,10 +9,11 @@ import { CreditLib } from "./CreditLib.sol";
  */
 library CreditListLib {
     /**
-     * @dev assumes that `id` is stored only once in `positions` array bc no reason for Loans to store multiple times.
-          This means cleanup on _close() and checks on addDebtPosition are CRITICAL. If `id` is duplicated then the position can't be closed
-     * @param ids - all current active positions on the loan
-     * @param id - hash id that must be removed from active positions
+     * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array since there's no reason for 
+     them to be stored multiple times.
+     * This means cleanup on _close() and checks on addCredit() are CRITICAL. If `id` is duplicated then the position can't be closed
+     * @param ids - all current credit lines on the Line of Credit facility
+     * @param id - the hash id that must be removed from active positions after removePosition() has run, i.e. the position being removed
      * @return newPositions - all active positions on loan after `id` is removed
      */
     function removePosition(bytes32[] storage ids, bytes32 id) external returns(bool) {
@@ -30,10 +31,10 @@ library CreditListLib {
     }
 
     /**
-     * @notice - removes debt position from head of repayement queue and puts it at end of line
-     *         - moves 2nd in line to first
-     * @param ids - all current active positions on the loan
-     * @return newPositions - positions after moving first to last in array
+     * @notice - removes the individual credit line ID from the head of the repayment queue and puts it at end of line
+     *         - moves 2nd in queue to first position in queue
+     * @param ids - all current credit lines on the Line of Credit facility
+     * @return newPositions - remaining credit lines after moving first to last in array
      */
     function stepQ(bytes32[] storage ids) external returns(bool) {
       uint256 len = ids.length ;
