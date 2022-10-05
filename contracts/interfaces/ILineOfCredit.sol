@@ -40,32 +40,29 @@ interface ILineOfCredit {
 
   // Lender Events
 
-  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
   // Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
+  event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
   
-  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
   // Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
-
+  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
+  
+  // Emitted when any credit line is closed by the line's borrower or the position's lender
   event CloseCreditPosition(bytes32 indexed id);
-  /** Emitted when a credit line is officially repaid in full to a Lender. 
-  If Credit then facility has also been closed [Bob - I don't understand the 2nd comment + maybe change name to CloseId?]
-  */
 
-  event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
-  /** After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due
-  but not yet repaid to the Line of Credit contract
-  */
+  // After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due
+  // but not yet repaid to the Line of Credit contract
+  event InterestAccrued(bytes32 indexed id, uint256 indexed amount); 
 
   // Borrower Events
 
+  // receive full line or drawdown on credit
   event Borrow(bytes32 indexed id, uint256 indexed amount);
-  // Emits notice that a Borrower has drawn down an amount on a credit line
-
-  event RepayInterest(bytes32 indexed id, uint256 indexed amount);
-  // Emits that a Borrower has repaid an amount of interest (N.B. results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function
   
-  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
+  // Emits that a Borrower has repaid an amount of interest Results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function  
+  event RepayInterest(bytes32 indexed id, uint256 indexed amount);
+  
   // Emits that a Borrower has repaid an amount of principal - there is no corresponding function
+  event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
   
   event Default(bytes32 indexed id);
 
