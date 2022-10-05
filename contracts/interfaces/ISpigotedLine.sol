@@ -6,8 +6,10 @@ interface ISpigotedLine {
   event RevenuePayment(
     address indexed token,
     uint256 indexed amount
-    // dont need to track value like other events because _repay already emits
-    // this event is just semantics/helper to track payments from revenue specifically
+    // Emits the amount of revenue tokens that have been repaid after claimAndRepay
+    // dont need to track value like other events because _repay already emits that
+    // Mainly used to log debt that is paid via Spigot directly vs other sources. Without this event it's a lot harder to parse that offchain.
+    // Bob - similar to the event ClaimEscrow then which also claims revenue tokens
   );
 
 

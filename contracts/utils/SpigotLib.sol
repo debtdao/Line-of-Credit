@@ -8,32 +8,22 @@ struct SpigotState {
     address owner;
     address operator;
     address treasury;
-    // Total amount of tokens escrowed by spigot
+    // Total amount of revenue tokens escrowed by the Spigot and available to be claimed
     mapping(address => uint256) escrowed; // token  -> amount escrowed
-    //  allowed by operator on all revenue contracts
+    // Functions that the operator is allowed to run on all revenue contracts controlled by the Spigot
     mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
-    // Configurations for revenue contracts to split
+    // Configurations for revenue contracts related to the split of revenue, access control to claiming revenue tokens and transfer of Spigot ownership
     mapping(address => ISpigot.Setting) settings; // revenue contract -> settings
 }
 
 
 library SpigotLib {
-    // Maximum numerator for Setting.ownerSplit param
+    // Maximum numerator for Setting.ownerSplit param to ensure that the Owner can't claim more than 100% of revenue
     uint8 constant MAX_SPLIT = 100;
     // cap revenue per claim to avoid overflows on multiplication when calculating percentages
     uint256 constant MAX_REVENUE = type(uint256).max / MAX_SPLIT;
 
-    modifier whileNoUnclaimedRevenue(SpigotState storage self, address token) {
-        // if excess revenue sitting in Spigot after MAX_REVENUE cut,
-        // prevent actions until all revenue claimed and escrow updated
-        // only protects push payments not pull payments.
-        if (LineLib.getBalance(token) > self.escrowed[token]) {
-            revert UnclaimedRevenue();
-        }
-        _;
-    }
-
-    function _claimRevenue(SpigotState storage self, address revenueContract, bytes calldata data, address token)
+    function _claimRevenue(SpigotState storage self, address revenueContract, address token, bytes calldata data)
         public
         returns (uint256 claimed)
     {
@@ -77,14 +67,13 @@ library SpigotLib {
         return true;
     }
 
-    function claimRevenue(SpigotState storage self, address revenueContract, bytes calldata data)
+    function claimRevenue(SpigotState storage self, address revenueContract, address token, bytes calldata data)
         external
         returns (uint256 claimed)
     {
-        address token = self.settings[revenueContract].token;
-        claimed = _claimRevenue(self, revenueContract, data, token);
+        claimed = _claimRevenue(self, revenueContract, token, data);
 
-        // split revenue stream according to settings
+        // splits revenue stream according to Spigot settings
         uint256 escrowedAmount = claimed * self.settings[revenueContract].ownerSplit / 100;
         // update escrowed balance
         self.escrowed[token] = self.escrowed[token] + escrowedAmount;
@@ -98,10 +87,9 @@ library SpigotLib {
         
         return claimed;
     }
-
+     // Transfers revenue tokens from escrow to a the Spigot Owner (effectively this is LineOf Credit, representing Lenders.
      function claimEscrow(SpigotState storage self, address token)
         external
-        whileNoUnclaimedRevenue(self, token)
         returns (uint256 claimed) 
     {
         if(msg.sender != self.owner) { revert CallerAccessDenied(); }
@@ -121,8 +109,7 @@ library SpigotLib {
 
     function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting) external returns (bool) {
         if(msg.sender != self.owner) { revert CallerAccessDenied(); }
-        
-        
+
         require(revenueContract != address(this));
         // spigot setting already exists
         require(self.settings[revenueContract].transferOwnerFunction == bytes4(0));
@@ -130,17 +117,15 @@ library SpigotLib {
         // must set transfer func
         if(setting.transferOwnerFunction == bytes4(0)) { revert BadSetting(); }
         if(setting.ownerSplit > MAX_SPLIT) { revert BadSetting(); }
-        if(setting.token == address(0)) {  revert BadSetting(); }
         
         self.settings[revenueContract] = setting;
-        emit AddSpigot(revenueContract, setting.token, setting.ownerSplit);
+        emit AddSpigot(revenueContract, setting.ownerSplit);
 
         return true;
     }
 
     function removeSpigot(SpigotState storage self, address revenueContract)
         external
-        whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
         returns (bool)
     {
         if(msg.sender != self.owner) { revert CallerAccessDenied(); }
@@ -154,14 +139,13 @@ library SpigotLib {
         require(success);
 
         delete self.settings[revenueContract];
-        emit RemoveSpigot(revenueContract, self.settings[revenueContract].token);
+        emit RemoveSpigot(revenueContract);
 
         return true;
     }
 
     function updateOwnerSplit(SpigotState storage self, address revenueContract, uint8 ownerSplit)
         external
-        whileNoUnclaimedRevenue(self, self.settings[revenueContract].token)
         returns(bool)
     {
       if(msg.sender != self.owner) { revert CallerAccessDenied(); }
@@ -200,27 +184,35 @@ library SpigotLib {
         return true;
     }
 
+    /**
+    A function of the Spigot, called by updateWhitelist() in SpigotedLine which is only callable by the Arbiter.
+    Allows the Owner (the Line) to tell the Spigot to whitelist what the Operator is allowed to do on its revenue contracts
+    so that the Operator can still use the contracts whilst they are providing revenue tokens to repay credit. 
+   (remember Operator = Borrower)
+    */
     function updateWhitelistedFunction(SpigotState storage self, bytes4 func, bool allowed) external returns (bool) {
         if(msg.sender != self.owner) { revert CallerAccessDenied(); }
         self.whitelistedFunctions[func] = allowed;
         emit UpdateWhitelistFunction(func, allowed);
         return true;
     }
-
+    // Returns the amount of revenue tokens in escrow ready to be withdrawn
     function getEscrowed(SpigotState storage self, address token) external view returns (uint256) {
         return self.escrowed[token];
     }
 
+    // Returns the list of whitelisted functions that a Borrower [Operator] is allowed to perform 
+    // on the revenue generating smart contracts whilst the Spigot is attached.
     function isWhitelisted(SpigotState storage self, bytes4 func) external view returns(bool) {
       return self.whitelistedFunctions[func];
     }
 
+ 
     function getSetting(SpigotState storage self, address revenueContract)
         external view
-        returns(address, uint8, bytes4, bytes4)
+        returns(uint8, bytes4, bytes4)
     {
         return (
-            self.settings[revenueContract].token,
             self.settings[revenueContract].ownerSplit,
             self.settings[revenueContract].claimFunction,
             self.settings[revenueContract].transferOwnerFunction
@@ -232,11 +224,10 @@ library SpigotLib {
 
     event AddSpigot(
         address indexed revenueContract,
-        address token,
         uint256 ownerSplit
     );
 
-    event RemoveSpigot(address indexed revenueContract, address token);
+    event RemoveSpigot(address indexed revenueContract);
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 

@@ -35,7 +35,7 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
   /**
    * @notice sends escrowed tokens to liquidation. 
    *(@dev priviliegad function. Do checks before calling.
-   * @param positionId - position being repaid in liquidation
+   * @param id - position being repaid in liquidation
    * @param amount - amount of tokens to take from escrow and liquidate
    * @param targetToken - the token to take from escrow
    * @param to - the liquidator to send tokens to. could be OTC address or smart contract
@@ -43,7 +43,7 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
    *  
   */
   function _liquidate(
-    bytes32 positionId,
+    bytes32 id,
     uint256 amount,
     address targetToken,
     address to
@@ -51,7 +51,7 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
     override internal
     returns(uint256)
   { 
-    return EscrowedLine._liquidate(positionId, amount, targetToken, to);
+    return EscrowedLine._liquidate(id, amount, targetToken, to);
   }
 
   /**

@@ -34,8 +34,8 @@ contract LineTest is Test, Events{
     uint mintAmount = 100 ether;
     uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint minCollateralRatio = 1 ether; // 100%
-    uint128 drawnRate = 100;
-    uint128 facilityRate = 1;
+    uint128 dRate = 100;
+    uint128 fRate = 1;
 
     function setUp() public {
         borrower = address(10);
@@ -84,10 +84,10 @@ contract LineTest is Test, Events{
 
     function _addCredit(address token, uint256 amount) public {
         vm.prank(borrower);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
         vm.prank(lender);
-        line.addCredit(drawnRate, facilityRate, amount, token, lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
     }
 
@@ -122,13 +122,13 @@ contract LineTest is Test, Events{
 
     function test_positions_move_in_queue_of_2() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
         hoax(lender);
-        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id2 = line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
 
         assertEq(line.ids(0), id);
         assertEq(line.ids(1), id2);
@@ -150,17 +150,17 @@ contract LineTest is Test, Events{
         address token4 = tokens[1];
 
         vm.startPrank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
         vm.stopPrank();
         
         vm.startPrank(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
-        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
-        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
-        bytes32 id4 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id2 = line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id3 = line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
+        bytes32 id4 = line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
         vm.stopPrank();
 
         assertEq(line.ids(0), id);
@@ -197,13 +197,13 @@ contract LineTest is Test, Events{
     // testing for bug in code where _i is initialized at 0 and never gets updated causing position to go to first position in repayment queue
     function test_positions_move_in_queue_of_4_only_last() public {
         vm.prank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.prank(lender);
-        bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.prank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
         vm.prank(lender);
-        bytes32 id2 = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken2), lender);
+        bytes32 id2 = line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
         
         address[] memory tokens = setupQueueTest(2);
         address token3 = tokens[0];
@@ -211,14 +211,14 @@ contract LineTest is Test, Events{
 
         
         vm.prank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
         vm.prank(lender);
-        bytes32 id3 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token3), lender);
+        bytes32 id3 = line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
         
         vm.prank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
         vm.prank(lender);
-        bytes32 id4 = line.addCredit(drawnRate, facilityRate, 1 ether, address(token4), lender);
+        bytes32 id4 = line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
         
         assertEq(line.ids(0), id);
         assertEq(line.ids(1), id2);
@@ -301,10 +301,10 @@ contract LineTest is Test, Events{
         assertEq(lender.balance, mintAmount, "lender should have initial mint balance");
         console.log(lender.balance);
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
 
         vm.startPrank(lender);
-        line.addCredit{value: 1 ether}(drawnRate, facilityRate, 1 ether, Denominations.ETH, lender);
+        line.addCredit{value: 1 ether}(dRate, fRate, 1 ether, Denominations.ETH, lender);
         vm.stopPrank();
         console.log(lender.balance);
         bytes32 id = line.ids(0);
@@ -336,10 +336,10 @@ contract LineTest is Test, Events{
         vm.assume(amount >= 1 ether && amount <= mintAmount);
 
         vm.startPrank(borrower);
-        line.addCredit(drawnRate, facilityRate, amount, Denominations.ETH, lender);
+        line.addCredit(dRate, fRate, amount, Denominations.ETH, lender);
         vm.stopPrank();
         vm.startPrank(lender);
-        line.addCredit{value: amount}(drawnRate, facilityRate, amount, Denominations.ETH, lender);
+        line.addCredit{value: amount}(dRate, fRate, amount, Denominations.ETH, lender);
         vm.stopPrank();
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
@@ -544,14 +544,14 @@ contract LineTest is Test, Events{
 
     function test_cannot_open_credit_position_without_consent() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
         assertEq(supportedToken1.balanceOf(borrower), mintAmount, "borrower balance should be original");
     }
 
     function test_cannot_borrow_from_nonexistant_position() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.expectRevert(ILineOfCredit.NoLiquidity.selector); 
         hoax(borrower);
         line.borrow(bytes32(uint(12743134)), 1 ether);
@@ -581,10 +581,10 @@ contract LineTest is Test, Events{
 
     function test_cannot_create_credit_with_tokens_unsupported_by_oracle() public {
         hoax(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(unsupportedToken), lender);
         vm.expectRevert('SimpleOracle: unsupported token' ); 
         hoax(lender);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(unsupportedToken), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(unsupportedToken), lender);
     }
 
 
@@ -687,8 +687,8 @@ contract LineTest is Test, Events{
         (uint128 drate, uint128 frate,) = line.interestRate().rates(id);
         assertEq(drate, uint128(1 ether));
         assertEq(frate, uint128(1 ether));
-        assertGt(frate, facilityRate);
-        assertGt(drate, drawnRate);
+        assertGt(frate, fRate);
+        assertGt(drate, dRate);
     }
 
     function test_cannot_update_rates_without_consent() public {
@@ -739,11 +739,11 @@ contract LineTest is Test, Events{
     function test_revert_no_token_price() public {
         oracle.changePrice(address(supportedToken1), -1);
         vm.startPrank(borrower);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.stopPrank();
         vm.prank(lender);
         vm.expectRevert(CreditLib.NoTokenPrice.selector);
-        line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.stopPrank();
     }
 
@@ -819,11 +819,11 @@ contract LineTest is Test, Events{
     //         supportedToken1.mint(lender, mintAmount);
 
     //         vm.prank(borrower);
-    //         line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
 
     //         vm.startPrank(lender);
     //         supportedToken1.approve(address(line), MAX_INT);
-    //         bytes32 id = line.addCredit(drawnRate, facilityRate, 1 ether, address(supportedToken1), lender);
+    //         bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
     //         vm.stopPrank();
 
     //         vm.prank(borrower);
