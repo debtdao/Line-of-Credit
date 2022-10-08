@@ -42,6 +42,7 @@ contract LineFactoryTest is Test {
     arbiter = address(0xf1c0);
     borrower = address(0xbA05);
     swapTarget = address(0xb0b0);
+    badarb = address(0x000);
 
     moduleFactory = new ModuleFactory();
     lineFactory = new LineFactory(address(moduleFactory));
@@ -63,10 +64,14 @@ contract LineFactoryTest is Test {
   }
   
   function test_arbiter_cant_be_null() public {
-    address arbiter = line.arbiter();
-    assertTrue(arbiter != address(0x000));
+
+    vm.expectRevert();
+    fail_line_address = lineFactory.deploySecuredLine(oracle, badarb, borrower, ttl, payable(swapTarget));
+    
     
   }
+
+  
 
   // function test_new_line_has_correct_spigot_and_escrow() public {
 
