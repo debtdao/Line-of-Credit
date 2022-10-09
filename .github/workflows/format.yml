@@ -11,4 +11,4 @@ jobs:
         with:
           version: nightly
       - name: format
-        run: forge fmt --root contracts/
+        run: forge fmt contracts/
