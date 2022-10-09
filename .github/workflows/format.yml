@@ -21,4 +21,4 @@ jobs:
         with:
           version: nightly
       - name: format
-        run: forge fmt ../../contracts
+        run: forge fmt contracts/
