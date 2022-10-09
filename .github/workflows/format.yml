@@ -1,8 +1,6 @@
 name: Format
-on: 
-  push:
-    branches:
-      - !main
+on: [push]
+
 
 jobs:
   analyze:
@@ -13,4 +11,4 @@ jobs:
         with:
           version: nightly
       - name: format
-        run: forge fmt contracts
+        run: forge fmt --root
