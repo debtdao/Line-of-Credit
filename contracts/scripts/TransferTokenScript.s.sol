@@ -14,7 +14,7 @@ contract TransferTokenScript is Script {
     uint256 amount = 2000000000 ether;
 
     function run() public {
-        uint256 deployerPrivateKey= vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey= vm.envUint("MO_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         // uint256 deployerPrivateKey= vm.envUint("CRAIG_KEY");
