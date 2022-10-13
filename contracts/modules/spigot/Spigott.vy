@@ -1,5 +1,6 @@
 # import IERC20, SafeERC20
 # import Ownable
+# @version ^0.2.0
 
 struct RevenueContract:
   token: address
