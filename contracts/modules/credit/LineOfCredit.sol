@@ -234,13 +234,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
    * @param token   - The Credit Token, i.e. the token to be lent out
    * @param lender  - The address that will manage credit line
   */
-    function addCredit(
-        uint128 drate,
-        uint128 frate,
-        uint256 amount,
-        address token,
-        address lender
-    )
+    function addCredit(uint128 drate,uint128 frate,uint256 amount,address token,address lender)
         external
         payable
         override
@@ -486,7 +480,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         internal
         returns (bytes32 id)
     {
-        id = CreditLib.computeId(address(this), lender, token);
+        id = CreditLib.computePositionId(address(this), lender, token);
         // MUST not double add the credit line. otherwise we can not _close()
         if(credits[id].lender != address(0)) { revert PositionExists(); }
 

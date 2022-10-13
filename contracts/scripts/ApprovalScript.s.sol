@@ -18,7 +18,7 @@ contract ApprovalScript is Script {
     uint constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
      function run() public {
-        // uint256 deployerPrivateKey= vm.envUint("PRIVATE_KEY");
+        // uint256 deployerPrivateKey= vm.envUint("MO_KEY");
         // vm.startBroadcast(deployerPrivateKey);
 
         uint256 deployerPrivateKey= vm.envUint("CRAIG_KEY");
