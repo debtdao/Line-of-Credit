@@ -1,3 +1,5 @@
+pragma solidity 0.8.9;
+
 import { LineLib } from "../utils/LineLib.sol";
 
 contract MockReceivables {
