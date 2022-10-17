@@ -3,9 +3,9 @@ pragma solidity ^0.8.9;
 import {IInterestRateCredit} from "../../interfaces/IInterestRateCredit.sol";
 
 contract InterestRateCredit is IInterestRateCredit {
-    uint256 constant ONE_YEAR = 365.25 days; // one year in sec to use in calculations for rates
+    uint256 constant ONE_YEAR = 365.25 days; // 1 Julian astronomical year in seconds to use in calculations for rates = 31557600 seconds
     uint256 constant BASE_DENOMINATOR = 10000; // div 100 for %, div 100 for bps in numerator
-    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
+    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR; // = 31557600*10000 = 315576000000
 
     address immutable lineContract;
     mapping(bytes32 => Rate) public rates; // id -> lending rates
@@ -54,8 +54,10 @@ contract InterestRateCredit is IInterestRateCredit {
         uint256 timespan = block.timestamp - rate.lastAccrued;
         rates[id].lastAccrued = block.timestamp;
 
-        // r = APR in BPS, x = # tokens, t = time
-        // interest = (r * x * t) / 1yr / 100
+        // r = APR in basis points (bps) e.g. 5% = 500bp
+        // x = # tokens
+        // t = time (in seconds)
+        // interest = (r * x * t) / 1yr (in seconds) / 10000 = (r*x*t)/315576000000
         // facility = deposited - drawn (aka undrawn balance)
         return (((rate.dRate * drawnBalance * timespan) /
             INTEREST_DENOMINATOR) +
@@ -64,8 +66,7 @@ contract InterestRateCredit is IInterestRateCredit {
     }
 
     /**
-     * @notice update interest rates for a credit line
-     * @dev - Line contract responsible for calling accrueInterest() before updateInterest() if necessary
+     * @notice updates interest rates for a credit line
      * @dev    - callable by `line`
      */
     function setRate(
