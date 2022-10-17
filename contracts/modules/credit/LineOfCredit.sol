@@ -480,7 +480,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         internal
         returns (bytes32 id)
     {
-        id = CreditLib.computePositionId(address(this), lender, token);
+        id = CreditLib.computeId(address(this), lender, token);
         // MUST not double add the credit line. otherwise we can not _close()
         if(credits[id].lender != address(0)) { revert PositionExists(); }
 
