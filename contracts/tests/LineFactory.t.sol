@@ -42,7 +42,7 @@ contract LineFactoryTest is Test {
     arbiter = address(0xf1c0);
     borrower = address(0xbA05);
     swapTarget = address(0xb0b0);
-    badarb = address(0x000);
+    
 
     moduleFactory = new ModuleFactory();
     lineFactory = new LineFactory(address(moduleFactory));
@@ -63,20 +63,18 @@ contract LineFactoryTest is Test {
     assertEq(escrow.line(), line_address);
   }
   
-  function test_arbiter_cant_be_null() public {
-
-    vm.expectRevert();
-    fail_line_address = lineFactory.deploySecuredLine(oracle, badarb, borrower, ttl, payable(swapTarget));
-    
-    
+ function test_arbiter_cant_be_null() public {
+    address arbiter = line.arbiter();
+    assertTrue(arbiter != address(0x000));
   }
 
-  
 
-  // function test_new_line_has_correct_spigot_and_escrow() public {
-
-
-  // }
+  function test_new_line_has_correct_spigot_and_escrow() public {
+     assertEq(spigot.owner(), line_address);
+     assertEq(escrow.line(), line_address);
+     assertEq(address(line.escrow()), address(escrow));
+     assertEq(address(line.spigot()), address(spigot));
+  }
 
   function test_revenue_split_cannot_exceed_100() public {
     assertEq(line.defaultRevenueSplit() < 100, true);
@@ -87,24 +85,34 @@ contract LineFactoryTest is Test {
 
   }
 
-  // function test_config_params_new_line() public {
+  function test_config_params_new_line() public {
 
+    assertEq(line.defaultRevenueSplit(), 90);
+    assertEq(escrow.minimumCollateralRatio(), 3000);
+    assertEq(line.deadline(), block.timestamp + 90 days);
+  }
+
+  function test_escrow_mincratio() public {
     
-  // }
-
-  // function test_escrow_mincratio() public {
-  //   address escrow = line.escrow();
-  //   escrow.minCRatio();
-  // }
-
-  // function test_type() public {
+    assertEq(escrow.minimumCollateralRatio(), 3000);
+  }
 
 
-  // }
+  function test_rollover_params_consistent() public {
+      vm.startPrank(borrower);
+      address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, oracle, arbiter, ttl);
+      console.log(new_line_address);
+      SecuredLine new_line = SecuredLine(payable(new_line_address));
+      assertEq(new_line.deadline(), 90);
+      assertEq(address(new_line.spigot()), address(line.spigot()));
+      assertEq(address(new_line.escrow()), address(line.escrow()));
+      assertEq(new_line.defaultRevenueSplit(), line.defaultRevenueSplit());
 
-  // function test_rollover_params_consistent() public {
+      address new_escrow_address = address(new_line.escrow());
+      Escrow new_escrow = Escrow(payable(new_escrow_address));
 
+      assertEq(new_escrow.minimumCollateralRatio(), escrow.minimumCollateralRatio());
     
-  // }
+  }
 
 }
