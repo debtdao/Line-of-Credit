@@ -203,8 +203,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /**
-     * @dev - Loops over all credit lines, calls InterestRateCredit with the id data,
-            then updates 'interestAccrued'.  Runs any time a change is made that affects the amount owed.
+     * @dev -   Loops over all credit line ids and calls related internal functions during which InterestRateCredit is called 
+                with the id data and then 'interestAccrued' is updated.  
+                _accrue()runs any time the balance on a credit line changes or the interest rates are changed by mutual consent 
+                between a Borrower and a Lender
     */
     function accrueInterest() external override returns(bool) {
         uint256 len = ids.length;
