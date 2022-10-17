@@ -73,7 +73,7 @@ contract LocalScript is Script {
         // ============== BORROWER
         vm.startBroadcast(borrowerPrivateKey);
 
-        factory = LineFactory(address(0x43158693DBA386562F0581CD48E68dF027a5A877));
+        factory = LineFactory(address(0xc23b896F2b4aE3E6362B0D536113Fa2F0C9b8886));
         address line_address = factory.deploySecuredLine(address(oracle), borrower, borrower, 90, payable(swapTarget));
         line = SecuredLine(payable(line_address)); // interface to securedLine at address x
 
@@ -94,12 +94,12 @@ contract LocalScript is Script {
         
         
         // ============== LENDER
-        // vm.startBroadcast(lenderPrivateKey);
+        vm.startBroadcast(lenderPrivateKey);
 
-        // credit_token.approve(line_address, MAX_INT);
-        // line.addCredit(2000, 1000, credit_amount, address(credit_token), address(lender));
+        credit_token.approve(line_address, MAX_INT);
+        line.addCredit(2000, 1000, credit_amount, address(credit_token), address(lender));
 
-        // vm.stopBroadcast();
+        vm.stopBroadcast();
 
 
 
