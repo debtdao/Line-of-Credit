@@ -1,8 +1,8 @@
 pragma solidity 0.8.9;
 
-import { Denominations } from "chainlink/Denominations.sol";
-import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {Denominations} from "chainlink/Denominations.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
@@ -23,28 +23,23 @@ contract Escrow is IEscrow {
 
     EscrowState private state;
 
-    constructor(
-        uint32 _minimumCollateralRatio,
-        address _oracle,
-        address _line,
-        address _borrower
-    ) {
+    constructor(uint32 _minimumCollateralRatio, address _oracle, address _line, address _borrower) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
         state.line = _line;
         borrower = _borrower;
     }
 
-    function line() external view override returns(address) {
-      return state.line;
+    function line() external view override returns (address) {
+        return state.line;
     }
 
-    function isLiquidatable() external returns(bool) {
-      return state.isLiquidatable(oracle, minimumCollateralRatio);
+    function isLiquidatable() external returns (bool) {
+        return state.isLiquidatable(oracle, minimumCollateralRatio);
     }
 
-    function updateLine(address _line) external returns(bool) {
-      return state.updateLine(_line);
+    function updateLine(address _line) external returns (bool) {
+        return state.updateLine(_line);
     }
 
     /**
@@ -56,10 +51,7 @@ contract Escrow is IEscrow {
      * @param token - the token address of the deposited token
      * @return - the updated cratio
      */
-    function addCollateral(uint256 amount, address token)
-        external payable
-        returns (uint256)
-    {
+    function addCollateral(uint256 amount, address token) external payable returns (uint256) {
         return state.addCollateral(oracle, amount, token);
     }
 
@@ -83,11 +75,7 @@ contract Escrow is IEscrow {
      * @param to - who should receive the funds
      * @return - the updated cratio
      */
-    function releaseCollateral(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (uint256) {
+    function releaseCollateral(uint256 amount, address token, address to) external returns (uint256) {
         return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
     }
 
@@ -119,11 +107,7 @@ contract Escrow is IEscrow {
      * @param to - the address to receive the funds
      * @return - true if successful
      */
-    function liquidate(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (bool) {
+    function liquidate(uint256 amount, address token, address to) external returns (bool) {
         return state.liquidate(amount, token, to);
     }
 }

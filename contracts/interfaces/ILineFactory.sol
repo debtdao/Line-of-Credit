@@ -1,9 +1,8 @@
 pragma solidity 0.8.9;
 
-import { IModuleFactory } from "./IModuleFactory.sol";
+import {IModuleFactory} from "./IModuleFactory.sol";
 
 interface ILineFactory is IModuleFactory {
-
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,
@@ -18,26 +17,26 @@ interface ILineFactory is IModuleFactory {
     function deploySecuredLine(
         address oracle,
         address arbiter,
-        address borrower, 
-        uint ttl,
+        address borrower,
+        uint256 ttl,
         address payable swapTarget
-    ) external returns(address);
+    ) external returns (address);
 
     function deploySecuredLineWithConfig(
-        address oracle, 
+        address oracle,
         address arbiter,
-        address borrower, 
-        uint ttl, 
+        address borrower,
+        uint256 ttl,
         uint8 revenueSplit,
         uint32 cratio,
         address payable swapTarget
-    ) external returns(address);
+    ) external returns (address);
 
     function rolloverSecuredLine(
         address payable oldLine,
-        address borrower, 
+        address borrower,
         address oracle,
         address arbiter,
-        uint ttl
-    ) external returns(address);
+        uint256 ttl
+    ) external returns (address);
 }
