@@ -80,7 +80,8 @@ contract LineFactory is ILineFactory {
         address arbiter,
         uint ttl
     ) external returns(address) {
-        LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
+        address new_line = LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
+        return new_line;
     }
 
 }
