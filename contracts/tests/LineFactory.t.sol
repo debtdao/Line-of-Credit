@@ -29,7 +29,7 @@ contract LineFactoryTest is Test {
   address arbiter; 
   address borrower; 
   address swapTarget; 
-  uint256 ttl = 90 days;
+  uint ttl = 90 days;
   address line_address;
   address  spigot_address;
   address escrow_address;
@@ -84,6 +84,7 @@ contract LineFactoryTest is Test {
     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
 
   }
+  
 
   function test_config_params_new_line() public {
 
@@ -92,18 +93,19 @@ contract LineFactoryTest is Test {
     assertEq(line.deadline(), block.timestamp + 90 days);
   }
 
+
   function test_escrow_mincratio() public {
-    
     assertEq(escrow.minimumCollateralRatio(), 3000);
   }
 
 
   function test_rollover_params_consistent() public {
-      vm.startPrank(borrower);
+      
+      skip(10000);
       address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, oracle, arbiter, ttl);
-      console.log(new_line_address);
+    
       SecuredLine new_line = SecuredLine(payable(new_line_address));
-      assertEq(new_line.deadline(), 90);
+      assertEq(new_line.deadline(), ttl+10001);
       assertEq(address(new_line.spigot()), address(line.spigot()));
       assertEq(address(new_line.escrow()), address(line.escrow()));
       assertEq(new_line.defaultRevenueSplit(), line.defaultRevenueSplit());
@@ -112,7 +114,5 @@ contract LineFactoryTest is Test {
       Escrow new_escrow = Escrow(payable(new_escrow_address));
 
       assertEq(new_escrow.minimumCollateralRatio(), escrow.minimumCollateralRatio());
-    
   }
-
 }
