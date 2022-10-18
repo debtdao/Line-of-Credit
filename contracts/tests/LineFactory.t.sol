@@ -2,20 +2,13 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
-import { Denominations } from "chainlink/Denominations.sol";
-
-import { MockReceivables } from "../mock/MockReceivables.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
-import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
-
-import { LineLib } from "../utils/LineLib.sol";
-import { CreditLib } from "../utils/CreditLib.sol";
 import { LineFactory } from "../modules/factories/LineFactory.sol";
 import { ModuleFactory } from "../modules/factories/ModuleFactory.sol";
-import {LineFactoryLib} from "../utils/LineFactoryLib.sol";
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 import {Escrow} from "../modules/escrow/Escrow.sol";
+import {LineLib} from "../utils/LineLib.sol";
 
 
 contract LineFactoryTest is Test {
@@ -84,7 +77,7 @@ contract LineFactoryTest is Test {
     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
 
   }
-  
+
 
   function test_config_params_new_line() public {
 
@@ -114,5 +107,14 @@ contract LineFactoryTest is Test {
       Escrow new_escrow = Escrow(payable(new_escrow_address));
 
       assertEq(new_escrow.minimumCollateralRatio(), escrow.minimumCollateralRatio());
+  }
+
+  function test_cannot_rollover_if_not_repaid() public {
+      skip(10000);
+      address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, oracle, arbiter, ttl);
+      
+      vm.startPrank(borrower);
+      vm.expectRevert();
+      line.rollover(new_line_address);
   }
 }
