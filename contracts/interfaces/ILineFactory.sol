@@ -1,8 +1,6 @@
 pragma solidity 0.8.9;
 
-import {IModuleFactory} from "./IModuleFactory.sol";
-
-interface ILineFactory is IModuleFactory {
+interface ILineFactory {
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,
@@ -13,6 +11,18 @@ interface ILineFactory is IModuleFactory {
 
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InvalidRevenueSplit();
+
+    function deployEscrow(
+        uint32 minCRatio,
+        address owner,
+        address borrower
+    ) external returns (address);
+
+    function deploySpigot(
+        address owner,
+        address borrower,
+        address operator
+    ) external returns (address);
 
     function deploySecuredLine(address borrower, uint256 ttl)
         external
@@ -25,7 +35,9 @@ interface ILineFactory is IModuleFactory {
         uint32 cratio
     ) external returns (address);
 
-    function rolloverSecuredLine(address payable oldLine, uint256 ttl)
-        external
-        returns (address);
+    function rolloverSecuredLine(
+        address payable oldLine,
+        address borrower,
+        uint256 ttl
+    ) external returns (address);
 }
