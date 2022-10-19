@@ -182,7 +182,7 @@ const deployTestLine: DeployFunction = async function ({
     'SecuredLoan',
     toLine,
     'borrow',
-    // positionId, amount
+    // id, amount
     [res[1], 5] // literally only 5, not 5 ether. Gorli ETH = mainnet ETH kekek
   );
 };

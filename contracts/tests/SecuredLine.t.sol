@@ -16,7 +16,7 @@ import { MockLine } from "../mock/MockLine.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 
-contract LineTest is Test {
+contract SecuredLineTest is Test {
 
     Escrow escrow;
     Spigot spigot;

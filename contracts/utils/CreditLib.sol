@@ -7,9 +7,9 @@ import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
 import { LineLib } from "./LineLib.sol";
 
 /**
-  * @title Debt DAO P2P Line Library
+  * @title Debt DAO Line of Credit Library
   * @author Kiba Gateaux
-  * @notice Core logic and variables to be reused across all Debt DAO Marketplace lines
+  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
 library CreditLib {
 
@@ -17,27 +17,35 @@ library CreditLib {
         address indexed lender,
         address indexed token,
         uint256 indexed deposit,
-        bytes32 positionId
+        bytes32 id
     );
 
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // lender removing funds from Line  principal
+  // Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
+  
   event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
-  // lender taking interest earned out of contract
+  // Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
+  // Bob - consider changing event name to WithdrawInterest
+  
 
   event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
-  // interest added to borrowers outstanding balance
+  /** After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due 
+     but not yet repaid to the Line of Credit contract
+     */
 
 
   // Borrower Events
 
   event Borrow(bytes32 indexed id, uint256 indexed amount);
-  // receive full line or drawdown on credit
+  // Emits notice that a Borrower has drawn down an amount on a credit line
 
   event RepayInterest(bytes32 indexed id, uint256 indexed amount);
-
+  /** Emits that a Borrower has repaid an amount of interest 
+  (N.B. results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function
+  */
+  
   event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
-
+  // Emits that a Borrower has repaid an amount of principal - there is no corresponding function
 
   error NoTokenPrice();
 
@@ -45,11 +53,11 @@ library CreditLib {
 
 
   /**
-   * @dev          - Create deterministic hash id for a debt position on `line` given position details
-   * @param line   - line that debt position exists on
-   * @param lender - address managing debt position
-   * @param token  - token that is being lent out in debt position
-   * @return positionId
+   * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
+   * @param line   - The Line of Credit facility concerned
+   * @param lender - The address managing the credit line concerned
+   * @param token  - The token being lent out on the credit line concerned
+   * @return id
    */
   function computeId(
     address line,
@@ -62,6 +70,7 @@ library CreditLib {
     return keccak256(abi.encode(line, lender, token));
   }
 
+  // getOutstandingDebt() is called by updateOutstandingDebt()
     function getOutstandingDebt(
       ILineOfCredit.Credit memory credit,
       bytes32 id,
@@ -89,13 +98,13 @@ library CreditLib {
         return (c, principal, interest);
   }
     /**
-     * @notice         - calculates value of tokens in US
-     * @dev            - Assumes oracles all return answers in USD with 1e8 decimals
-                       - Does not check if price < 0. HAndled in Oracle or Line
-     * @param price    - oracle price of asset. 8 decimals
-     * @param amount   - amount of tokens vbeing valued.
-     * @param decimals - token decimals to remove for usd price
-     * @return         - total USD value of amount in 8 decimals 
+     * @notice         - Calculates value of tokens.  Used for calculating the USD value of principal and of interest during getOutstandingDebt()
+     * @dev            - Assumes Oracle returns answers in USD with 1e8 decimals
+                       - Does not check if price < 0. Handled in Oracle or LineOfCredit
+     * @param price    - The Oracle price of the asset. 8 decimals
+     * @param amount   - The amount of tokens being valued.
+     * @param decimals - Token decimals to remove for USD price
+     * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
      */
     function calculateValue(
       int price,
@@ -108,7 +117,7 @@ library CreditLib {
       return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
     }
   
-
+  // Called by _createCredit in LineOfCredit and leads to the broadcast event AddCredit 
   function create(
       bytes32 id,
       uint256 amount,
@@ -147,6 +156,7 @@ library CreditLib {
       return credit;
   }
 
+  // Seems to be called by _repay() which is in turn callable by _close() and depositAndRepay()
   function repay(
     ILineOfCredit.Credit memory credit,
     bytes32 id,
@@ -164,7 +174,7 @@ library CreditLib {
           uint256 interest = credit.interestAccrued;
           uint256 principalPayment = amount - interest;
 
-          // update individual credit position denominated in token
+          // update individual credit line denominated in token
           credit.principal -= principalPayment;
           credit.interestRepaid += interest;
           credit.interestAccrued = 0;
@@ -207,7 +217,7 @@ library CreditLib {
       }
   } }
 
-
+  // returns token demoninated interest accrued for a single id. Called by _accrue during when accruedInterest() is being run in LineOfCredit
   function accrue(
     ILineOfCredit.Credit memory credit,
     bytes32 id,
@@ -226,7 +236,7 @@ library CreditLib {
           credit.deposit
       );
 
-      // update credits balance
+      // update credit line balance
       credit.interestAccrued += accruedToken;
 
       emit InterestAccrued(id, accruedToken);
