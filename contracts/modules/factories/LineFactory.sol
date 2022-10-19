@@ -34,6 +34,9 @@ contract LineFactory is ILineFactory {
         address owner,
         address borrower
     ) external returns (address) {
+        if (oracle == address(0)) {
+            revert InvalidOracleAddress();
+        }
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
@@ -42,6 +45,7 @@ contract LineFactory is ILineFactory {
         address borrower,
         address operator
     ) external returns (address) {
+        
         return factory.deploySpigot(owner, borrower, operator);
     }
 
@@ -49,6 +53,9 @@ contract LineFactory is ILineFactory {
         external
         returns (address line)
     {
+        if (arbiter == address(0)) {
+            revert InvalidArbiterAddress();
+        }
         // deploy new modules
         address s = factory.deploySpigot(address(this), borrower, borrower);
         address e = factory.deployEscrow(
@@ -79,6 +86,10 @@ contract LineFactory is ILineFactory {
     {
         if (coreParams.revenueSplit > MAX_SPLIT) {
             revert InvalidRevenueSplit();
+        }
+
+        if (arbiter == address(0)) {
+            revert InvalidArbiterAddress();
         }
         // deploy new modules
         address s = factory.deploySpigot(
@@ -120,6 +131,9 @@ contract LineFactory is ILineFactory {
         address mSpigot,
         address mEscrow
     ) external returns (address line) {
+        if (arbiter == address(0)) {
+            revert InvalidArbiterAddress();
+        }
         line = LineFactoryLib.deploySecuredLine(
             oracle,
             arbiter,
@@ -153,6 +167,9 @@ contract LineFactory is ILineFactory {
         address borrower,
         uint256 ttl
     ) external returns (address) {
+        if (arbiter == address(0)) {
+            revert InvalidArbiterAddress();
+        }
         LineFactoryLib.rolloverSecuredLine(
             oldLine,
             borrower,
