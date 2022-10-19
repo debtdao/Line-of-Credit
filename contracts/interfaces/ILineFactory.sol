@@ -1,6 +1,13 @@
 pragma solidity 0.8.9;
 
 interface ILineFactory {
+    struct CoreLineParams {
+        address borrower;
+        uint256 ttl;
+        uint32 cratio;
+        uint8 revenueSplit;
+    }
+
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,
@@ -28,11 +35,14 @@ interface ILineFactory {
         external
         returns (address);
 
-    function deploySecuredLineWithConfig(
-        address borrower,
-        uint256 ttl,
-        uint8 revenueSplit,
-        uint32 cratio
+    function deploySecuredLineWithConfig(CoreLineParams calldata coreParams)
+        external
+        returns (address);
+
+    function deploySecuredLineWithModules(
+        CoreLineParams calldata coreParams,
+        address mSpigot,
+        address mEscrow
     ) external returns (address);
 
     function rolloverSecuredLine(

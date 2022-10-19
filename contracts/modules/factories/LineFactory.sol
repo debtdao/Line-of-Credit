@@ -74,37 +74,64 @@ contract LineFactory is ILineFactory {
         return line;
     }
 
-    function deploySecuredLineWithConfig(
-        address borrower,
-        uint256 ttl,
-        uint8 revenueSplit,
-        uint32 cratio
-    ) external returns (address line) {
-        if (revenueSplit > MAX_SPLIT) {
+    function deploySecuredLineWithConfig(CoreLineParams calldata coreParams)
+        external
+        returns (address line)
+    {
+        if (coreParams.revenueSplit > MAX_SPLIT) {
             revert InvalidRevenueSplit();
         }
         // deploy new modules
-        address s = factory.deploySpigot(address(this), borrower, borrower);
+        address s = factory.deploySpigot(
+            address(this),
+            coreParams.borrower,
+            coreParams.borrower
+        );
         address e = factory.deployEscrow(
-            cratio,
+            coreParams.cratio,
             oracle,
             address(this),
-            borrower
+            coreParams.borrower
         );
         line = LineFactoryLib.deploySecuredLine(
             oracle,
             arbiter,
-            borrower,
+            coreParams.borrower,
             payable(swapTarget),
             s,
             e,
-            ttl,
-            revenueSplit
+            coreParams.ttl,
+            coreParams.revenueSplit
         );
         // give modules from address(this) to line so we can run line.init()
         LineFactoryLib.transferModulesToLine(address(line), s, e);
-        emit DeployedSecuredLine(address(line), s, e, swapTarget, revenueSplit);
+        emit DeployedSecuredLine(
+            address(line),
+            s,
+            e,
+            swapTarget,
+            coreParams.revenueSplit
+        );
         return line;
+    }
+
+    /// @dev    We don't transfer the modules because the aren't owned by the factory, the responsibility
+    ///         falls on the [owner of the line]
+    function deploySecuredLineWithModules(
+        CoreLineParams calldata coreParams,
+        address mSpigot,
+        address mEscrow
+    ) external returns (address line) {
+        line = LineFactoryLib.deploySecuredLine(
+            oracle,
+            arbiter,
+            coreParams.borrower,
+            payable(swapTarget),
+            mSpigot,
+            mEscrow,
+            coreParams.ttl,
+            coreParams.revenueSplit
+        );
     }
 
     /**
