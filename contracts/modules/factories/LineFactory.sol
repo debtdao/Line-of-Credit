@@ -71,7 +71,6 @@ contract LineFactory is ILineFactory {
         // give modules from address(this) to line so we can run line.init()
         LineFactoryLib.transferModulesToLine(address(line), s, e);
         emit DeployedSecuredLine(address(line), s, e, swapTarget, split);
-        return line;
     }
 
     function deploySecuredLineWithConfig(CoreLineParams calldata coreParams)
@@ -112,7 +111,6 @@ contract LineFactory is ILineFactory {
             swapTarget,
             coreParams.revenueSplit
         );
-        return line;
     }
 
     /// @dev    We don't transfer the modules because the aren't owned by the factory, the responsibility
@@ -130,6 +128,14 @@ contract LineFactory is ILineFactory {
             mSpigot,
             mEscrow,
             coreParams.ttl,
+            coreParams.revenueSplit
+        );
+
+        emit DeployedSecuredLine(
+            address(line),
+            mEscrow,
+            mSpigot,
+            swapTarget,
             coreParams.revenueSplit
         );
     }
