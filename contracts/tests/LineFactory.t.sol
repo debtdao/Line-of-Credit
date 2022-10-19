@@ -73,7 +73,7 @@ contract LineFactoryTest is Test {
     assertEq(line.defaultRevenueSplit() < 100, true);
   }
 
-  function test_fail_if_revenueSplit_exceeds_100() {
+  function test_fail_if_revenueSplit_exceeds_100() public {
     vm.expectRevert();
     address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, arbiter, borrower, ttl, 110, 3000, payable(swapTarget));
   }
