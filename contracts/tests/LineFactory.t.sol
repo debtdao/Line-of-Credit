@@ -73,13 +73,18 @@ contract LineFactoryTest is Test {
     assertEq(line.defaultRevenueSplit() < 100, true);
   }
 
-  function test_status_active() public {
+  function test_fail_if_revenueSplit_exceeds_100() {
+    vm.expectRevert();
+    address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, arbiter, borrower, ttl, 110, 3000, payable(swapTarget));
+  }
+
+  function test_newly_deployed_lines_are_always_active() public {
     assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
 
   }
 
 
-  function test_config_params_new_line() public {
+  function test_default_params_new_line() public {
 
     assertEq(line.defaultRevenueSplit(), 90);
     assertEq(escrow.minimumCollateralRatio(), 3000);
@@ -87,7 +92,7 @@ contract LineFactoryTest is Test {
   }
 
 
-  function test_escrow_mincratio() public {
+  function test_default_params_escrow() public {
     assertEq(escrow.minimumCollateralRatio(), 3000);
   }
 
