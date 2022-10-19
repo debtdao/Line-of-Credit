@@ -57,8 +57,9 @@ contract LineFactoryTest is Test {
   }
   
  function test_arbiter_cant_be_null() public {
-    address arbiter = line.arbiter();
-    assertTrue(arbiter != address(0x000));
+    vm.expectRevert();
+    address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, address(0), borrower, ttl, 110, 3000, payable(swapTarget));
+    
   }
 
 
