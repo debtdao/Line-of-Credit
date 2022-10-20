@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { LineFactory } from "../modules/factories/LineFactory.sol";
 import { ModuleFactory } from "../modules/factories/ModuleFactory.sol";
+import {ILineFactory} from "../interfaces/ILineFactory.sol";
+import {ISecuredLine} from "../interfaces/ISecuredLine.sol";
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 import {Escrow} from "../modules/escrow/Escrow.sol";
@@ -57,8 +59,8 @@ contract LineFactoryTest is Test {
   }
   
  function test_arbiter_cant_be_null() public {
-    vm.expectRevert();
-    address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, address(0), borrower, ttl, 110, 3000, payable(swapTarget));
+    vm.expectRevert(ILineFactory.InvalidArbiter.selector);
+    address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, address(0), borrower, ttl, 90, 3000, payable(swapTarget));
     
   }
 
@@ -70,17 +72,14 @@ contract LineFactoryTest is Test {
      assertEq(address(line.spigot()), address(spigot));
   }
 
-  function test_revenue_split_cannot_exceed_100() public {
-    assertEq(line.defaultRevenueSplit() < 100, true);
-  }
 
   function test_fail_if_revenueSplit_exceeds_100() public {
-    vm.expectRevert();
+    vm.expectRevert(ILineFactory.InvalidRevenueSplit.selector);
     address bad_line = lineFactory.deploySecuredLineWithConfig(oracle, arbiter, borrower, ttl, 110, 3000, payable(swapTarget));
   }
 
   function test_newly_deployed_lines_are_always_active() public {
-    assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
+    assertEq(uint(line.status()), uint(LineLib.STATUS.ACTIVE));
 
   }
 
@@ -120,7 +119,7 @@ contract LineFactoryTest is Test {
       address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, oracle, arbiter, ttl);
       
       vm.startPrank(borrower);
-      vm.expectRevert();
+      vm.expectRevert(ISecuredLine.DebtOwed.selector);
       line.rollover(new_line_address);
   }
 }

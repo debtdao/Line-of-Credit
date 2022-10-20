@@ -4,6 +4,8 @@ import { IModuleFactory } from "./IModuleFactory.sol";
 
 interface ILineFactory is IModuleFactory {
 
+    error InvalidArbiter();
+
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,
