@@ -25,7 +25,6 @@ contract EscrowTest is Test {
     uint256 mintAmount = 100 ether;
     uint256 MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint32 minCollateralRatio = 10000; // 100%
-
     address borrower = address(this);
     address arbiter = address(20);
 
