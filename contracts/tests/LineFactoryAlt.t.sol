@@ -40,6 +40,10 @@ contract LineFactoryAltTest is Test {
     }
 
     function test_deploy_line_with_modules() public {
+        lineOfCredit = _deployLineOfCredit();
+    }
+
+    function _deployLineOfCredit() internal returns (address securedLine) {
         // deploy the spigot and escrow contracts
         deployedSpigot = moduleFactory.deploySpigot(lender, borrower, borrower);
         deployedEscrow = moduleFactory.deployEscrow(
@@ -67,7 +71,7 @@ contract LineFactoryAltTest is Test {
                 revenueSplit: 50
             });
 
-        lineFactory.deploySecuredLineWithModules(
+        securedLine = lineFactory.deploySecuredLineWithModules(
             coreParams,
             deployedSpigot,
             deployedEscrow
