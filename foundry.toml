@@ -75,7 +75,7 @@ libraries = [
 chains = 'all'
 endpoints = 'all'
 
-[fmt]
+[profile.default.fmt]
 line_length = 120
 tab_width = 4
 bracket_spacing = false
