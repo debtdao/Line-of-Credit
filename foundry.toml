@@ -77,7 +77,7 @@ endpoints = 'all'
 
 [fmt]
 line_length = 120
-tab_width = 3
+tab_width = 4
 bracket_spacing = false
 int_types = 'long'
 func_attrs_with_params_multiline = true
