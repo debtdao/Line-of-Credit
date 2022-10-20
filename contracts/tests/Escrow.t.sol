@@ -12,7 +12,7 @@ import {LineLib} from "../utils/LineLib.sol";
 import {MockLine} from "../mock/MockLine.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleOracle} from "../mock/SimpleOracle.sol";
-import {RevenueToken4626} from "../mock/RevenueToken4626.sol";
+                import {RevenueToken4626} from "../mock/RevenueToken4626.sol";
 
 contract EscrowTest is Test {
     Escrow escrow;
