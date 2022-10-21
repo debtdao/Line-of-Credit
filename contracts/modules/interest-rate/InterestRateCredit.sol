@@ -54,13 +54,18 @@ contract InterestRateCredit is IInterestRateCredit {
         uint256 timespan = block.timestamp - rate.lastAccrued;
         rates[id].lastAccrued = block.timestamp;
 
-        // r = APR in BPS, x = # tokens, t = time
-        // interest = (r * x * t) / 1yr / 100
-        // facility = deposited - drawn (aka undrawn balance)
-        return (((rate.dRate * drawnBalance * timespan) /
-            INTEREST_DENOMINATOR) +
-            ((rate.fRate * (facilityBalance - drawnBalance) * timespan) /
-                INTEREST_DENOMINATOR));
+        return (
+          _calculateInterestOwed(rate.dRate, drawnBalance, timespan) +
+          _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan)
+        );
+        
+    }
+      
+    // r = APR in BPS, x = # tokens, t = time
+    // interest = (r * x * t) / 1yr / 100
+    // facility = deposited - drawn (aka undrawn balance)
+    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal pure returns(uint256) {
+      return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 
     /**
