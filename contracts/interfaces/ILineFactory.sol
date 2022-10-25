@@ -18,6 +18,8 @@ interface ILineFactory {
 
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InvalidRevenueSplit();
+    error InvalidOracleAddress();
+    error InvalidArbiterAddress();
 
     function deployEscrow(
         uint32 minCRatio,
