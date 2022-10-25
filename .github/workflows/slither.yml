@@ -1,0 +1,29 @@
+name: Slither Analysis
+on: [push]
+  
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2     # foundry docs say v3 but npm install uses v2
+        with:
+          submodules: recursive       # ensure forge-std installed
+      - uses: bahmutov/npm-install@v1
+        with:
+          useLockFile: true
+        env:
+          NODE_ENV: development       # install all test tooling 
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: build
+        run: forge build
+
+      - name: Run Slither
+        uses: crytic/slither-action@v0.2.0
+        with:
+          ignore-compile: true
