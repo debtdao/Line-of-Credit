@@ -9,6 +9,7 @@ libs = [
 
 remappings = [
     "forge-std/=lib/forge-std/src/",
+    "ds-test/=lib/forge-std/lib/ds-test/src/",
     "chainlink/=lib/chainlink/contracts/src/v0.8/",
     "openzeppelin/=lib/openzeppelin-contracts/contracts/"
 ]
