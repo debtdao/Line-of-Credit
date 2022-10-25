@@ -1,8 +1,12 @@
 pragma solidity 0.8.9;
 
-import { IModuleFactory } from "./IModuleFactory.sol";
-
-interface ILineFactory is IModuleFactory {
+interface ILineFactory {
+    struct CoreLineParams {
+        address borrower;
+        uint256 ttl;
+        uint32 cratio;
+        uint8 revenueSplit;
+    }
 
     error InvalidArbiter();
 
@@ -16,30 +20,38 @@ interface ILineFactory is IModuleFactory {
 
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InvalidRevenueSplit();
+    error InvalidOracleAddress();
+    error InvalidArbiterAddress();
 
-    function deploySecuredLine(
-        address oracle,
-        address arbiter,
-        address borrower, 
-        uint ttl,
-        address payable swapTarget
-    ) external returns(address);
+    function deployEscrow(
+        uint32 minCRatio,
+        address owner,
+        address borrower
+    ) external returns (address);
 
-    function deploySecuredLineWithConfig(
-        address oracle, 
-        address arbiter,
-        address borrower, 
-        uint ttl, 
-        uint8 revenueSplit,
-        uint32 cratio,
-        address payable swapTarget
-    ) external returns(address);
+    function deploySpigot(
+        address owner,
+        address borrower,
+        address operator
+    ) external returns (address);
+
+    function deploySecuredLine(address borrower, uint256 ttl)
+        external
+        returns (address);
+
+    function deploySecuredLineWithConfig(CoreLineParams calldata coreParams)
+        external
+        returns (address);
+
+    function deploySecuredLineWithModules(
+        CoreLineParams calldata coreParams,
+        address mSpigot,
+        address mEscrow
+    ) external returns (address);
 
     function rolloverSecuredLine(
         address payable oldLine,
-        address borrower, 
-        address oracle,
-        address arbiter,
-        uint ttl
-    ) external returns(address);
+        address borrower,
+        uint256 ttl
+    ) external returns (address);
 }
