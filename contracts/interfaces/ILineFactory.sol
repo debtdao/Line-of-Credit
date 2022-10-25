@@ -8,6 +8,8 @@ interface ILineFactory {
         uint8 revenueSplit;
     }
 
+    error InvalidArbiter();
+
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,

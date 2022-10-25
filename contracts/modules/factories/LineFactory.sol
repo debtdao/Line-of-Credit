@@ -164,13 +164,13 @@ contract LineFactory is ILineFactory {
      */
     function rolloverSecuredLine(
         address payable oldLine,
-        address borrower,
-        uint256 ttl
-    ) external returns (address) {
+        address borrower, 
+        uint ttl
+    ) external returns(address newLine) {
         if (arbiter == address(0)) {
             revert InvalidArbiterAddress();
         }
-        LineFactoryLib.rolloverSecuredLine(
+        newLine = LineFactoryLib.rolloverSecuredLine(
             oldLine,
             borrower,
             oracle,
