@@ -256,12 +256,13 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
    * @dev    - callable by anyone 
    * @return - whether or not a Spigot was released
   */
-    function releaseSpigot() external returns (bool) {
+    function releaseSpigot(address to) external returns (bool) {
         return SpigotedLineLib.releaseSpigot(
           address(spigot),
           _updateStatus(_healthcheck()),
           borrower,
-          arbiter
+          arbiter,
+          to
         );
     }
 
