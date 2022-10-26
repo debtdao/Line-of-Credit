@@ -371,5 +371,11 @@ contract EscrowTest is Test {
     }
 
 
+    function test_cannot_be_liquidatable_if_debt_is_0() public {
+
+        assertEq(line.healthcheck(), );
+    }
+
+
     receive() external payable {}
 }
