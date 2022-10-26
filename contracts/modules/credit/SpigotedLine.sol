@@ -133,6 +133,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
 
       credits[id] = _repay(_accrue(credit, id), id, amount);
 
+      emit RevenuePayment(credit.token, amount);
+
       return true;
     }
 

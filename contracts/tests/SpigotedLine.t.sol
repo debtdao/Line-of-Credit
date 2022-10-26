@@ -804,6 +804,57 @@ contract SpigotedLineTest is Test {
       assertEq(swept, revenueToken.balanceOf(address(arbiter)) - balance); // arbiter balance updates properly
     }
 
+    function test_arbiter_sweep_if_status_liquidatable() public {
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount
+
+      _borrow(line.ids(0), lentAmount);
+
+      hoax(borrower);
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimed - 1,
+        lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
+      );
+     
+      line.claimAndTrade(address(revenueToken), tradeData);
+     
+      vm.warp(ttl+1);
+      vm.startPrank(arbiter);
+      line.sweep(arbiter, address(creditToken));
+    }
+
+    function test_arbiter_sweep_if_status_insolvent() public {
+      uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount
+
+      _borrow(line.ids(0), lentAmount);
+
+      hoax(borrower);
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimed - 1,
+        lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
+      );
+     
+      line.claimAndTrade(address(revenueToken), tradeData);
+      vm.warp(ttl+1);
+
+      line.releaseSpigot();
+      
+      vm.startPrank(arbiter);
+      spigot.updateOwner(address(30));
+      line.declareInsolvent();
+      
+      assertEq(uint8(line.status()), uint8(LineLib.STATUS.INSOLVENT));
+      
+      line.sweep(arbiter, address(creditToken));
+      
+      
+    }
+
     // updateOwnerSplit()
 
     function test_split_must_be_lte_100(uint8 proposedSplit) public {

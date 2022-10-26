@@ -222,7 +222,7 @@ library SpigotedLineLib {
 
         }
 
-        if (status == LineLib.STATUS.LIQUIDATABLE) {
+        if (status == LineLib.STATUS.LIQUIDATABLE || status == LineLib.STATUS.INSOLVENT) {
             if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
             return LineLib.sendOutTokenOrETH(token, to, amount);
         }
