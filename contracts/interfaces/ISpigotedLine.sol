@@ -40,7 +40,7 @@ interface ISpigotedLine {
 
     function updateOwnerSplit(address revenueContract) external returns (bool);
 
-    function releaseSpigot() external returns (bool);
+    function releaseSpigot(address to) external returns (bool);
 
     function sweep(address to, address token) external returns (uint256);
 

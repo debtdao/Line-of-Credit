@@ -404,7 +404,7 @@ contract SecuredLineTest is Test {
         hoax(arbiter);
 
         // ensure spigot insolvency check passes
-        assertTrue(line.releaseSpigot());
+        assertTrue(line.releaseSpigot(arbiter));
         // "sell" spigot off
         line.spigot().updateOwner(address(0xf1c0));
 
@@ -445,7 +445,7 @@ contract SecuredLineTest is Test {
         vm.warp(ttl+1);
         //hoax(arbiter);
         
-        assertTrue(line.releaseSpigot());
+        assertTrue(line.releaseSpigot(borrower));
         assertTrue(line.spigot().updateOwner(address(0xf1c0)));
         assertEq(1 ether, line.liquidate(1 ether, address(supportedToken2)));
         // release spigot + liquidate

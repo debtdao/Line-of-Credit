@@ -624,7 +624,7 @@ contract SpigotedLineTest is Test {
     // releaseSpigot()
 
     function test_release_spigot_while_active() public {
-      assertFalse(line.releaseSpigot());
+      assertFalse(line.releaseSpigot(arbiter));
     }
 
     function test_release_spigot_to_borrower_when_repaid() public {  
@@ -633,7 +633,7 @@ contract SpigotedLineTest is Test {
       vm.stopPrank();
 
       hoax(borrower);
-      assertTrue(line.releaseSpigot());
+      assertTrue(line.releaseSpigot(borrower));
 
       assertEq(spigot.owner(), borrower);
     }
@@ -644,13 +644,13 @@ contract SpigotedLineTest is Test {
       vm.stopPrank();
 
       vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-      line.releaseSpigot();
+      line.releaseSpigot(borrower);
     }
 
     function test_release_spigot_to_arbiter_when_liquidated() public {  
       vm.warp(ttl+1);
 
-      assertTrue(line.releaseSpigot());
+      assertTrue(line.releaseSpigot(borrower));
 
       assertEq(spigot.owner(), arbiter);
     }
@@ -661,7 +661,7 @@ contract SpigotedLineTest is Test {
 
       hoax(lender);
       vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-      line.releaseSpigot();
+      line.releaseSpigot(arbiter);
     }
     // sweep()
 
@@ -842,7 +842,7 @@ contract SpigotedLineTest is Test {
       line.claimAndTrade(address(revenueToken), tradeData);
       vm.warp(ttl+1);
 
-      line.releaseSpigot();
+      line.releaseSpigot(arbiter);
       
       vm.startPrank(arbiter);
       spigot.updateOwner(address(30));
@@ -852,7 +852,34 @@ contract SpigotedLineTest is Test {
       
       line.sweep(arbiter, address(creditToken));
       
+    }
+
+    function test_new_owner_when_spigot_released() public {
+          uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount
+
+      _borrow(line.ids(0), lentAmount);
+
+      hoax(borrower);
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimed - 1,
+        lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
+      );
+     
+      line.claimAndTrade(address(revenueToken), tradeData);
+      vm.warp(ttl+1);
+
+      line.releaseSpigot(arbiter);
       
+      vm.startPrank(arbiter);
+
+      address new_owner = address(30);
+      spigot.updateOwner(new_owner);
+
+      assertEq(spigot.owner(), new_owner);
+
     }
 
     // updateOwnerSplit()
