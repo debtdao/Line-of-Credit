@@ -22,6 +22,8 @@ interface ILineFactory {
     error InvalidRevenueSplit();
     error InvalidOracleAddress();
     error InvalidArbiterAddress();
+    error InvalidEscrowAddress();
+    error InvalidSpigotAddress();
 
     function deployEscrow(
         uint32 minCRatio,

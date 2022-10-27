@@ -7,6 +7,9 @@ import {LineFactory} from "../modules/factories/LineFactory.sol";
 import {ModuleFactory} from "../modules/factories/ModuleFactory.sol";
 import {ILineFactory} from "../interfaces/ILineFactory.sol";
 import {ISecuredLine} from "../interfaces/ISecuredLine.sol";
+import {ISpigot} from "../interfaces/ISpigot.sol";
+
+import {IEscrow} from "../interfaces/IEscrow.sol";
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 import {Escrow} from "../modules/escrow/Escrow.sol";
@@ -79,6 +82,45 @@ contract LineFactoryTest is Test {
         );
     }
 
+    function test_deploying_secure_line_with_modules() public {
+        // owner, treasury, operator
+        address moduleSpigot = moduleFactory.deploySpigot(
+            address(this), // owner
+            borrower,
+            borrower
+        );
+
+        // minimumCollateralratio, oracle, line, borrower
+        address moduleEscrow = moduleFactory.deployEscrow(
+            3000, // cRatio
+            oracle,
+            address(this), // owner
+            borrower
+        );
+
+        ILineFactory.CoreLineParams memory coreParams = ILineFactory
+            .CoreLineParams({
+                borrower: borrower,
+                ttl: ttl,
+                cratio: 3000,
+                revenueSplit: 90
+            });
+
+        address moduleLine = lineFactory.deploySecuredLineWithModules(
+            coreParams,
+            moduleSpigot,
+            moduleEscrow
+        );
+
+        ISpigot(moduleSpigot).updateOwner(moduleLine);
+        IEscrow(moduleEscrow).updateLine(moduleLine);
+
+        assertEq(ISpigot(moduleSpigot).owner(), moduleLine);
+        assertEq(IEscrow(moduleEscrow).line(), moduleLine);
+    }
+
+    // TODO: add a test for "forgetting" to transfer ownership and the repercussions
+
     function test_new_line_has_correct_spigot_and_escrow() public {
         assertEq(spigot.owner(), line_address);
         assertEq(escrow.line(), line_address);
@@ -86,7 +128,9 @@ contract LineFactoryTest is Test {
         assertEq(address(line.spigot()), address(spigot));
     }
 
+    // TODO: should use some fuzzing here
     function test_fail_if_revenueSplit_exceeds_100() public {
+        // vm.assume( pct > 100)
         ILineFactory.CoreLineParams memory coreParams = ILineFactory
             .CoreLineParams({
                 borrower: borrower,

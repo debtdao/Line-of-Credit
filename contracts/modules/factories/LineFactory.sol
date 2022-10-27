@@ -45,7 +45,6 @@ contract LineFactory is ILineFactory {
         address borrower,
         address operator
     ) external returns (address) {
-        
         return factory.deploySpigot(owner, borrower, operator);
     }
 
@@ -126,6 +125,8 @@ contract LineFactory is ILineFactory {
 
     /// @dev    We don't transfer the modules because the aren't owned by the factory, the responsibility
     ///         falls on the [owner of the line]
+    /// @dev    the `cratio` in the CoreParams are ignored, due to the fact
+    ///         they're passed in when the Escrow is created
     function deploySecuredLineWithModules(
         CoreLineParams calldata coreParams,
         address mSpigot,
@@ -134,6 +135,17 @@ contract LineFactory is ILineFactory {
         if (arbiter == address(0)) {
             revert InvalidArbiterAddress();
         }
+
+        // TODO: test
+        if (mSpigot == address(0)) {
+            revert InvalidSpigotAddress();
+        }
+
+        // TODO: test
+        if (mEscrow == address(0)) {
+            revert InvalidEscrowAddress();
+        }
+
         line = LineFactoryLib.deploySecuredLine(
             oracle,
             arbiter,
@@ -164,9 +176,9 @@ contract LineFactory is ILineFactory {
      */
     function rolloverSecuredLine(
         address payable oldLine,
-        address borrower, 
-        uint ttl
-    ) external returns(address newLine) {
+        address borrower,
+        uint256 ttl
+    ) external returns (address newLine) {
         if (arbiter == address(0)) {
             revert InvalidArbiterAddress();
         }
