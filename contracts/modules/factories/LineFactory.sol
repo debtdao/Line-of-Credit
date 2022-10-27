@@ -123,10 +123,13 @@ contract LineFactory is ILineFactory {
         );
     }
 
-    /// @dev    We don't transfer the modules because the aren't owned by the factory, the responsibility
-    ///         falls on the [owner of the line]
-    /// @dev    the `cratio` in the CoreParams are ignored, due to the fact
-    ///         they're passed in when the Escrow is created
+    /**
+     *   @dev   We don't transfer the ownership of Escrow and Spigot internally
+     *          because they aren't owned by the factory, the responsibility falls
+     *          on the [owner of the line]
+     *   @dev   The `cratio` in the CoreParams are not used, due to the fact
+     *          they're passed in when the Escrow is created separately.
+     */
     function deploySecuredLineWithModules(
         CoreLineParams calldata coreParams,
         address mSpigot,
