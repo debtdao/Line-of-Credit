@@ -38,13 +38,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     LineLib.STATUS public status;
 
     /**
-   * @notice - how to deploy a Line of Credit
-   * @dev - A Borrower and a first Lender agree on terms then the Borrower deploys the contract using the contructor below
-            Later, both Lender and borrower must call _mutualConsent during addCredit() to add actually deposit funds
-   * @param oracle_ - The price oracle to use for getting all token values
-   * @param arbiter_ - A neutral party with some special priviliges on behalf of Borrower and Lender
-   * @param borrower_ - the debitor for all credit lines in this contract
-   * @param ttl_ - the time to live for all credit lines for the Line of Credit facility (sets the term of the Line of Credit)
+   * @notice            - How to deploy a Line of Credit
+   * @dev               - A Borrower and a first Lender agree on terms. Then the Borrower deploys the contract using the constructor below.
+   *                      Later, both Lender and Borrower must call _mutualConsent() during addCredit() to actually enable funds to be deposited.
+   * @param oracle_     - The price oracle to use for getting all token values.
+   * @param arbiter_    - A neutral party with some special priviliges on behalf of Borrower and Lender.
+   * @param borrower_   - The debitor for all credit lines in this contract.
+   * @param ttl_        - The time to live for all credit lines for the Line of Credit facility (sets the maturity/term of the Line of Credit)
   */
     constructor(
         address oracle_,
@@ -90,10 +90,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         _;
     }
 
-    /** @notice - in _mutualConsent, uses the credit line id to get Lender address instead of passing it in directly */
+    /** @notice - in _mutualConsent(), uses the credit line id to get Lender address instead of passing it in directly */
     modifier mutualConsentById(address _signerOne, bytes32 id) {
       if(_mutualConsent(_signerOne, credits[id].lender))  {
-        // Run whatever code needed 2/2 consent
+        // Run whatever code is needed for the 2/2 consent
         _;
       }
     }
@@ -202,10 +202,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         }
     }
 
+    /** 
+     *
+     * @notice - Updates accrued interest for the whole Line of Credit facility (i.e. for all credit lines)
+     * @dev    - Loops over all credit line ids and calls related internal functions during which InterestRateCredit.sol   
+     *           is called with the id data and then 'interestAccrued' is updated.
+     * @dev    - The related internal function _accrue() is called by other functions any time the balance on an individual
+     *           credit line changes or if the interest rates of a credit line are changed by mutual consent
+     *           between a Borrower and a Lender.
+     *
+     */
+
     /**
-     * @dev - Loops over all credit lines, calls InterestRateCredit with the id data,
-            then updates 'interestAccrued'.  Runs any time a change is made that affects the amount owed.
+     * @dev -   Loops over all credit line ids and calls related internal functions during which InterestRateCredit is called 
+                with the id data and then 'interestAccrued' is updated.  
+                _accrue()runs any time the balance on a credit line changes or the interest rates are changed by mutual consent 
+                between a Borrower and a Lender
     */
+
     function accrueInterest() external override returns(bool) {
         uint256 len = ids.length;
         bytes32 id;
@@ -219,13 +233,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return true;
     }
 
+    //@notice - accrues interest for a single credit line id any time a balance or interest rate changes
+    
     function _accrue(Credit memory credit, bytes32 id) internal returns(Credit memory) {
       return CreditLib.accrue(credit, id, address(interestRate));
     }
 
     /**
-   * @notice        After a Borrower and a Lender have agreed terms, both Lender and borrower must call _mutualConsent during addCredit()
-                    to add actually deposit funds to a credit line
+   * @notice        - After a Borrower and a Lender have agreed terms, both Lender and borrower must call _mutualConsent during addCredit()
+                      to add actually deposit funds to a credit line
    * @dev           - callable by `lender` and `borrower
    * @param drate   - The interest rate charged to a Borrower on borrowed / drawn down funds in bps, 4 decimals
    * @param frate   - The interest rate charged to a Borrower on the remaining funds available, but not yet drawn down 
@@ -471,7 +487,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     //  Internal  funcs //
     //////////////////////
 
-    // updateStatus() will return a change in status (if it has changed). If the status has changed, it won't however return what ther prior status was.
+    // updateStatus() will return a change in status (if it has changed). If the status has changed, it won't however return what the  prior status was.
     function _updateStatus(LineLib.STATUS status_) internal returns(LineLib.STATUS) {
       if(status == status_) return status_;
       emit UpdateStatus(uint256(status_));
