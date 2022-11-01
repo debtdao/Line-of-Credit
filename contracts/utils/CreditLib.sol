@@ -20,18 +20,17 @@ library CreditLib {
         bytes32 id
     );
 
+  /// @notice Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
-  // Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
   
-  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
-  // Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
+  /// @notice Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
   // Bob - consider changing event name to WithdrawInterest
+  event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
   
 
+  /// @notice After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due 
+  // but not yet repaid to the Line of Credit contract
   event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
-  /** After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due 
-     but not yet repaid to the Line of Credit contract
-     */
 
 
   // Borrower Events
@@ -71,53 +70,58 @@ library CreditLib {
   }
 
   // getOutstandingDebt() is called by updateOutstandingDebt()
-    function getOutstandingDebt(
-      ILineOfCredit.Credit memory credit,
-      bytes32 id,
-      address oracle,
-      address interestRate
-    )
-      external
-      returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest)
-    {
-        c = accrue(credit, id, interestRate);
+  function getOutstandingDebt(
+    ILineOfCredit.Credit memory credit,
+    bytes32 id,
+    address oracle,
+    address interestRate
+  )
+    external
+    returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest)
+  {
+    c = accrue(credit, id, interestRate);
 
-        int256 price = IOracle(oracle).getLatestAnswer(c.token);
+    int256 price = IOracle(oracle).getLatestAnswer(c.token);
 
-        principal = calculateValue(
-            price,
-            c.principal,
-            c.decimals
-        );
-        interest = calculateValue(
-            price,
-            c.interestAccrued,
-            c.decimals
-        );
+    principal = calculateValue(
+      price,
+      c.principal,
+      c.decimals
+    );
+    interest = calculateValue(
+      price,
+      c.interestAccrued,
+      c.decimals
+    );
 
-        return (c, principal, interest);
+    return (c, principal, interest);
   }
+
     /**
-     * @notice         - Calculates value of tokens.  Used for calculating the USD value of principal and of interest during getOutstandingDebt()
-     * @dev            - Assumes Oracle returns answers in USD with 1e8 decimals
-                       - Does not check if price < 0. Handled in Oracle or LineOfCredit
-     * @param price    - The Oracle price of the asset. 8 decimals
-     * @param amount   - The amount of tokens being valued.
-     * @param decimals - Token decimals to remove for USD price
-     * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
-     */
-    function calculateValue(
-      int price,
-      uint256 amount,
-      uint8 decimals
-    )
-      public  pure
-      returns(uint256)
-    {
-      return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
-    }
+    * @notice         - Calculates value of tokens.  Used for calculating the USD value of principal and of interest during getOutstandingDebt()
+    * @dev            - Assumes Oracle returns answers in USD with 1e8 decimals
+                      - If price < 0 then we treat it as 0.
+    * @param price    - The Oracle price of the asset. 8 decimals
+    * @param amount   - The amount of tokens being valued.
+    * @param decimals - Token decimals to remove for USD price
+    * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
+    */
+  function calculateValue(
+    int price,
+    uint256 amount,
+    uint8 decimals
+  )
+    public  pure
+    returns(uint256)
+  {
+    return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
+  }
   
-  // Called by _createCredit in LineOfCredit and leads to the broadcast event AddCredit 
+  /**
+    * see ILineOfCredit._createCredit
+    * @notice called by LineOfCredit._createCredit during every repayment function
+    * @param oracle - interset rate contract used by line that will calculate interest owed
+   */
   function create(
       bytes32 id,
       uint256 amount,
@@ -156,7 +160,11 @@ library CreditLib {
       return credit;
   }
 
-  // Seems to be called by _repay() which is in turn callable by _close() and depositAndRepay()
+  /**
+    * see ILineOfCredit._repay
+    * @notice called by LineOfCredit._repay during every repayment function
+    * @param credit - The lender position being repaid
+   */
   function repay(
     ILineOfCredit.Credit memory credit,
     bytes32 id,
@@ -186,6 +194,11 @@ library CreditLib {
       }
   } }
 
+  /**
+    * see ILineOfCredit.withdraw
+    * @notice called by LineOfCredit.withdraw during every repayment function
+    * @param credit - The lender position that is being bwithdrawn from
+   */
   function withdraw(
     ILineOfCredit.Credit memory credit,
     bytes32 id,
@@ -217,7 +230,12 @@ library CreditLib {
       }
   } }
 
-  // returns token demoninated interest accrued for a single id. Called by _accrue during when accruedInterest() is being run in LineOfCredit
+
+  /**
+    * see ILineOfCredit._accrue
+    * @notice called by LineOfCredit._accrue during every repayment function
+    * @param interest - interset rate contract used by line that will calculate interest owed
+   */
   function accrue(
     ILineOfCredit.Credit memory credit,
     bytes32 id,

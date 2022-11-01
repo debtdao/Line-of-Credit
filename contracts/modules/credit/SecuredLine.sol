@@ -31,6 +31,9 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
 
     }
 
+  /**
+    * @dev requires both Spigot and Escrow to pass _init to succeed
+  */
   function _init() internal override(SpigotedLine, EscrowedLine) virtual returns(LineLib.STATUS) {
      LineLib.STATUS s =  LineLib.STATUS.ACTIVE;
     
@@ -41,6 +44,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     return s;
   }
 
+  /// see IsecuredLine.rollover
   function rollover(address newLine)
     external
     onlyBorrower
@@ -62,11 +66,12 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
   }
 
 
-  // Liquidation
   /**
-   * @notice - Forcefully take collateral from borrower and repay debt for lender
-   * @dev - only called by neutral arbiter party/contract
-   * @dev - `status` must be LIQUIDATABLE
+   * see EscrowedLine._liquidate
+   * @notice - Forcefully take collateral from Escrow and repay debt for lender
+   *          - current implementation just sends "liquidated" tokens to Arbiter to sell off how the deem fit and then manually repay with DepositAndRepay
+   * @dev - only callable by Arbiter
+   * @dev - Line status MUST be LIQUIDATABLE
    * @dev - callable by `arbiter`
    * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
    * @param targetToken - token in escrow that will be sold of to repay position
@@ -89,29 +94,31 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     return _liquidate(ids[0], amount, targetToken, msg.sender);
   }
 
-  
-    /** @notice checks internal accounting logic for status and if ok, runs modules checks */
-    function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns(LineLib.STATUS) {
-      LineLib.STATUS s = LineOfCredit._healthcheck();
-      if(s != LineLib.STATUS.ACTIVE) {
-        return s;
-      }
-
-      return EscrowedLine._healthcheck();
+  function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns(LineLib.STATUS) {
+    LineLib.STATUS s = LineOfCredit._healthcheck();
+    if(s != LineLib.STATUS.ACTIVE) {
+      return s;
     }
 
+    return EscrowedLine._healthcheck();
+  }
 
-    /// @notice all insolvency conditions must pass for call to succeed
-    function _canDeclareInsolvent()
-      internal
-      virtual
-      override(EscrowedLine, SpigotedLine)
-      returns(bool)
-    {
-      return (
-        EscrowedLine._canDeclareInsolvent() &&
-        SpigotedLine._canDeclareInsolvent()
-      );
-    }
+
+  /**
+    * @notice Wrapper for SpigotedLine and EscrowedLine internal functions
+    * @dev - both underlying calls MUST return true for Line status to change to INSOLVENT
+    * @return isInsolvent - if the entire Line including all collateral sources is fuly insolvent.
+  */
+  function _canDeclareInsolvent()
+    internal
+    virtual
+    override(EscrowedLine, SpigotedLine)
+    returns(bool)
+  {
+    return (
+      EscrowedLine._canDeclareInsolvent() &&
+      SpigotedLine._canDeclareInsolvent()
+    );
+  }
 
 }

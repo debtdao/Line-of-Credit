@@ -68,7 +68,8 @@ library SpigotedLineLib {
         uint256 oldClaimTokens = LineLib.getBalance(claimToken);
         uint256 oldTargetTokens = LineLib.getBalance(targetToken);
         
-        // claim has to be called after we get balance
+        // @dev claim has to be called after we get balance
+        // reverts if there are no tokens to claim
         uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
 
         trade(

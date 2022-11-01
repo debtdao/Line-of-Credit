@@ -38,6 +38,7 @@ contract LineFactory is ILineFactory {
         swapTarget = swapTarget_;
     }
 
+    /// see ModuleFactory.deployEscrow.
     function deployEscrow(
         uint32 minCRatio,
         address owner,
@@ -46,6 +47,7 @@ contract LineFactory is ILineFactory {
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
+    /// see ModuleFactory.deploySpigot.
     function deploySpigot(
         address owner,
         address borrower,

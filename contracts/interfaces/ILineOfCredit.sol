@@ -84,9 +84,28 @@ interface ILineOfCredit {
   error NotLiquidatable();
   error AlreadyInitialized();
 
+
+  // Fully public functions
+
   function init() external returns(LineLib.STATUS);
 
+  
   // MutualConsent functions
+
+  /**
+    * @notice        - On first call, creates proposed terms and emits MutualConsentRegistsered event. No position is created.
+                      - On second call, creates position and stores in Line contract, sets interest rates, and starts accruing facility rate fees.
+    * @dev           - Requires mutualConsent participants send EXACT same params when calling addCredit
+    * @dev           - Fully executes function after a Borrower and a Lender have agreed terms, both Lender and borrower have agreed through mutualConsent
+    * @dev           - callable by `lender` and `borrower`
+    * @param drate   - The interest rate charged to a Borrower on borrowed / drawn down funds. In bps, 4 decimals.
+    * @param frate   - The interest rate charged to a Borrower on the remaining funds available, but not yet drawn down 
+                        (rate charged on the available headroom). In bps, 4 decimals.
+    * @param amount  - The amount of Credit Token to initially deposit by the Lender
+    * @param token   - The Credit Token, i.e. the token to be lent out
+    * @param lender  - The address that will manage credit line
+    * @return id     - Lender's position id to look up in `credits`
+  */
   function addCredit(
     uint128 drate,
     uint128 frate,
@@ -94,28 +113,125 @@ interface ILineOfCredit {
     address token,
     address lender
   ) external payable returns(bytes32);
+  
+  /**
+    * @notice           - lets Lender and Borrower update rates on the lender's position
+    *                   - accrues interest before updating terms, per InterestRate docs
+    *                   - can do so even when LIQUIDATABLE for the purpose of refinancing and/or renego
+    * @dev              - callable by Borrower or Lender
+    * @param id         - position id that we are updating
+    * @param drate      - new drawn rate. In bps, 4 decimals
+    * @param frate      - new facility rate. In bps, 4 decimals
+    * @return - if function executed successfully
+  */
   function setRates(bytes32 id, uint128 drate, uint128 frate) external returns(bool);
+
+  /**
+    * @notice           - Lets a Lender and a Borrower increase the credit limit on a position
+    * @dev              - line status must be ACTIVE
+    * @dev              - callable by borrower    
+    * @param id         - position id that we are updating
+    * @param amount     - amount to deposit by the Lender
+    * @return - if function executed successfully
+  */
   function increaseCredit(bytes32 id, uint256 amount) external payable returns(bool);
 
+  
   // Borrower functions
+
+  /**
+    * @notice       - Borrower chooses which lender position draw down on and transfers tokens from Line contract to Borrower
+    * @dev          - callable by borrower
+    * @param id     - the position to draw down on
+    * @param amount - amount of tokens the borrower wants to withdraw
+    * @return - if function executed successfully
+    */
   function borrow(bytes32 id, uint256 amount) external returns(bool);
+
+  /**
+    * @notice       - Transfers token used in position id from msg.sender to Line contract.
+    * @dev          - Available for anyone to deposit Credit Tokens to be available to be withdrawn by Lenders 
+    * @notice       - see LineOfCredit._repay() for more details
+    * @param amount - amount of `token` in `id` to pay back
+    * @return - if function executed successfully
+    */
   function depositAndRepay(uint256 amount) external payable returns(bool);
+
+  /**
+    * @notice       - A Borrower deposits enough tokens to repay and close a credit line.
+    * @dev          - callable by borrower    
+    * @return - if function executed successfully
+  */
   function depositAndClose() external payable returns(bool);
+
+  /**
+    * @notice - Removes and deletes a position, preventing any more borrowing or interest.
+    *         - Requires that the position principal has already been repais in full
+    * @dev      - MUST repay accrued interest from facility fee during call
+    * @dev - callable by `borrower` or Lender
+    * @param id -the position id to be closed
+    * @return - if function executed successfully
+    */
   function close(bytes32 id) external payable returns(bool);
   
+  
   // Lender functions
+
+  /**
+    * @notice - Withdraws liquidity from a Lender's position available to the Borrower.
+    *         - Lender is only allowed to withdraw tokens not already lent out
+    *         - Withdraws from repaid interest (profit) first and then deposit is reduced
+    * @dev - can only withdraw tokens from their own position. If multiple lenders lend DAI, the lender1 can't withdraw using lender2's tokens
+    * @dev - callable by Lender on `id`
+    * @param id - the position id that Lender is withdrawing from
+    * @param amount - amount of tokens the Lender would like to withdraw (withdrawn amount may be lower)
+    * @return - if function executed successfully
+    */
   function withdraw(bytes32 id, uint256 amount) external returns(bool);
 
+  
   // Arbiter functions
+  /**
+    * @notice - Allow the Arbiter to signify that the Borrower is incapable of repaying debt permanently.
+    *         - Recoverable funds for Lender after declaring insolvency = deposit + interestRepaid - principal
+    * @dev    - Needed for onchain impairment accounting e.g. updating ERC4626 share price
+    *         - MUST NOT have collateral left for call to succeed. Any collateral must already have been liquidated.
+    * @dev    - Callable only by Arbiter. 
+    * @return bool - If Borrower has been declared insolvent or not
+    */
   function declareInsolvent() external returns(bool);
-
+  
+  /** 
+    *
+    * @notice - Updates accrued interest for the whole Line of Credit facility (i.e. for all credit lines)
+    * @dev    - Loops over all position ids and calls related internal functions during which InterestRateCredit.sol   
+    *           is called with the id data and then 'interestAccrued' is updated.
+    * @dev    - The related internal function _accrue() is called by other functions any time the balance on an individual
+    *           credit line changes or if the interest rates of a credit line are changed by mutual consent
+    *           between a Borrower and a Lender.
+    * @return - if function executed successfully
+    */
   function accrueInterest() external returns(bool);
   function healthcheck() external returns(LineLib.STATUS);
+  /**
+    * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
+    * @dev    - Denominated in USD, 8 decimals.
+    * @dev    - callable by anyone
+    * @return totalPrincipal - total amount of principal, in USD, owed across all positions
+    * @return totalInterest - total amount of interest, in USD,  owed across all positions
+  */
   function updateOutstandingDebt() external returns(uint256, uint256);
+
+  
+  // State getters
 
   function status() external returns(LineLib.STATUS);
   function borrower() external returns(address);
   function arbiter() external returns(address);
   function oracle() external returns(IOracle);
+  /** 
+    * @notice - getter for amount of active ids + total ids in list
+    * @return - (uint, uint) - active credit lines, total length
+  */
   function counts() external view returns (uint256, uint256);
 }

@@ -5,6 +5,11 @@ import "chainlink/interfaces/FeedRegistryInterface.sol";
 import { Denominations } from "chainlink/Denominations.sol";
 import "../../interfaces/IOracle.sol";
 
+/**
+ * @title   - Chainlink Feed Registry Wrapper
+ * @notice  - simple contract that wraps Chainlink's Feed Registry to get asset prices for any tokens without needing to know the specific oracle address
+ *          - only makes request for USD prices and returns results in standard 8 decimals for Chainlink USD feeds
+ */
 contract Oracle is IOracle {
     FeedRegistryInterface internal registry; 
     constructor(address _registry) {
@@ -12,7 +17,7 @@ contract Oracle is IOracle {
     }
 
     /**
-     * Returns the latest price in USD to 8 decimals
+     * @return price - the latest price in USD to 8 decimals
      */
     function getLatestAnswer(address token) external returns (int) {
         (

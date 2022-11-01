@@ -5,6 +5,10 @@ import { LineLib } from "../../utils/LineLib.sol";
 import { IEscrowedLine } from "../../interfaces/IEscrowedLine.sol";
 import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
 
+// used for importing NATSPEC docs, not used
+import { LineOfCredit } from "./LineOfCredit.sol";
+// import { SecuredLine } from "./SecuredLine.sol";
+
 abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
   // contract holding all collateral for borrower
   IEscrow immutable public escrow;
@@ -13,12 +17,20 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
     escrow = IEscrow(_escrow);
   }
 
+
+  /**
+   * see LineOfCredit._init and SecuredLine.init
+   * @notice requires this Line is owner of the Escrowed collateral else Line will not init
+  */
   function _init() internal virtual returns(LineLib.STATUS) {
     if(escrow.line() != address(this)) return LineLib.STATUS.UNINITIALIZED;
     return LineLib.STATUS.ACTIVE;
   }
 
-  /** @dev see BaseLine._healthcheck */
+  /**
+   * see LineOfCredit._healthcheck and SecuredLine._healthcheck
+   * @notice returns LIQUIDATABLE if Escrow contract is undercollateralized, else returns ACTIVE
+  */
   function _healthcheck() virtual internal returns(LineLib.STATUS) {
     if(escrow.isLiquidatable()) {
       return LineLib.STATUS.LIQUIDATABLE;
@@ -28,14 +40,16 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
   }
 
   /**
+   * see SecuredlLine.liquidate
    * @notice sends escrowed tokens to liquidation. 
-   *(@dev priviliegad function. Do checks before calling.
+   * @dev priviliegad function. Do checks before calling.
+   *
    * @param id - The credit line being repaid via the liquidation
    * @param amount - amount of tokens to take from escrow and liquidate
    * @param targetToken - the token to take from escrow
    * @param to - the liquidator to send tokens to. could be OTC address or smart contract
-   * @return amount - the total amount of `targetToken` sold to repay credit
    *  
+   * @return amount - the total amount of `targetToken` sold to repay credit
   */
   function _liquidate(
     bytes32 id,
@@ -55,15 +69,23 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
   }
 
   /**
+   * see SecuredLine.declareInsolvent
    * @notice require all collateral sold off before declaring insolvent
    *(@dev priviliegad internal function.
-   * @return if line is insolvent or not
+   * @return isInsolvent - if Escrow contract is currently insolvent or not
   */
   function _canDeclareInsolvent() internal virtual returns(bool) {
     if(escrow.getCollateralValue() != 0) { revert NotInsolvent(address(escrow)); }
     return true;
   }
 
+  /**
+   * see SecuredlLine.rollover
+   * @notice helper function to allow borrower to easily swithc collateral to a new Line after repyment
+   *(@dev priviliegad internal function.
+   * @dev MUST only be callable if line is REPAID
+   * @return - if function successfully executed
+  */
   function _rollover(address newLine) internal virtual returns(bool) {
     require(escrow.updateLine(newLine));
     return true;
