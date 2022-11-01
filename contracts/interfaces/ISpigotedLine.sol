@@ -94,10 +94,11 @@ interface ISpigotedLine {
     /**
     * @notice - Transfers ownership of the entire Spigot from its then Owner to either the Borrower (if a Line of Credit has been been fully repaid) 
                 or to the Arbiter (if the Line of Credit is liquidatable).
-    * @dev    - callable by anyone 
+    * @dev    - callable by borrower + arbiter
+    * @param to - address that caller wants to transfer Spigot ownership to
     * @return - whether or not a Spigot was released
     */
-    function releaseSpigot() external returns (bool);
+    function releaseSpigot(address to) external returns (bool);
 
   /**
    * @notice - sends unused tokens to borrower if REPAID or arbiter if LIQUIDATABLE or INSOLVENT

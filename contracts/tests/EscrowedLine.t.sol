@@ -178,4 +178,9 @@ contract EscrowedLineTest is Test {
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
         assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
     }
+    
+    function test_cannot_be_liquidatable_if_debt_is_0() public {
+
+        assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.ACTIVE));
+    }
 }

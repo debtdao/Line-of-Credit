@@ -145,6 +145,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
 
       credits[id] = _repay(_accrue(credit, id), id, amount);
 
+      emit RevenuePayment(credit.token, amount);
+
       return true;
     }
 
@@ -239,12 +241,13 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     }
 
     /// see ISpigotedLine.releaseSpigot
-    function releaseSpigot() external returns (bool) {
+    function releaseSpigot(address to) external returns (bool) {
         return SpigotedLineLib.releaseSpigot(
           address(spigot),
           _updateStatus(_healthcheck()),
           borrower,
-          arbiter
+          arbiter,
+          to
         );
     }
 
