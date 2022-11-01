@@ -190,16 +190,17 @@ library SpigotedLineLib {
    * @dev    - callable by anyone 
    * @return - whether or not Spigot was released
   */
-    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
-        if (status == LineLib.STATUS.REPAID) {
-          if (msg.sender != borrower) { revert CallerAccessDenied(); } 
-          if(!ISpigot(spigot).updateOwner(borrower)) { revert ReleaseSpigotFailed(); }
+    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter, address to) external returns (bool) {
+        if (status == LineLib.STATUS.REPAID &&  msg.sender == borrower) {
+          
+           
+          if(!ISpigot(spigot).updateOwner(to)) { revert ReleaseSpigotFailed(); }
           return true;
         }
 
-        if (status == LineLib.STATUS.LIQUIDATABLE) {
-          if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
-          if(!ISpigot(spigot).updateOwner(arbiter)) { revert ReleaseSpigotFailed(); }
+        if (status == LineLib.STATUS.LIQUIDATABLE && msg.sender == arbiter) {
+        
+          if(!ISpigot(spigot).updateOwner(to)) { revert ReleaseSpigotFailed(); }
           return true;
         }
 
@@ -222,7 +223,7 @@ library SpigotedLineLib {
 
         }
 
-        if (status == LineLib.STATUS.LIQUIDATABLE) {
+        if (status == LineLib.STATUS.LIQUIDATABLE || status == LineLib.STATUS.INSOLVENT) {
             if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
             return LineLib.sendOutTokenOrETH(token, to, amount);
         }
