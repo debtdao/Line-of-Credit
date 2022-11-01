@@ -624,6 +624,8 @@ contract SpigotedLineTest is Test {
     // releaseSpigot()
 
     function test_release_spigot_while_active() public {
+      vm.startPrank(arbiter);
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
       assertFalse(line.releaseSpigot(arbiter));
     }
 
@@ -650,7 +652,7 @@ contract SpigotedLineTest is Test {
     function test_release_spigot_to_arbiter_when_liquidated() public {  
       vm.warp(ttl+1);
 
-      assertTrue(line.releaseSpigot(borrower));
+      assertTrue(line.releaseSpigot(arbiter));
 
       assertEq(spigot.owner(), arbiter);
     }
@@ -682,6 +684,7 @@ contract SpigotedLineTest is Test {
       line.claimAndTrade(address(revenueToken), tradeData);
       vm.stopPrank();
 
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
       assertEq(0, line.sweep(address(this), address(creditToken))); // no tokens transfered
     }
 

@@ -193,17 +193,16 @@ library SpigotedLineLib {
   */
     function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter, address to) external returns (bool) {
         if (status == LineLib.STATUS.REPAID &&  msg.sender == borrower) {
-          
-           
           if(!ISpigot(spigot).updateOwner(to)) { revert ReleaseSpigotFailed(); }
           return true;
         }
 
         if (status == LineLib.STATUS.LIQUIDATABLE && msg.sender == arbiter) {
-        
           if(!ISpigot(spigot).updateOwner(to)) { revert ReleaseSpigotFailed(); }
           return true;
         }
+
+        revert CallerAccessDenied();
 
         return false;
     }
@@ -218,16 +217,19 @@ library SpigotedLineLib {
     function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
         if(amount == 0) { revert UsedExcessTokens(token, 0); }
 
-        if (status == LineLib.STATUS.REPAID) {
-            if (msg.sender != borrower) { revert CallerAccessDenied(); } 
+        if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {
             return LineLib.sendOutTokenOrETH(token, to, amount);
 
         }
 
-        if (status == LineLib.STATUS.LIQUIDATABLE || status == LineLib.STATUS.INSOLVENT) {
-            if (msg.sender != arbiter) { revert CallerAccessDenied(); } 
+        if (
+          (status == LineLib.STATUS.LIQUIDATABLE || status == LineLib.STATUS.INSOLVENT) &&
+          msg.sender == arbiter
+        ) {
             return LineLib.sendOutTokenOrETH(token, to, amount);
         }
+
+        revert CallerAccessDenied();
 
         return false;
     }

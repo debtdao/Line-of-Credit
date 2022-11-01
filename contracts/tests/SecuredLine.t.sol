@@ -445,7 +445,8 @@ contract SecuredLineTest is Test {
         vm.warp(ttl+1);
         //hoax(arbiter);
         
-        assertTrue(line.releaseSpigot(borrower));
+        vm.startPrank(arbiter);
+        assertTrue(line.releaseSpigot(arbiter));
         assertTrue(line.spigot().updateOwner(address(0xf1c0)));
         assertEq(1 ether, line.liquidate(1 ether, address(supportedToken2)));
         // release spigot + liquidate
