@@ -25,21 +25,12 @@ library EscrowLib {
     uint256 constant MAX_INT =
         115792089237316195423570985008687907853269984665640564039457584007913129639935;
 
-    function isLiquidatable(EscrowState storage self, address oracle, uint256 minimumCollateralRatio) external returns(bool) {
-      return _getLatestCollateralRatio(self, oracle) < minimumCollateralRatio;
-    }
-
-    function updateLine(EscrowState storage self, address _line) external returns(bool) {
-      require(msg.sender == self.line);
-      self.line = _line;
-      return true;
-    }
-
     /**
      * @notice updates the cratio according to the collateral value vs line value
      * @dev calls accrue interest on the line contract to update the latest interest payable
-     * @return the updated collateral ratio in 18 decimals
-     */
+     * @param oracle - address to call for collateral token prices
+     * @return cratio - the updated collateral ratio in 4 decimals
+    */
     function _getLatestCollateralRatio(EscrowState storage self, address oracle) public returns (uint256) {
         (uint256 principal, uint256 interest) = ILineOfCredit(self.line).updateOutstandingDebt();
         uint256 debtValue =  principal + interest;
@@ -47,13 +38,14 @@ library EscrowLib {
         if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
 
-        uint256 _numerator = collateralValue * 10**5; // scale to 2 decimals
+        uint256 _numerator = collateralValue * 10**5; // scale to 4 decimals
         return ((_numerator / debtValue) + 5) / 10;
     }
 
     /**
-    * @dev calculate the USD value of all the collateral stored
-    * @return - the collateral's USD value in 8 decimals
+    * @notice - Iterates over all enabled tokens and calculates the USD value of all deposited collateral
+    * @param oracle - address to call for collateral token prices
+    * @return totalCollateralValue - the collateral's USD value in 8 decimals
     */
     function _getCollateralValue(EscrowState storage self, address oracle) public returns (uint256) {
         uint256 collateralValue;
@@ -90,6 +82,7 @@ library EscrowLib {
         return collateralValue;
     }
 
+    /** see Escrow.addCollateral */
     function addCollateral(EscrowState storage self, address oracle, uint256 amount, address token)
         external
         returns (uint256)
@@ -106,6 +99,7 @@ library EscrowLib {
         return _getLatestCollateralRatio(self, oracle);
     }
 
+    /** see Escrow.enableCollateral */
     function enableCollateral(EscrowState storage self, address oracle, address token) external returns (bool) {
         require(msg.sender == ILineOfCredit(self.line).arbiter());
 
@@ -153,6 +147,7 @@ library EscrowLib {
         return true;
     }
 
+    /** see Escrow.releaseCollateral */
     function releaseCollateral(
         EscrowState storage self,
         address borrower,
@@ -182,14 +177,17 @@ library EscrowLib {
         return cratio;
     }
 
+    /** see Escrow.getCollateralRatio */
     function getCollateralRatio(EscrowState storage self, address oracle) external returns (uint256) {
         return _getLatestCollateralRatio(self, oracle);
     }
 
+    /** see Escrow.getCollateralValue */
     function getCollateralValue(EscrowState storage self, address oracle) external returns (uint256) {
         return _getCollateralValue(self, oracle);
     }
 
+    /** see Escrow.liquidate */
     function liquidate(
         EscrowState storage self,
         uint256 amount,
@@ -205,6 +203,18 @@ library EscrowLib {
         LineLib.sendOutTokenOrETH(token, to, amount);
 
         return true;
+    }
+
+    /** see Escrow.isLiquidatable */
+    function isLiquidatable(EscrowState storage self, address oracle, uint256 minimumCollateralRatio) external returns(bool) {
+      return _getLatestCollateralRatio(self, oracle) < minimumCollateralRatio;
+    }
+
+    /** see Escrow.updateLine */
+    function updateLine(EscrowState storage self, address _line) external returns(bool) {
+      require(msg.sender == self.line);
+      self.line = _line;
+      return true;
     }
 
     event AddCollateral(address indexed token, uint256 indexed amount);

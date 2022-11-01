@@ -10,6 +10,12 @@ import {CreditLib} from "../../utils/CreditLib.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {EscrowState, EscrowLib} from "../../utils/EscrowLib.sol";
 
+
+/**
+  * @title  - Debt DAO Escrow
+  * @author - James Senegalli
+  * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
+ */
 contract Escrow is IEscrow {
     using SafeERC20 for IERC20;
     using EscrowLib for EscrowState;
@@ -19,10 +25,20 @@ contract Escrow is IEscrow {
 
     // Stakeholders and contracts used in Escrow
     address public immutable oracle;
+    // borrower on line contract
     address public immutable borrower;
 
+    // all data around terms for collateral and current deposits
     EscrowState private state;
 
+    /**
+      * @notice           - Initiates immutable terms for a Line of Credit agreement related to collateral requirements
+      * @param _minimumCollateralRatio - In bps, 3 decimals. Cratio threshold where liquidations begin. see Escrow.isLiquidatable()
+      * @param _oracle    - address to call for collateral token prices
+      * @param _line      - Initial owner of Escrow contract. May be non-Line contract at construction before transferring to a Line.
+                          - also is the oracle providing current total outstanding debt value.
+      * @param _borrower  - borrower on the _line contract. Cannot pull from _line because _line might not be a Line at construction.
+    */
     constructor(
         uint32 _minimumCollateralRatio,
         address _oracle,
@@ -31,26 +47,37 @@ contract Escrow is IEscrow {
     ) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
-        state.line = _line;
         borrower = _borrower;
+        state.line = _line;
     }
 
+    /**
+    * @notice the current controller of the Escrow contract.
+    */
     function line() external view override returns(address) {
       return state.line;
     }
 
+    /**
+    * @notice - Checks Line's outstanding debt value and current Escrow collateral value to compute collateral ratio and checks that against minimum.
+    * @return isLiquidatable - returns true if Escrow.getCollateralRatio is lower than minimumCollateralRatio else false
+    */
     function isLiquidatable() external returns(bool) {
       return state.isLiquidatable(oracle, minimumCollateralRatio);
     }
 
+    /**
+    * @notice - Allows current owner to transfer ownership to another address
+    * @dev    - Used if we setup Escrow before Line exists. Line has no way to interface with this function so once transfered `line` is set forever
+    * @return didUpdate - if function successfully executed or not
+    */
     function updateLine(address _line) external returns(bool) {
       return state.updateLine(_line);
     }
 
     /**
      * @notice add collateral to your position
-     * @dev updates cratio
-     * @dev requires that the token deposited can be valued by the escrow's oracle & the depositor has approved this contract
+     * @dev requires that the token deposited by the depositor has been enabled by `line.Arbiter`
      * @dev - callable by anyone
      * @param amount - the amount of collateral to add
      * @param token - the token address of the deposited token

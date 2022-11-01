@@ -3,12 +3,15 @@ pragma solidity ^0.8.9;
 import {IInterestRateCredit} from "../../interfaces/IInterestRateCredit.sol";
 
 contract InterestRateCredit is IInterestRateCredit {
-    uint256 constant ONE_YEAR = 365.25 days; // 1 Julian astronomical year in seconds to use in calculations for rates = 31557600 seconds
-    uint256 constant BASE_DENOMINATOR = 10000; // div 100 for %, div 100 for bps in numerator
-    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR; // = 31557600*10000 = 315576000000
+    // 1 Julian astronomical year in seconds to use in calculations for rates = 31557600 seconds
+    uint256 constant ONE_YEAR = 365.25 days;
+    // Must divide by 100 too offset bps in numerator and divide by another 100 to offset % and get actual token amount
+    uint256 constant BASE_DENOMINATOR = 10000;
+     // = 31557600 * 10000 = 315576000000;
+    uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
 
     address immutable lineContract;
-    mapping(bytes32 => Rate) public rates; // id -> lending rates
+    mapping(bytes32 => Rate) public rates; // position id -> lending rates
 
     /**
      * @notice Interest rate / acrrued interest calculation contract for Line of Credit contracts
@@ -27,16 +30,7 @@ contract InterestRateCredit is IInterestRateCredit {
         _;
     }
 
-    ///////////  FUNCTIONS  ///////////
-
-    /**
-     * @dev accrueInterest function for Line of Credit contracts
-     * @dev    - callable by `line`
-     * @param drawnBalance (the balance of funds that a Borrower has drawn down on the credit line)
-     * @param facilityBalance (the remaining balance of funds that a Borrower can still drawn down on a credit line (aka headroom))
-     * @return repayBalance (the amount of interest to be repaid for this interest period)
-     *
-     */
+    /// see IInterestRateCredit
     function accrueInterest(
         bytes32 id,
         uint256 drawnBalance,
@@ -52,23 +46,31 @@ contract InterestRateCredit is IInterestRateCredit {
     ) internal returns (uint256) {
         Rate memory rate = rates[id];
         uint256 timespan = block.timestamp - rate.lastAccrued;
+        // update last timestamp in storage
         rates[id].lastAccrued = block.timestamp;
 
-        // r = APR in basis points (bps) e.g. 5% = 500bp
-        // x = # tokens
-        // t = time (in seconds)
-        // interest = (r * x * t) / 1yr (in seconds) / 10000 = (r*x*t)/315576000000
-        // facility = deposited - drawn (aka undrawn balance)
-        return (((rate.dRate * drawnBalance * timespan) /
-            INTEREST_DENOMINATOR) +
-            ((rate.fRate * (facilityBalance - drawnBalance) * timespan) /
-                INTEREST_DENOMINATOR));
+        return (
+            _calculateInterestOwed(rate.dRate, drawnBalance, timespan) +
+            _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan)
+        );
+        
+    }
+      
+    /**
+     * @notice - total interest to accrue based on apr, balance, and length of time
+     * @dev    - r = APR in bps, x = # tokens, t = time
+     *         - interest = (r * x * t) / 1yr / 100
+     * @param  bpsRate - interest rate (APR) to charge against balance in bps (4 decimals)
+     * @param  balance - current balance for interest rate tier to charge interest against
+     * @param  timespan - total amount of time that interest should be charged for 
+     *
+     * @return interestOwed
+     */
+    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal pure returns(uint256) {
+        return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 
-    /**
-     * @notice updates interest rates for a credit line
-     * @dev    - callable by `line`
-     */
+    /// see IInterestRateCredit
     function setRate(
         bytes32 id,
         uint128 dRate,

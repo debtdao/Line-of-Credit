@@ -18,11 +18,13 @@ contract LineFactory is ILineFactory {
         factory = IModuleFactory(moduleFactory);
         
     }
-   
+
+    /// see ModuleFactory.deployEscrow.
     function deployEscrow(uint32 minCRatio, address oracle_, address owner, address borrower) external returns(address){
         return factory.deployEscrow(minCRatio, oracle_, owner, borrower);
     }
 
+    /// see ModuleFactory.deploySpigot.
     function deploySpigot(address owner, address borrower, address operator) external returns(address){
         return factory.deploySpigot(owner, borrower, operator);
     }

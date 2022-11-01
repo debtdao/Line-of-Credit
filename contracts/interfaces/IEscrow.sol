@@ -22,7 +22,7 @@ interface IEscrow {
 
     error NotLiquidatable();
 
-    // State var etters. 
+    // State var getters. 
 
     function line() external returns(address);
 
@@ -39,7 +39,7 @@ interface IEscrow {
     function updateLine(address line_) external returns(bool);
 
     function getCollateralRatio() external returns(uint);
-
+    
     function getCollateralValue() external returns(uint);
 
     function enableCollateral(address token) external returns(bool);
