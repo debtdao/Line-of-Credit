@@ -44,8 +44,9 @@ library EscrowLib {
         (uint256 principal, uint256 interest) = ILineOfCredit(self.line).updateOutstandingDebt();
         uint256 debtValue =  principal + interest;
         uint256 collateralValue = _getCollateralValue(self, oracle);
-        if (collateralValue == 0) return 0;
         if (debtValue == 0) return MAX_INT;
+        if (collateralValue == 0) return 0;
+        
 
         uint256 _numerator = collateralValue * 10**5; // scale to 2 decimals
         return ((_numerator / debtValue) + 5) / 10;
