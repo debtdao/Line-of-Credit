@@ -15,13 +15,21 @@ Or if you already have repo installed you can run `git pull --recurse-submodules
 
 
 ## Deploying
-[Testnet Deployments Addresses](https://near-diploma-a92.notion.site/Deployed-Verified-Contracts-4717a0e2b231459e891e7e4565ec4e81)
-Mainnet Deployments Addresses - N/A
 
-To deploy a SecuredLine you should call our [LineFactory](https://github.com/debtdao/Line-of-Credit/blob/master/contracts/interfaces/ILineFactory.sol) contract so your Line will automatically be indexed by subgraphs and display on interfaces for lenders to send you offers. There are multiple functions to deploy lines depending on the granularaity and control you want for your terms and conditions.
+### Testnet Deployments
+We have deployed contracts to Gõrli testnet.
+[All deployed contract addresses including libraries and mock contracts](https://near-diploma-a92.notion.site/Deployed-Verified-Contracts-4717a0e2b231459e891e7e4565ec4e81)
 
+[List of tokens that are priced by our dummy oracle](https://near-diploma-a92.notion.site/Test-Tokens-10-17-2afd16dde17c45eeba14b780d58ba28b) that you can use for interacting with Line Of Credit and Escrow contracts (you can use any token for Spigot revenue as long as it can be traded to a whitelisted token)
+
+
+### Mainnet Deploymetns
+N/A. We have not deployed to mainnet yet
+
+### Deploy Your Own
 To deploy a LineFactory you must deploy ModuleFactory, Arbiter, and Oracle contracts as well as know what the [0x protocol ExchangeProxy](https://docs.0x.org/introduction/0x-cheat-sheet#exchange-proxy-addresses) address is for the network you are deploying on.
 
+To deploy a SecuredLine you should call our [LineFactory](https://github.com/debtdao/Line-of-Credit/blob/master/contracts/interfaces/ILineFactory.sol) contract so your Line will automatically be indexed by subgraphs and display on interfaces for lenders to send you offers. There are multiple functions to deploy lines depending on the granularaity and control you want for your terms and conditions.
 
 
 ## Testing
