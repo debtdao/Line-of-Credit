@@ -62,23 +62,12 @@ contract LineFactoryTest is Test {
     }
 
     function test_arbiter_cant_be_null() public {
+        vm.expectRevert(ILineFactory.InvalidArbiterAddress.selector);
         LineFactory tempLineFactory = new LineFactory(
             address(moduleFactory),
             address(0),
             oracle,
             swapTarget
-        );
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: borrower,
-                ttl: ttl,
-                cratio: 3000,
-                revenueSplit: 90
-            });
-
-        vm.expectRevert(ILineFactory.InvalidArbiterAddress.selector);
-        address bad_line = tempLineFactory.deploySecuredLineWithConfig(
-            coreParams
         );
     }
 

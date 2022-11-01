@@ -8,8 +8,6 @@ interface ILineFactory {
         uint8 revenueSplit;
     }
 
-    error InvalidArbiter();
-
     event DeployedSecuredLine(
         address indexed deployedAt,
         address indexed escrow,
@@ -21,6 +19,7 @@ interface ILineFactory {
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InvalidRevenueSplit();
     error InvalidOracleAddress();
+    error InvalidSwapTargetAddress();
     error InvalidArbiterAddress();
     error InvalidEscrowAddress();
     error InvalidSpigotAddress();

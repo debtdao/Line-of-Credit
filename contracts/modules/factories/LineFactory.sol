@@ -12,7 +12,7 @@ contract LineFactory is ILineFactory {
     uint8 constant defaultRevenueSplit = 90; // 90% to debt repayment
     uint8 constant MAX_SPLIT = 100; // max % to take
     uint32 constant defaultMinCRatio = 3000; // 30.00% minimum collateral ratio
-
+ 
     address public immutable arbiter;
     address public immutable oracle;
     address public immutable swapTarget;
@@ -24,6 +24,15 @@ contract LineFactory is ILineFactory {
         address swapTarget_
     ) {
         factory = IModuleFactory(moduleFactory);
+        if (arbiter_ == address(0)) {
+            revert InvalidArbiterAddress();
+        }
+        if (oracle_ == address(0)) {
+            revert InvalidOracleAddress();
+        }
+        if (swapTarget_ == address(0)) {
+            revert InvalidSwapTargetAddress();
+        }
         arbiter = arbiter_;
         oracle = oracle_;
         swapTarget = swapTarget_;
@@ -34,9 +43,6 @@ contract LineFactory is ILineFactory {
         address owner,
         address borrower
     ) external returns (address) {
-        if (oracle == address(0)) {
-            revert InvalidOracleAddress();
-        }
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
@@ -52,9 +58,6 @@ contract LineFactory is ILineFactory {
         external
         returns (address line)
     {
-        if (arbiter == address(0)) {
-            revert InvalidArbiterAddress();
-        }
         // deploy new modules
         address s = factory.deploySpigot(address(this), borrower, borrower);
         address e = factory.deployEscrow(
@@ -87,9 +90,6 @@ contract LineFactory is ILineFactory {
             revert InvalidRevenueSplit();
         }
 
-        if (arbiter == address(0)) {
-            revert InvalidArbiterAddress();
-        }
         // deploy new modules
         address s = factory.deploySpigot(
             address(this),
@@ -135,10 +135,6 @@ contract LineFactory is ILineFactory {
         address mSpigot,
         address mEscrow
     ) external returns (address line) {
-        if (arbiter == address(0)) {
-            revert InvalidArbiterAddress();
-        }
-
         // TODO: test
         if (mSpigot == address(0)) {
             revert InvalidSpigotAddress();
