@@ -6,8 +6,22 @@ https://docs.debtdao.finance/developers/architecture
 ## Installing
 
 We track remote remotes like Foundry and Chainlink via submodules so you will need to install those in addition to our repo itself
-If cloning you can run `git clone --recurse-submodules`
+
+If you have forge installed already you can run `forge install`
+
+Alternatively using just git
+When cloning you can run `git clone --recurse-submodules`
 Or if you already have repo installed you can run `git pull --recurse-submodules`
+
+
+## Deploying
+[Testnet Deployments Addresses](https://near-diploma-a92.notion.site/Deployed-Verified-Contracts-4717a0e2b231459e891e7e4565ec4e81)
+Mainnet Deployments Addresses - N/A
+
+To deploy a SecuredLine you should call our [LineFactory](https://github.com/debtdao/Line-of-Credit/blob/master/contracts/interfaces/ILineFactory.sol) contract so your Line will automatically be indexed by subgraphs and display on interfaces for lenders to send you offers. There are multiple functions to deploy lines depending on the granularaity and control you want for your terms and conditions.
+
+To deploy a LineFactory you must deploy ModuleFactory, Arbiter, and Oracle contracts as well as know what the [0x protocol ExchangeProxy](https://docs.0x.org/introduction/0x-cheat-sheet#exchange-proxy-addresses) address is for the network you are deploying on.
+
 
 
 ## Testing
@@ -18,7 +32,7 @@ Then run `forge test`
 
 ## Failing Tests
 
-Test `TradeFailed` fails occasionally.
+Test `test_can_trade` and `test_can_trade_and_reapy` fail occasionally, with inconsequential parameter inputs.
 
 ```
 Failing tests:
