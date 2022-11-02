@@ -65,9 +65,18 @@ implements: [ERC20, ERC2612, ERC4626]
 # @notice address to use for raw ETH when
 ETH_ADDRESS: constant(address) = ZERO_ADDRESS # TODO get the address we use from chainlink lib
 # @notice LineLib.STATUS.INSOLVENT
-INSOLVENT_STATUS: constant(4)
+INSOLVENT_STATUS: constant(uint256) = 4
 # @notice number to divide after multiplying by fee numerator variables
-FEE_DENOMINATOR: uint256 = 10000 # TODO figure it out
+FEE_DENOMINATOR: constant(private(uint256)) = 10000 # TODO figure it out
+# EIP712 contract name
+CONTRACT_NAME: constant(private(String[13])) = "Debt DAO Pool"
+# EIP712 contract version
+API_VERSION: constant(private(String[5])) = "0.0.1"
+# EIP712 type hash
+DOMAIN_TYPE_HASH: constant(bytes32) = keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')
+# EIP712 permit type hash
+PERMIT_TYPE_HASH: constant(bytes32) = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+
 
 # Pool Variables
 
@@ -108,7 +117,8 @@ asset: immutable(address)
 # total notional amount of underlying token held in pool
 totalAssets: public(uint256)
 
-# ERC4626 Events
+# EIP 2612 Variables
+nonces: private(HashMap[address, uint256])
 
 # TODO add permit
 
@@ -415,6 +425,71 @@ def _getMaxLiquidAssets():
 
 
 # TODO ERC2612 permit, nonce, DOMAIN _SEPERATOR
+# EIP712 domain separator
+@view
+@internal
+def domain_separator() -> bytes32:
+  keccak256(
+    concat(
+        DOMAIN_TYPE_HASH,
+        keccak256(CONTRACT_NAME),
+        keccak256(API_VERSION),
+        chain.id,
+        self.address
+  )
+)
+
+# EIP712 domain separator
+@view
+@external
+def DOMAIN_SEPARATOR() -> bytes32:
+  self.domain_separator()
+
+
+@external
+def permit(owner: address, spender: address, amount: uint256, expiry: uint256, signature: Bytes[65]) -> bool:
+    """
+    @notice
+        Approves spender by owner's signature to expend owner's tokens.
+        See https://eips.ethereum.org/EIPS/eip-2612.
+        Stolen from Yearn Vault code
+        https://github.com/yearn/yearn-vaults/blob/74364b2c33bd0ee009ece975c157f065b592eeaf/contracts/Vault.vy#L765-L806
+    @param owner The address which is a source of funds and has signed the Permit.
+    @param spender The address which is allowed to spend the funds.
+    @param amount The amount of tokens to be spent.
+    @param expiry The timestamp after which the Permit is no longer valid.
+    @param signature A valid secp256k1 signature of Permit by owner encoded as r, s, v.
+    @return True, if transaction completes successfully
+    """
+    assert owner != ZERO_ADDRESS  # dev: invalid owner
+    assert expiry >= block.timestamp  # dev: permit expired
+    nonce: uint256 = self.nonces[owner]
+    digest: bytes32 = keccak256(
+        concat(
+            b'\x19\x01',
+            self.domain_separator(),
+            keccak256(
+                concat(
+                    PERMIT_TYPE_HASH,
+                    convert(owner, bytes32),
+                    convert(spender, bytes32),
+                    convert(amount, bytes32),
+                    convert(nonce, bytes32),
+                    convert(expiry, bytes32),
+                )
+            )
+        )
+    )
+    # NOTE: signature is packed as r, s, v
+    r: uint256 = convert(slice(signature, 0, 32), uint256)
+    s: uint256 = convert(slice(signature, 32, 32), uint256)
+    v: uint256 = convert(slice(signature, 64, 1), uint256)
+    assert ecrecover(digest, v, r, s) == owner  # dev: invalid signature
+    self.allowance[owner][spender] = amount
+    self.nonces[owner] = nonce + 1
+    log Approval(owner, spender, amount)
+    return True
+
 
 # TODO ERC3614 flash loans
 
@@ -525,4 +600,20 @@ def previewRedeem():
   return MAX_UINT256 - totalAssets
 
 
+@pure
+@external
+def apiVersion() -> String[28]:
+    """
+    @notice
+        Used to track the deployed version of this contract. In practice you
+        can use this version number to compare with Debt DAO's GitHub and
+        determine which version of the source matches this deployed contract.
+    @dev
+        All strategies must have an `apiVersion()` that matches the Vault's
+        `API_VERSION`.
+    @return API_VERSION which holds the current version of this contract.
+    """
+    return API_VERSION
+
 # ERC20 Events
+# ERC4626 Events
