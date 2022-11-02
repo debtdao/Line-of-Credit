@@ -34,6 +34,48 @@ interface ERC4626:
   # @notice simulate the effects of their redeem() at the current block, given current on-chain conditions.
   def previewRedeem(shares: uint256) -> uint256: view
 
+interface ERC3156:
+    # /**
+     # * @dev The amount of currency available to be lent.
+     # * @param token The loan currency.
+     # * @return The amount of `token` that can be borrowed.
+     # */
+    def maxFlashLoan(token: address) -> uint256: view
+
+    # /**
+     # * @dev The fee to be charged for a given loan.
+     # * @param token The loan currency.
+     # * @param amount The amount of tokens lent.
+     # * @return The amount of `token` to be charged for the loan, on top of the returned principal.
+     # */
+    def flashFee(token: address, amountL: uint256) -> uint256: view
+
+    # /**
+     # * @dev Initiate a flash loan.
+     # * @param receiver The receiver of the tokens in the loan, and the receiver of the callback.
+     # * @param token The loan currency.
+     # * @param amount The amount of tokens lent.
+     # * @param data Arbitrary data structure, intended to contain user-defined parameters.
+     # */
+    def flashLoan(
+        receiver: IERC3156FlashBorrower,
+        token: address,
+        amount: uint256,
+        data: DynArray[bytes, 25000]
+    ) -> bool: constant # should not be constant
+
+# External Iinterfaces
+
+interface IERC3156FlashBorrower:
+
+    def onFlashLoan(
+        initiator: address,
+        token: address,
+        amount: uint256,
+        fee: uint256,
+        data:  DynArray[bytes, 25000]
+    ) -> bytes32: constant # should not be constant
+
 struct Position:
     deposit: uint256
     principal: uint256
@@ -58,8 +100,10 @@ interface LineOfCredit:
     ): modifying
     def setRates(id: bytes32 , drate: uint128, frate: uint128): modifying
     def increaseCredit(id: bytes32,  amount: uint25): modifying
+
+
+implements: [ERC20, ERC2612, ERC4626, ERC3156]
     
-implements: [ERC20, ERC2612, ERC4626]
 
 # constants
 # @notice address to use for raw ETH when
@@ -439,7 +483,44 @@ def domain_separator() -> bytes32:
   )
 )
 
-# EIP712 domain separator
+# ERC 3156 Flash Loan functions
+@view
+@external
+def maxFlashLoan(token: address) -> uint256:
+  return 0 if token is not asset else self._getMaxLiquidAssets()
+
+@view
+@internal
+def _getFlashFee(token: address, amount: uint256) -> uint256:
+  return 0 if flashLoanFeeNumerator is 0 else self._getMaxLiquidAssets() * flashLoanFeeNumerator / FEE_DENOMINATOR
+
+@view
+@external
+def flashFee(token: address, amount: uint256) -> uint256:
+  assert token == self.asset
+  return self_getFlashFee()
+
+def flashLoan(
+    receiver: address,
+    token: address,
+    amount: uint256,
+    data: DynArray[bytes, 25000]
+) -> bool:
+  assert amount <= self._getMaxLiquidAssets()
+  # give them the flashloan
+  ERC20(asset).transfer(msg.sender, amount)
+
+  fee = self_getFlashFee()
+  # ensure they can receive flash loan
+  assert IERC3156FlashBorrower(receiver).onFlashLoan(msg.sender, token, amount, fee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan")
+  
+  # receive payment
+  ERC20(asset).transferFrom(msg.sender, self, amount + fee)
+
+  return True
+# EIP712 permit functionality
+
+# domain separator
 @view
 @external
 def DOMAIN_SEPARATOR() -> bytes32:
