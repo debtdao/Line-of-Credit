@@ -1,3 +1,6 @@
+
+# @version 0.3.7
+
 from vyper.interfaces import ERC20
 
 interface ERC2612:
@@ -35,46 +38,46 @@ interface ERC4626:
   def previewRedeem(shares: uint256) -> uint256: view
 
 interface ERC3156:
-    # /**
-     # * @dev The amount of currency available to be lent.
-     # * @param token The loan currency.
-     # * @return The amount of `token` that can be borrowed.
-     # */
-    def maxFlashLoan(token: address) -> uint256: view
+  # /**
+  # * @dev The amount of currency available to be lent.
+  # * @param token The loan currency.
+  # * @return The amount of `token` that can be borrowed.
+  # */
+  def maxFlashLoan(token: address) -> uint256: view
 
-    # /**
-     # * @dev The fee to be charged for a given loan.
-     # * @param token The loan currency.
-     # * @param amount The amount of tokens lent.
-     # * @return The amount of `token` to be charged for the loan, on top of the returned principal.
-     # */
-    def flashFee(token: address, amountL: uint256) -> uint256: view
+  # /**
+  # * @dev The fee to be charged for a given loan.
+  # * @param token The loan currency.
+  # * @param amount The amount of tokens lent.
+  # * @return The amount of `token` to be charged for the loan, on top of the returned principal.
+  # */
+  def flashFee(token: address, amountL: uint256) -> uint256: view
 
-    # /**
-     # * @dev Initiate a flash loan.
-     # * @param receiver The receiver of the tokens in the loan, and the receiver of the callback.
-     # * @param token The loan currency.
-     # * @param amount The amount of tokens lent.
-     # * @param data Arbitrary data structure, intended to contain user-defined parameters.
-     # */
-    def flashLoan(
-        receiver: IERC3156FlashBorrower,
-        token: address,
-        amount: uint256,
-        data: DynArray[bytes, 25000]
-    ) -> bool: constant # should not be constant
+  # /**
+  # * @dev Initiate a flash loan.
+  # * @param receiver The receiver of the tokens in the loan, and the receiver of the callback.
+  # * @param token The loan currency.
+  # * @param amount The amount of tokens lent.
+  # * @param data Arbitrary data structure, intended to contain user-defined parameters.
+  # */
+  def flashLoan(
+    receiver: IERC3156FlashBorrower,
+    token: address,
+    amount: uint256,
+    data: DynArray[bytes, 25000]
+  ) -> bool: modifying # should not be constant
 
 # External Iinterfaces
 
 interface IERC3156FlashBorrower:
+  def onFlashLoan(
+    initiator: address,
+    token: address,
+    amount: uint256,
+    fee: uint256,
+    data:  DynArray[bytes, 25000]
+  ) -> bytes32: modifying # should not be constant
 
-    def onFlashLoan(
-        initiator: address,
-        token: address,
-        amount: uint256,
-        fee: uint256,
-        data:  DynArray[bytes, 25000]
-    ) -> bytes32: constant # should not be constant
 
 struct Position:
     deposit: uint256
@@ -90,6 +93,7 @@ struct Position:
 interface LineOfCredit:
     def status() -> uint256: constant
     def credits(id: bytes32) -> Position: constant
+    def available(id: bytes32) -> (uint256, uint256): constant
 
     def addCredit(
       drate: uint128,
@@ -101,11 +105,15 @@ interface LineOfCredit:
     def setRates(id: bytes32 , drate: uint128, frate: uint128): modifying
     def increaseCredit(id: bytes32,  amount: uint25): modifying
 
+    def withdraw(id: bytes32,  amount: uint25): modifying
+    def close(id: bytes32): modifying
+
 
 implements: [ERC20, ERC2612, ERC4626, ERC3156]
     
 
 # constants
+
 # @notice address to use for raw ETH when
 ETH_ADDRESS: constant(address) = ZERO_ADDRESS # TODO get the address we use from chainlink lib
 # @notice LineLib.STATUS.INSOLVENT
@@ -219,6 +227,30 @@ def invest4626(vault: address, amount: uint256):
   # TODO check previewDeposit expected vs deposit actual for slippage
   ERC4626(vault).deposit(amount, self.address)
 
+@external
+def collectInterest(
+  line: address,
+  id: bytes32
+):
+  # TODO this is incorrect its a tuple not a Position Strict
+  position: Position = LineOfCredit(line).available(id)
+
+  LineOfCredit(line).withdraw(id, position.interest)
+  
+  self._collectInterest(interest)
+
+@internal
+def _collectInterest(interest: amount):
+  # if we thought this line was INSOLVENT before. make sure we update accounting that
+  if self.impaired[id] > 0:
+    self.impaired[id] -= amount
+
+  # update share price with new profits
+  self._updateShares(interest, False)
+
+  # payout fees with new share price
+  self._takePerformanceFees(interest)
+
 ## Deviestment functions
 
 @external
@@ -235,19 +267,33 @@ def reduceCredit(
 
   # LoC always sends profits before principal so will always have a value
   interestCollected = amount if amount < interest else interest 
-  
-  # if we thought this line was INSOLVENT before. make sure we update accounting that
-  if self.impaired[id] > 0:
-    self.impaired[id] -= amount
 
-  # update share price with new profits
-  self._updateShares(interestCollected, False)
-
-  # payout fees with new share price
-  self._takeFees(interestCollected)
+  self._collectInterest(interestCollected)
 
   # reduce principal deployed
   self.totalDeployed -= amount - interestCollected
+
+
+@external
+def close(vline: address, id: bytes32):
+  """
+    @notice
+      We have to pay our own facility fee to close a position sso this is basically an emergency exit
+      Use if you really want to remove liquidity from borrower fast.
+      Missed interest payments are less than the principal you think you'll lose
+  """
+  assert msg.sender is delegate
+  position: Position = ILineOfCredit(line).credits(id)
+  
+  # must approve line to use our tokens so we can repay our own interest
+  ERC20(asset).approve(line, max(uint256))
+  assert ILineOfCredit(line).close(id)
+  
+  # reduce deployed by withdrawn principal
+  self.totalDeployed -= position.deposit
+
+  # TODO need to know how much interest we got in excess of the interest we paid (if any)
+
 
 @external
 def divest4626(vault: address, amount: uint256):
@@ -256,7 +302,7 @@ def divest4626(vault: address, amount: uint256):
   # TODO check previewWithdraw expected vs withdraw actual for slippage
   ERC4626(vault).withdraw(amount, self.address)
   # TODO how do we tell what is principal and what is profit??? need to update totalAssets with yield
-  
+
   # delegate doesnt earn fees on 4626 strategies to incentivize line investment
 
 
@@ -297,24 +343,8 @@ def setRates(
   LineOfCredit(line).setRates(id, drate, frate)
 
 
-@external
-def collectInterest(
-  line: address,
-  id: bytes32
-):
-  position: Position = LineOfCredit(line).available(id)
-  LineOfCredit(line).withdraw(id, position.interest)
-  
-  if self.impaired[id] > 0:
-    self.impaired[id] -= position.interest
-  # update share price with new profits
-  self._updateShares(interest, False)
-  # payout fees with new share price
-  self._takeFees(interest)
-
-
 # 4626 action functions
-
+@nonreentrant("mutex")
 @external
 def deposit(assets: uint256, to: address):
   """
@@ -322,6 +352,7 @@ def deposit(assets: uint256, to: address):
   """
   self._deposit(amount / self._getSharePrice(), amount, to)
 
+@nonreentrant("mutex")
 @external
 def mint(shares: uint256, to: address):
   """
@@ -329,6 +360,7 @@ def mint(shares: uint256, to: address):
   """
   self._deposit(shares, amount * self._getSharePrice(), to)
 
+@nonreentrant("mutex")
 @external
 def withdraw(
   amount: uint256,
@@ -339,7 +371,7 @@ def withdraw(
   allowances[owner][msg.sender] -= amount
   self._withdraw(amount / self._getSharePrice(), amount, to)
 
-
+@nonreentrant("mutex")
 @external
 def redeem(shares: uint256, to: address, owner: address):
   """
@@ -381,7 +413,7 @@ def _withdraw(
   # emit withdraw
 
 @internal
-def _takeFees(interestEarned: uint256):
+def _takePerformanceFees(interestEarned: uint256):
   """
     @notice takes total profits earned and takes fees for delegate and compounder
     @dev fees are stored as shares but input/ouput assets
@@ -500,6 +532,8 @@ def flashFee(token: address, amount: uint256) -> uint256:
   assert token == self.asset
   return self_getFlashFee()
 
+@nonreentrant("mutex")
+@external
 def flashLoan(
     receiver: address,
     token: address,
@@ -507,6 +541,7 @@ def flashLoan(
     data: DynArray[bytes, 25000]
 ) -> bool:
   assert amount <= self._getMaxLiquidAssets()
+
   # give them the flashloan
   ERC20(asset).transfer(msg.sender, amount)
 
@@ -516,6 +551,8 @@ def flashLoan(
   
   # receive payment
   ERC20(asset).transferFrom(msg.sender, self, amount + fee)
+
+  self._updateShares(fee)
 
   return True
 # EIP712 permit functionality
@@ -544,6 +581,7 @@ def permit(owner: address, spender: address, amount: uint256, expiry: uint256, s
     """
     assert owner != ZERO_ADDRESS  # dev: invalid owner
     assert expiry >= block.timestamp  # dev: permit expired
+    
     nonce: uint256 = self.nonces[owner]
     digest: bytes32 = keccak256(
         concat(
