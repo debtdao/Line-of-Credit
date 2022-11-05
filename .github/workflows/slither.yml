@@ -20,3 +20,11 @@ jobs:
         uses: crytic/slither-action@v0.2.0
         with:
           ignore-compile: true
+        with:
+          sarif: results.sarif
+          fail-on: none
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
