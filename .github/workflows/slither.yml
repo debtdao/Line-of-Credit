@@ -1,8 +1,9 @@
 name: Slither Analysis
-on: [push]
-  
-
-jobs:
+on:
+  push
+  pull_requests
+ 
+  jobs:
   analyze:
     runs-on: ubuntu-latest
     steps:
@@ -10,8 +11,7 @@ jobs:
         with:
           submodules: recursive       # ensure forge-std installed
       - uses: bahmutov/npm-install@v1
-        with:
-          useLockFile: true
+        
         env:
           NODE_ENV: development       # install all test tooling 
 
