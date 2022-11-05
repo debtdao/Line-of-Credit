@@ -21,7 +21,6 @@ jobs:
         id: slither
         with:
           ignore-compile: true
-        with:
           sarif: results.sarif
           fail-on: none
 
