@@ -1,7 +1,5 @@
 name: Slither Analysis
-on:
-  push
-  pull_requests
+on: [push, pull_requests]
  
   jobs:
     analyze:
