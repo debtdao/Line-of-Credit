@@ -10,6 +10,8 @@ jobs:
         with:
           submodules: recursive       # ensure forge-std installed
       - uses: bahmutov/npm-install@v1
+        with:
+          useLockFile: false
         env:
           NODE_ENV: development       # install all test tooling 
 
