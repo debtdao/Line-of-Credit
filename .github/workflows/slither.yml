@@ -1,7 +1,5 @@
 name: Slither Analysis
-on: [push]
-  
-
+on: [push, pull_request]
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -9,11 +7,6 @@ jobs:
       - uses: actions/checkout@v2     # foundry docs say v3 but npm install uses v2
         with:
           submodules: recursive       # ensure forge-std installed
-      - uses: bahmutov/npm-install@v1
-        with:
-          useLockFile: true
-        env:
-          NODE_ENV: development       # install all test tooling 
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -25,5 +18,13 @@ jobs:
 
       - name: Run Slither
         uses: crytic/slither-action@v0.2.0
+        id: slither
         with:
           ignore-compile: true
+          sarif: results.sarif
+          fail-on: none
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
