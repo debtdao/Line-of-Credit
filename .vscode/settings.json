@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "solidity.formatter": "prettier",
+    "solidity.packageDefaultDependenciesContractsDirectory": "contracts",
+    "solidity.packageDefaultDependenciesDirectory": "lib",
+    "search.exclude": { "lib": true },
+    "[solidity]": {
+        "editor.defaultFormatter": "JuanBlanco.solidity"
+    }
+}
