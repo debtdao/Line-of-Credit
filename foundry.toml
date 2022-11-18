@@ -77,10 +77,17 @@ chains = 'all'
 endpoints = 'all'
 
 [fmt]
+# Maximum line length where formatter will try to wrap the line
 line_length = 120
+# Number of spaces per indentation level
 tab_width = 4
+# Print spaces between brackets
 bracket_spacing = false
-int_types = 'long'
+# Style of uint/int256 types
+int_types = "long"
+# If function parameters are multiline then always put the function attributes on separate lines
 func_attrs_with_params_multiline = true
-quote_style = 'double'
-number_underscore = 'preserve'
+# Style of quotation marks
+quote_style = "double"
+# Style of underscores in number literals
+number_underscore = "preserve"

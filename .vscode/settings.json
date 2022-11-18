@@ -1,6 +1,3 @@
 {
-    "editor.formatOnSave": false,
-    "solidity.packageDefaultDependenciesContractsDirectory": "contracts",
-    "solidity.packageDefaultDependenciesDirectory": "lib",
-    "search.exclude": { "lib": true }
+
 }
