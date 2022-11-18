@@ -20,7 +20,9 @@ interface ISpigot {
 
     event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
-    event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);
+    event ClaimOwnerTokens(address indexed token, uint256 indexed amount, address owner);
+    
+    event ClaimOperatorTokens(address indexed token, uint256 indexed amount, address owner);
 
     // Stakeholder Events
 
@@ -28,7 +30,7 @@ interface ISpigot {
 
     event UpdateOperator(address indexed newOperator);
 
-    event UpdateTreasury(address indexed newTreasury);
+    
 
     // Errors 
     error BadFunction();
@@ -52,7 +54,9 @@ interface ISpigot {
 
 
     // owner funcs  
-    function claimEscrow(address token) external returns (uint256 claimed) ;
+    function claimOwnerTokens(address token) external returns (uint256 claimed);
+
+    function claimOperatorTokens(address token) external returns (uint256 claimed);
  
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
  
@@ -67,16 +71,17 @@ interface ISpigot {
  
     function updateOperator(address newOperator) external returns (bool);
  
-    function updateTreasury(address newTreasury) external returns (bool);
+    
  
     function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool);
 
     // Getters 
     function owner() external view returns (address);
-    function treasury() external view returns (address);
+    
     function operator() external view returns (address);
     function isWhitelisted(bytes4 func) external view returns(bool);
-    function getEscrowed(address token) external view returns(uint256);
+    function getOwnerTokens(address token) external view returns(uint256);
+    function getOperatorTokens(address token) external view returns(uint256);
     function getSetting(address revenueContract) external view
       returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc);
 

@@ -24,18 +24,16 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @notice          - Configure data for Spigot stakeholders
                         - Owner/operator/treasury can all be the same address when setting up a Spigot
      * @param _owner    - An address that controls the Spigot and owns rights to some or all tokens earned by owned revenue contracts
-     * @param _treasury - A non-active address for non-Owner that receives revenue tokens that aren't allocated and escrowed for the Owner
      * @param _operator - An active address for non-Owner that can execute whitelisted functions to manage and maintain product operations
                           on revenue generating contracts controlled by the Spigot.
      */
     constructor (
         address _owner,
-        address _treasury,
         address _operator
     ) {
         state.owner = _owner;
         state.operator = _operator;
-        state.treasury = _treasury;
+      
     }
 
     function owner() external view returns (address) {
@@ -46,9 +44,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
         return state.operator;
     }
 
-    function treasury() external view returns (address) {
-        return state.treasury;
-    }
+ 
 
     // ##########################
     // #####   Claimoooor   #####
@@ -82,12 +78,20 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @return claimed -  The amount of tokens claimed by the `owner`
 
     */
-    function claimEscrow(address token)
+    function claimOwnerTokens(address token)
         external
         nonReentrant
         returns (uint256 claimed) 
     {
-        return state.claimEscrow(token);
+        return state.claimOwnerTokens(token);
+    }
+
+    function claimOperatorTokens(address token)
+        external
+        nonReentrant
+        returns (uint256 claimed)
+    {
+        return state.claimOperatorTokens(token);
     }
 
 
@@ -178,9 +182,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - callable by `treasury`
      * @param newTreasury - Address to divert funds to
      */
-    function updateTreasury(address newTreasury) external returns (bool) {
-        return state.updateTreasury(newTreasury);
-    }
+
 
     /**
 
@@ -203,8 +205,12 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @notice - Retrieve amount of revenue tokens escrowed waiting for claim
      * @param token Revenue token that is being garnished from spigots
     */
-    function getEscrowed(address token) external view returns (uint256) {
-        return state.getEscrowed(token);
+    function getOwnerTokens(address token) external view returns (uint256) {
+        return state.ownerTokens[token];
+    }
+
+    function getOperatorTokens(address token) external view returns (uint256) {
+        return state.operatorTokens[token];
     }
 
     /**

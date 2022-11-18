@@ -16,7 +16,6 @@ library LineFactoryLib {
     event DeployedSpigot(
         address indexed deployedAt,
         address indexed owner,
-        address indexed treasury,
         address operator
     );
 

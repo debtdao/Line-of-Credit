@@ -70,7 +70,7 @@ library SpigotedLineLib {
         
         // @dev claim has to be called after we get balance
         // reverts if there are no tokens to claim
-        uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
+        uint256 claimed = ISpigot(spigot).claimOwnerTokens(claimToken);
 
         trade(
             claimed + unused,

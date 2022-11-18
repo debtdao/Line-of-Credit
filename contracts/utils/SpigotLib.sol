@@ -7,9 +7,11 @@ import {ISpigot} from "../interfaces/ISpigot.sol";
 struct SpigotState {
     address owner;
     address operator;
-    address treasury;
+    
     // Total amount of revenue tokens escrowed by the Spigot and available to be claimed
-    mapping(address => uint256) escrowed; // token  -> amount escrowed
+    mapping(address => uint256) ownerTokens; // escrowed; // token  -> amount escrowed
+
+    mapping(address => uint256) operatorTokens;
     // Functions that the operator is allowed to run on all revenue contracts controlled by the Spigot
     mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
     // Configurations for revenue contracts related to the split of revenue, access control to claiming revenue tokens and transfer of Spigot ownership
@@ -35,7 +37,7 @@ library SpigotLib {
             // push payments
 
             // claimed = total balance - already accounted for balance
-            claimed = existingBalance - self.escrowed[token];
+            claimed = existingBalance - self.ownerTokens[token];
             // underflow revert ensures we have more tokens than we started with and actually claimed revenue
         } else {
             // pull payments
@@ -87,38 +89,54 @@ library SpigotLib {
         claimed = _claimRevenue(self, revenueContract, token, data);
 
         // splits revenue stream according to Spigot settings
-        uint256 escrowedAmount = claimed * self.settings[revenueContract].ownerSplit / 100;
+        uint256 ownerTokenAmount = claimed * self.settings[revenueContract].ownerSplit / 100;
         // update escrowed balance
-        self.escrowed[token] = self.escrowed[token] + escrowedAmount;
+        self.ownerTokens[token] = self.ownerTokens[token] + ownerTokenAmount;
         
         // send non-escrowed tokens to Treasury if non-zero
-        if(claimed > escrowedAmount) {
-            require(LineLib.sendOutTokenOrETH(token, self.treasury, claimed - escrowedAmount));
+        if(claimed > ownerTokenAmount) {
+            self.operatorTokens[token] = self.operatorTokens[token] + (claimed - ownerTokenAmount);
         }
 
-        emit ClaimRevenue(token, claimed, escrowedAmount, revenueContract);
+        emit ClaimRevenue(token, claimed, ownerTokenAmount, revenueContract);
         
         return claimed;
     }
 
     /** see Spigot.claimEscrow */
-    function claimEscrow(SpigotState storage self, address token)
+    function claimOwnerTokens(SpigotState storage self, address token)
         external
         returns (uint256 claimed) 
     {
         if(msg.sender != self.owner) { revert CallerAccessDenied(); }
         
-        claimed = self.escrowed[token];
+        claimed = self.ownerTokens[token];
 
         if(claimed == 0) { revert ClaimFailed(); }
 
         LineLib.sendOutTokenOrETH(token, self.owner, claimed);
 
-        self.escrowed[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
+        self.ownerTokens[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
-        emit ClaimEscrow(token, claimed, self.owner);
+        emit ClaimOwnerTokens(token, claimed, self.owner);
 
         return claimed;
+    }
+
+    function claimOperatorTokens(SpigotState storage self, address token) external returns (uint256 claimed) {
+        if(msg.sender != self.operator) { revert CallerAccessDenied(); }
+
+        claimed  = self.operatorTokens[token];
+        if(claimed == 0) { revert ClaimFailed(); }
+
+        LineLib.sendOutTokenOrETH(token, self.operator, claimed);
+
+        self.operatorTokens[token] = 0;
+        
+        emit ClaimOperatorTokens(token, claimed, self.operator);
+
+        return claimed;
+
     }
 
     /** see Spigot.addSpigot */
@@ -193,16 +211,7 @@ library SpigotLib {
     }
 
     /** see Spigot.updateTreasury */
-    function updateTreasury(SpigotState storage self, address newTreasury) external returns (bool) {
-        if(msg.sender != self.operator && msg.sender != self.treasury) {
-          revert CallerAccessDenied();
-        }
-
-        require(newTreasury != address(0));
-        self.treasury = newTreasury;
-        emit UpdateTreasury(newTreasury);
-        return true;
-    }
+    
 
     /** see Spigot.updateWhitelistedFunction*/
     function updateWhitelistedFunction(SpigotState storage self, bytes4 func, bool allowed) external returns (bool) {
@@ -213,8 +222,8 @@ library SpigotLib {
     }
 
     /** see Spigot.getEscrowed*/
-    function getEscrowed(SpigotState storage self, address token) external view returns (uint256) {
-        return self.escrowed[token];
+    function getOwnerTokens(SpigotState storage self, address token) external view returns (uint256) {
+        return self.ownerTokens[token];
     }
 
     /** see Spigot.isWhitelisted*/
@@ -255,14 +264,20 @@ library SpigotLib {
     event ClaimRevenue(
         address indexed token,
         uint256 indexed amount,
-        uint256 escrowed,
+        uint256 ownerTokens,
         address revenueContract
     );
 
-    event ClaimEscrow(
+    event ClaimOwnerTokens(
         address indexed token,
         uint256 indexed amount,
         address owner
+    );
+
+    event ClaimOperatorTokens(
+        address indexed token,
+        uint256 indexed amount,
+        address ooperator
     );
 
     // Stakeholder Events
