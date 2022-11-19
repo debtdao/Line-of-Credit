@@ -726,6 +726,7 @@ contract SpigotedLineTest is Test {
       _borrow(line.ids(0), lentAmount);
 
       uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount
+      console.log(claimed);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -743,7 +744,9 @@ contract SpigotedLineTest is Test {
 
       // initial mint + spigot revenue to borrower (- unused?)
       uint balance = revenueToken.balanceOf(address(borrower));
-      // assertEq(balance, MAX_REVENUE + ((MAX_REVENUE * 9) / 10) + 1, '1'); // tbh idk y its +1 here
+      console.log(balance);
+      console.log(MAX_REVENUE);
+      assertEq(balance, MAX_REVENUE, '1'); // tbh idk y its +1 here
 
       // The above assert is causing issues, not really sure what its supposed to be doing
 
