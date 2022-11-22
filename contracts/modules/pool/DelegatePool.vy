@@ -1,5 +1,4 @@
-
-# @version 0.3.7
+# @version 0.2.16
 
 from vyper.interfaces import ERC20
 
@@ -206,7 +205,7 @@ def addCredit(
   frate: uint128,
   amount: uint256
 ):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   self.totalDeployed += amount
   LineOfCredit(line).addCredit(drate, frate, amount, token, self.address)
 
@@ -216,13 +215,13 @@ def increaseCredit(
   id: bytes32,
   amount: uint256
 ):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   self.totalDeployed += amount
   LineOfCredit(line).increaseCredit(id, amount)
 
 @external
 def invest4626(vault: address, amount: uint256):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   self.totalDeployed += amount
   # TODO check previewDeposit expected vs deposit actual for slippage
   ERC4626(vault).deposit(amount, self.address)
@@ -259,14 +258,24 @@ def reduceCredit(
   id: bytes32,
   amount: uint256
 ):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
 
+  interest: uint256 = 0
+  deposit: uint256 = 0
   # store how much interest is currently claimable
-  position: Position = LineOfCredit(line).available(id)
+  (interest, deposit) = LineOfCredit(line).available(id)
+  
+  interestCollected: uint256 = 0
+  if amount < interest:
+    interestCollected = amount
+  else:
+    interestCollected = interest
+
   LineOfCredit(line).withdraw(id, amount)
 
   # LoC always sends profits before principal so will always have a value
-  interestCollected = amount if amount < interest else interest 
+      
+  # interestCollected =  amount < interest ? amount : interest 
 
   self._collectInterest(interestCollected)
 
@@ -282,11 +291,11 @@ def close(vline: address, id: bytes32):
       Use if you really want to remove liquidity from borrower fast.
       Missed interest payments are less than the principal you think you'll lose
   """
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   position: Position = ILineOfCredit(line).credits(id)
   
   # must approve line to use our tokens so we can repay our own interest
-  ERC20(asset).approve(line, max(uint256))
+  ERC20(asset).approve(line, MAX_UINT256)
   assert ILineOfCredit(line).close(id)
   
   # reduce deployed by withdrawn principal
@@ -297,7 +306,7 @@ def close(vline: address, id: bytes32):
 
 @external
 def divest4626(vault: address, amount: uint256):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   self.totalDeployed -= amount
   # TODO check previewWithdraw expected vs withdraw actual for slippage
   ERC4626(vault).withdraw(amount, self.address)
@@ -313,7 +322,7 @@ def impair(line: address, id: bytes32):
     @param line - line of credit contract to call
     @param id   - credit position on line controlled by this pool 
   """
-  assert LineOfCredit(line).status() is INSOLVENT_STATUS
+  assert LineOfCredit(line).status() == INSOLVENT_STATUS
 
   position: Position = LineOfCredit(line).credits(id)
 
@@ -339,7 +348,7 @@ def setRates(
   drate: uint128,
   frate: uint128,
 ):
-  assert msg.sender is delegate
+  assert msg.sender == delegate
   LineOfCredit(line).setRates(id, drate, frate)
 
 
@@ -367,7 +376,7 @@ def withdraw(
   receiver: address,
   owner: address
 ):
-  assert msg.sender is owner or allowances[owner][msg.sender] >= amount
+  assert msg.sender == owner or allowances[owner][msg.sender] >= amount
   allowances[owner][msg.sender] -= amount
   self._withdraw(amount / self._getSharePrice(), amount, to)
 
@@ -377,7 +386,7 @@ def redeem(shares: uint256, to: address, owner: address):
   """
     adds shares
   """
-  assert msg.sender is owner or allowances[owner][msg.sender] >= amount
+  assert msg.sender == owner or allowances[owner][msg.sender] >= amount
   allowances[owner][msg.sender] -= amount
   self._withdraw(shares, amount * self._getSharePrice(), to)
 
@@ -419,14 +428,16 @@ def _takePerformanceFees(interestEarned: uint256):
     @dev fees are stored as shares but input/ouput assets
     @return total amount of assets taken as fees
   """
-  if performanceFeeNumerator is 0:
+  if performanceFeeNumerator == 0:
     return 0
 
   totalFees: uint256 = interest * performanceFeeNumerator / FEE_DENOMINATOR
-  collectorFee: uint256 = 0 if (
-    collectorFeeNumerator is 0 or
-    msg.sender is delegate
-  ) else totalFees * collectorFeeNumerator / FEE_DENOMINATOR
+  collectorFee: uint256 = 0
+  if (
+    collectorFeeNumerator != 0 or
+    msg.sender != delegate
+  ):
+    collectorFee = totalFees * collectorFeeNumerator / FEE_DENOMINATOR
 
   # caller gets collector fees in raw asset for easier mev
   ERC20(asset).transfer(msg.sender, collectorFee)
@@ -496,7 +507,10 @@ def _getSharePrice():
 def _getMaxLiquidAssets():
   available = totalAssets - totalDeployed
   total = balances[owner] * self._getSharePrice() 
-  return total if available > total else available
+  if available > total:
+      return total
+  else:
+      return available
 
 
 
@@ -519,12 +533,18 @@ def domain_separator() -> bytes32:
 @view
 @external
 def maxFlashLoan(token: address) -> uint256:
-  return 0 if token is not asset else self._getMaxLiquidAssets()
+  if token != asset:
+    return 0
+  else:
+    return self._getMaxLiquidAssets()
 
 @view
 @internal
 def _getFlashFee(token: address, amount: uint256) -> uint256:
-  return 0 if flashLoanFeeNumerator is 0 else self._getMaxLiquidAssets() * flashLoanFeeNumerator / FEE_DENOMINATOR
+  if flashLoanFeeNumerator == 0:
+    return 0
+  else:
+    return self._getMaxLiquidAssets() * flashLoanFeeNumerator / FEE_DENOMINATOR
 
 @view
 @external
