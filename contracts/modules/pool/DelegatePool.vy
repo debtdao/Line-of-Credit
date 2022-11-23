@@ -143,6 +143,8 @@ PERMIT_TYPE_HASH: constant(bytes32) = keccak256("Permit(address owner,address sp
 delegate: public(address)
 # address to migrate delegate powers to. Must be accepted before transfer occurs
 pendingDelegate: public(address)
+# address that can came delegates fees
+feeRecipient: public(address)
 # minimum amount of assets that can be deposited at once. whales only, fuck plebs.
 minDeposit: public(uint256)
 # amount of asset held externally in lines or vaults
@@ -155,9 +157,9 @@ impaired: public(HashMap[address, uint256])
 # Fees Variables
 
 # max amount of fees that can be taken
-MAX_FEE: constant(public(uint16)) = 100
+MAX_FEE: constant(public(uint16)) = 2500 # 25%
 # shares earned by Delegate for managing pool
-delegateFees: uint256
+accruedFees: uint256
 # % (in bps) of profit that delegate keeps as incentives
 performanceFeeNumerator: uint16
 # % (in bps) of performance fee to give to caller for automated collections
@@ -166,7 +168,6 @@ collectorFeeNumerator: uint16
 flashFeeNumerator: uint16
 # % fee (in bps) to charge flash borrowers
 depositFeeNumerator: uint16
-
 
 
 # ERC20 vars
@@ -180,7 +181,9 @@ balances: HashMap[address, uint256]
 # owner -> spender -> amount approved
 allowances: HashMap[address, HashMap[address, uint256]]
 
+
 # ERC4626 vars
+
 # underlying token for pool/vault
 asset: immutable(address)
 # total notional amount of underlying token held in pool
@@ -213,7 +216,7 @@ def __init__(
 
   # DelegatePool
   self.delegate = delegate_
-  self.delegateFee = self._validateFee(fee)
+  self.performanceFeeNumerator = self._validateFee(fee)
 
 
 # Delegate functions
@@ -228,10 +231,9 @@ def addCredit(
 ):
   assert msg.sender == self.delegate
   self.totalDeployed += amount
-  LineOfCredit(line).addCredit(drate, frate, amount, token, self)
+  return LineOfCredit(line).addCredit(drate, frate, amount, token, self)
 
 @external
-@nonreentrant("lock")
 def increaseCredit(
   line: address,
   id: bytes32,
@@ -239,7 +241,7 @@ def increaseCredit(
 ):
   assert msg.sender == self.delegate
   self.totalDeployed += amount
-  LineOfCredit(line).increaseCredit(id, amount)
+  return LineOfCredit(line).increaseCredit(id, amount)
 
 @external
 @nonreentrant("lock")
@@ -247,8 +249,9 @@ def invest4626(vault: address, amount: uint256):
   assert msg.sender == self.delegate
   self.totalDeployed += amount
   # TODO check previewDeposit expected vs deposit actual for slippage
-  ERC4626(vault).deposit(amount, self)
-  log Invest4626(vault, amount, MAX_UINT256) ## TODO shares
+  shares: uint256 = ERC4626(vault).deposit(amount, self)
+  log Invest4626(vault, amount, shares) ## TODO shares
+  return shares
 
 
 @external
@@ -283,6 +286,7 @@ def _reduceCredit(line: address, id: bytes32, amount: uint256):
   self._updateShares(interest, False)
 
   # payout fees with new share price
+  # TODO does taking fees before/after updating shares affect RDT???
   fees: uint256 = self._takePerformanceFees(interest)
 
   return interest - fees
@@ -302,11 +306,11 @@ def reduceCredit(
   # reduce principal deployed
   # TODO might b wrong math
   self.totalDeployed -= amount - interestCollected
-
+  return True
 
 @external
 @nonreentrant("lock")
-def claimAndRepay(line: address, claimToken: address, tradeData: Bytes[50000], collect: boolean):
+def claimAndRepay(line: address, claimToken: address, tradeData: Bytes[50000], collect: boolean) -> uint256:
   assert msg.sender == self.delegate
   # Assume we are next lender in queue. 
   # save id for later internal functions incase we repay
@@ -315,6 +319,8 @@ def claimAndRepay(line: address, claimToken: address, tradeData: Bytes[50000], c
 
   if repaid > 0 and collect:
     self._reduceCredit(line, id, 0)
+
+  return repaid
 
 @external
 @nonreentrant("lock")
@@ -327,6 +333,7 @@ def useAndRepay(line: address, amount: uint256, collect: boolean):
 
   if repaid > 0 and collect:
     self._reduceCredit(line, id, 0)
+  return True
 
 @external
 @nonreentrant("lock")
@@ -349,6 +356,7 @@ def close(vline: address, id: bytes32):
 
   # TODO need to know how much interest we got in excess of the interest we paid (if any)
   # can check balance before/after
+  return True
 
 
 @external
@@ -363,6 +371,7 @@ def divest4626(vault: address, amount: uint256):
   # TBH a wee bit tracky to track all the different places they invested, entry price(s) for each, exit price(s) for each, calc profit over time, etc.
   log Divest4626(vault, amount, 0)
   # delegate doesnt earn fees on 4626 strategies to incentivize line investment
+  return True
 
 @external
 @nonreentrant("lock")
@@ -387,6 +396,7 @@ def impair(line: address, id: bytes32):
   # TODO currently callable by anyone. Should we give % of delegates fees to caller for impairing?
 
   self._updateShares(diff, True)
+  return True
 
 ## Maitainence functions
 
@@ -399,24 +409,28 @@ def setRates(
 ):
   assert msg.sender == self.delegate
   LineOfCredit(line).setRates(id, drate, frate)
+  return True
 
 @external
 def updateMinDeposit(newMin: uint256):
   assert msg.sender == self.delegate
   self.minDeposit = newMin
   log UpdateMinDeposit(newMin)
+  return True
 
 @external
 def updateDelegate(pendingDelegate_: address):
   assert msg.sender == self.delegate
   self.pendingDelegate = pendingDelegate_
   log NewPendingDelegate(pendingDelegate)
+  return True
 
 @external
 def acceptDelegate():
   assert msg.sender == pendingDelegate
   self.delegate = pendingDelegate
   log UpdateDelegate(pendingDelegate)
+  return True
 
 # manage fees
 
@@ -561,13 +575,15 @@ def _takePerformanceFees(interestEarned: uint256):
   # Not stored in balance so we can differentiate fees earned vs their won deposits, letting us slash fees on impariment.
   # earn fees in shares, not raw asset, so profit is vested like other users
   sharePrice = self._getSharePrice()
-  delegateFee += (totalFees - collectorFee) / sharePrice
-  self.delegateFees += delegateFee
+  performanceFee += (totalFees - collectorFee) / sharePrice
+  # mint shares and lock for delegate to claim
+  self.accruedFees += performanceFee
+  self.balances[self] += performanceFee
 
   # inflate supply to take fees. reduce share price
-  self.totalSupply += delegateFee
+  self.totalSupply += performanceFee
   
-  log CollectInterest(interestEarned, delegateFee, sharePrice, collectorFee)
+  log CollectInterest(interestEarned, accruedFees, sharePrice, collectorFee)
   return totalFees
 
 # ERC20 action functions
@@ -632,26 +648,9 @@ def _getSharePrice():
 
 @internal
 def _getMaxLiquidAssets():
-  available = totalAssets - totalDeployed
-  total = balances[owner] * self._getSharePrice() 
-  if available > total:
-      return total
-  else:
-      return available
-
-# EIP712 domain separator
-@view
-@internal
-def domain_separator() -> bytes32:
-  keccak256(
-    concat(
-        DOMAIN_TYPE_HASH,
-        keccak256(CONTRACT_NAME),
-        keccak256(API_VERSION),
-        chain.id,
-        self
-  )
-)
+  # maybe pass in owner: address param
+  # if user then their max withdrawable, if self then total vault liquidity
+  return totalAssets - totalDeployed
 
 # ERC 3156 Flash Loan functions
 @view
@@ -674,7 +673,7 @@ def _getFlashFee(token: address, amount: uint256) -> uint256:
 @external
 def flashFee(token: address, amount: uint256) -> uint256:
   assert token == self.asset
-  return self_getFlashFee()
+  return self._getFlashFee()
 
 @external
 @nonreentrant("lock")
@@ -699,9 +698,21 @@ def flashLoan(
   self._updateShares(fee)
 
   return True
-# EIP712 permit functionality
 
-# domain separator
+# EIP712 permit functionality
+@view
+@internal
+def domain_separator() -> bytes32:
+  keccak256(
+    concat(
+      DOMAIN_TYPE_HASH,
+      keccak256(CONTRACT_NAME),
+      keccak256(API_VERSION),
+      chain.id,
+      self
+  )
+)
+
 @view
 @external
 def DOMAIN_SEPARATOR() -> bytes32:
@@ -764,7 +775,7 @@ def balanceOf(account: address):
 @external
 @view
 def decimals():
-  return 18
+  return self.decimals
 
 @external
 @view
