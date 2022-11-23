@@ -36,6 +36,12 @@ interface ERC4626:
   # @notice simulate the effects of their redeem() at the current block, given current on-chain conditions.
   def previewRedeem(shares: uint256) -> uint256: view
 
+# referral interface for 4626
+interface ERC4626R:
+  def depositWithReferral(assets: uint256, receiver: address, referrer: address)  -> uint256: payable
+  def mintWithReferral(shares: uint256, receiver: address, referrer: address) -> uint256: payable
+
+
 interface ERC3156:
   # /**
   # * @dev The amount of currency available to be lent.
@@ -130,7 +136,7 @@ FEE_DENOMINATOR: constant(private(uint256)) = 10000 # TODO figure it out
 # EIP712 contract name
 CONTRACT_NAME: constant(private(String[13])) = "Debt DAO Pool"
 # EIP712 contract version
-API_VERSION: constant(private(String[5])) = "0.0.1"
+API_VERSION: constant(private(String[28])) = "0.0.1"
 # EIP712 type hash
 DOMAIN_TYPE_HASH: constant(bytes32) = keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')
 # EIP712 permit type hash
@@ -159,15 +165,17 @@ impaired: public(HashMap[address, uint256])
 # max amount of fees that can be taken
 MAX_FEE: constant(public(uint16)) = 2500 # 25%
 # shares earned by Delegate for managing pool
-accruedFees: uint256
+accruedFees: public(uint256)
 # % (in bps) of profit that delegate keeps as incentives
-performanceFeeNumerator: uint16
+performanceFeeNumerator: public(uint16)
 # % (in bps) of performance fee to give to caller for automated collections
-collectorFeeNumerator: uint16
+collectorFeeNumerator: public(uint16)
 # % fee (in bps) to charge flash borrowers
-flashFeeNumerator: uint16
+flashFeeNumerator: public(uint16)
 # % fee (in bps) to charge flash borrowers
-depositFeeNumerator: uint16
+referralFeeNumerator: public(uint16)
+# % fee (in bps) to charge flash borrowers
+withdrawFeeNumerator: public(uint16)
 
 
 # ERC20 vars
@@ -434,43 +442,82 @@ def acceptDelegate():
 
 # manage fees
 
+@views
 @internal 
 def _validateFee(fee: uint16):
   assert fee <= MAX_FEE
   return fee
 
 @external
+@nonreentrant("lock")
 def updatePerformanceFee(fee: uint16):
   assert msg.sender == self.delegate
-  assert _validateFee(fee)
+  assert self._validateFee(fee)
   self.performanceFeeNumereator = fee
   log UpdatePerformanceFee(fee)
   return True
 
 @external
+@nonreentrant("lock")
 def updateFlashFee(fee: uint16):
   assert msg.sender == self.delegate
-  assert _validateFee(fee)
+  assert self._validateFee(fee)
   self.flashFeeNumereator = fee
   log UpdateFlashFee(fee)
   return True
 
 @external
+@nonreentrant("lock")
 def updateCollectorFee(fee: uint16):
   assert msg.sender == self.delegate
-  assert _validateFee(fee)
+  assert self._validateFee(fee)
   self.collectorFeeNumereator = fee
   log UpdateCollectorFee(fee)
   return True
 
 @external
+@nonreentrant("lock")
 def updateDepositFee(fee: uint16):
   assert msg.sender == self.delegate
-  assert _validateFee(fee)
+  assert self._validateFee(fee)
   self.depositFeeNumereator = fee
-  log UpdateDepositFee(fee)
+  log UpdateReferralFee(fee)
   return True
 
+@external
+@nonreentrant("lock")
+def updateWithdrawFee(fee: uint16):
+  assert msg.sender == self.delegate
+  assert self._validateFee(fee)
+  self.withdrawFeeNumereator = fee
+  log UpdateWithdrawFee(fee)
+  return True
+
+@external
+def updateFeeRecipient(newRecipient: address):
+  assert msg.sender == self.feeRecipient or msg.sender == self.delegate
+  self.feeRecipient = newRecipient
+  log UpdateFeeRecipient(newRecipient)
+  return True
+
+@external
+@nonreentrant("lock")
+def claimFees(amount: uint256):
+  assert msg.sender == self.feeRecipient
+  
+  # TODO check rate of change not share price
+  # apr = self._getShareAPR()
+  # assert apr > 0
+
+  # set max
+  if amount == MAX_UINT256:
+    amount = accruedFees
+  
+  self.accruedFees -= amount
+  self._transfer(self, msg.sender, amount)
+
+  log ClaimPerformanceFee(amount, sharePrice, feeRecipient)
+  return True
 
 
 # 4626 action functions
@@ -480,7 +527,24 @@ def deposit(assets: uint256, receiver: address):
   """
     adds assets
   """
-  return self._deposit(amount / self._getSharePrice(), amount, receiver)
+  return self._deposit(amount, receiver, ZERO_ADDRESS)
+
+# 4626 action functions
+@external
+@nonreentrant("lock")
+def deposit(assets: uint256, receiver: address):
+  """
+    adds assets
+  """
+  return self._deposit(amount, receiver, ZERO_ADDRESS)
+
+@external
+@nonreentrant("lock")
+def depositWithReferral(shares: uint256, receiver: address, referrer: address):
+  """
+    adds shares
+  """
+  return self._deposit(amount, receiver, referrer)
 
 @external
 @nonreentrant("lock")
@@ -488,7 +552,15 @@ def mint(shares: uint256, receiver: address):
   """
     adds shares
   """
-  return self._deposit(shares, amount * self._getSharePrice(), receiver)
+  return self._deposit(amount, receiver, ZERO_ADDRESS)
+
+@external
+@nonreentrant("lock")
+def mintWithReferral(shares: uint256, receiver: address, referrer: address):
+  """
+    adds shares
+  """
+  return self._deposit(amount, receiver, referrer)
 
 @external
 @nonreentrant("lock")
@@ -499,7 +571,7 @@ def withdraw(
 ):
   assert msg.sender == owner or self.allowances[owner][msg.sender] >= amount
   self.allowances[owner][msg.sender] -= amount
-  return self._withdraw(amount / self._getSharePrice(), amount, owner, receiver)
+  return self._withdraw(amount, owner, receiver)
 
 @external
 @nonreentrant("lock")
@@ -509,45 +581,57 @@ def redeem(shares: uint256, receiver: address, owner: address):
   """
   assert msg.sender == owner or self.allowances[owner][msg.sender] >= amount
   self.allowances[owner][msg.sender] -= amount
-  return self._withdraw(shares, amount * self._getSharePrice(), owner, receiver)
+  return self._withdraw(amount, owner, receiver)
 
 
 # pool interals
 
 @internal
 def _deposit(
-  shares: uint256,
   assets: uint256,
-  receiver: address
+  receiver: address,
+  referrer: address
 ):
   """
     adds shares to a user after depositing into vault
     priviliged internal func
   """
-  assert amount >= minDeposit
+  assert assets >= minDeposit
+  
+  sharePrice = self._getSharePrice()
+  
+  referralFee = 0
+  if referrer != ZERO_ADDRESS and self.referralFeeNumerator > 0:
+    referralFee = assets *  self.referralFeeNumerator / BIPS_100
+    self.balances[referrer] += referralFee / sharePrice
 
-  totalAssets += amount
-  balances[receiver] += shares
-  
-  assert ERC20(asset).transferFrom(msg.sender, self, amount)     
-  
+  self.totalAssets += assets
+  # TODO take referral fees from user deposit or accruedFees?
+  # if accruedFees, then should be withdrawalFee > referralFee to prevent draining
+  self.balances[receiver] += (assets - referralFee) / sharePrice
+
+  assert ERC20(self.asset).transferFrom(msg.sender, self, assets)
+
   log Deposit(msg.sender, receiver, assets, shares)
+  return True
+  
 
 @internal
 def _withdraw(
-  shares: uint256,
   assets: uint256,
   owner: address,
   receiver: address
 ):
   assert assets <= self._getMaxLiquidAssets()
 
-  totalAssets -= amount
-  balances[to] -= shares
+  sharePrice = self._getSharePrice()
+  self.totalAssets -= amount
+  self.balances[to] -= amount / sharePrice
 
-  assert ERC20(asset).transfer(receiver, amount)
+  assert ERC20(self.asset).transfer(receiver, amount)
 
   log Withdraw(msg.sender, receiver, assets, shares)
+  return True
 
 @internal
 def _takePerformanceFees(interestEarned: uint256):
@@ -943,6 +1027,19 @@ event CollectInterest:
   # todo add RDT rate
   collectorFee: uint256
 
+event ClaimPerformanceFee:
+  fees: indexed(uint256)
+  apr: indexed(int128)
+  recipient: indexed(address)
+  sharePrice: uint256
+
+
+event ReferallFee:
+  fees: indexed(uint256)
+  referrer: indexed(address)
+  depositor: address
+
+
 # param updates
 event NewPendingDelegate:
     pendingGovernance: indexed(address)
@@ -962,5 +1059,11 @@ event UpdateCollectorFee:
 event UpdateFlashFee:
     flashFee: uint256 # New active performance fee
 
-event UpdateDepositFee:
+event UpdateReferralFee:
     depositFee: uint256 # New active management fee
+  
+event UpdateWithdrawFee:
+  depositFee: uint256 # New active management fee
+
+event UpdateFeeRecipient:
+    newRecipient: address # New active management fee
