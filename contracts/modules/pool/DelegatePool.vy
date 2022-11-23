@@ -261,6 +261,11 @@ def invest4626(vault: address, amount: uint256):
   log Invest4626(vault, amount, shares) ## TODO shares
   return shares
 
+@external
+def sweep(token: address, receiver: address):
+  assert msg.sender == self.delegate
+  assert token != asset
+  return ERC20(token).transfer(receiver, ERC20(token).balanceOf(self))
 
 @external
 @nonreentrant("lock")
@@ -356,7 +361,7 @@ def close(vline: address, id: bytes32):
   position: Position = ILineOfCredit(line).credits(id)
   
   # must approve line to use our tokens so we can repay our own interest
-  ERC20(asset).approve(line, MAX_UINT256)
+  ERC20(self.asset).approve(line, MAX_UINT256)
   assert ILineOfCredit(line).close(id)
   
   # reduce deployed by withdrawn principal
@@ -602,7 +607,7 @@ def _deposit(
   
   referralFee = 0
   if referrer != ZERO_ADDRESS and self.referralFeeNumerator > 0:
-    referralFee = assets *  self.referralFeeNumerator / BIPS_100
+    referralFee = assets *  self.referralFeeNumerator / FEE_DENOMINATOR
     self.balances[referrer] += referralFee / sharePrice
 
   self.totalAssets += assets
@@ -645,28 +650,30 @@ def _takePerformanceFees(interestEarned: uint256):
 
   totalFees: uint256 = interestEarned * performanceFeeNumerator / FEE_DENOMINATOR
   collectorFee: uint256 = 0
+  
   if (
     collectorFeeNumerator != 0 or
     msg.sender != delegate
   ):
     collectorFee = totalFees * collectorFeeNumerator / FEE_DENOMINATOR
+    # caller gets collector fees in raw asset for easier mev
+    self.totalAssets -= collectorFee
+    assert ERC20(self.asset).transfer(msg.sender, collectorFee)
 
-  # caller gets collector fees in raw asset for easier mev
-  ERC20(asset).transfer(msg.sender, collectorFee)
-  self.totalAssets -= collectorFee
-
-  # delegate gets performance fee.
-  # Not stored in balance so we can differentiate fees earned vs their won deposits, letting us slash fees on impariment.
-  # earn fees in shares, not raw asset, so profit is vested like other users
+  # calculate shares to mint to delegate
   sharePrice = self._getSharePrice()
   performanceFee += (totalFees - collectorFee) / sharePrice
-  # mint shares and lock for delegate to claim
+  
+  # Not stored in balance so we can differentiate fees earned vs their won deposits, letting us slash fees on impariment.
+  # earn fees in shares, not raw asset, so profit is vested like other users
   self.accruedFees += performanceFee
   self.balances[self] += performanceFee
 
   # inflate supply to take fees. reduce share price
   self.totalSupply += performanceFee
   
+  
+
   log CollectInterest(interestEarned, accruedFees, sharePrice, collectorFee)
   return totalFees
 
@@ -713,28 +720,30 @@ def increaseAllowance(spender: address, amount: uint256):
 
 # ERC4626 internal functions
 @internal
-def _updateShares(amount: uint256, impair: bool):
+def _updateShares(amount: uint256, impair: bool = False):
   if impair:
-    totalAssets -= amount
+    self.totalAssets -= amount
     # TODO RDT logic
-    # TODO  log RDT value change
+    # TODO  log RDT rate change
   else:
-    totalAssets += amount
+    self.totalAssets += amount
     # TODO RDT logic
-    # TODO  log RDT value change
+    # TODO  log RDT rate change
 
 @internal
 def _getSharePrice():
   # returns # of assets per share
 
   # TODO RDT logic
-  return totalAssets / totalSupply
+  return self.totalAssets / totalSupply
 
 @internal
 def _getMaxLiquidAssets():
-  # maybe pass in owner: address param
+  # maybe pass in owner: address param?
   # if user then their max withdrawable, if self then total vault liquidity
-  return totalAssets - totalDeployed
+
+  # TODO account for RDT locked profits
+  return self.totalAssets - totalDeployed
 
 # ERC 3156 Flash Loan functions
 @view
@@ -748,7 +757,7 @@ def maxFlashLoan(token: address) -> uint256:
 @view
 @internal
 def _getFlashFee(token: address, amount: uint256) -> uint256:
-  if flashFeeNumerator == 0:
+  if self.flashFeeNumerator == 0:
     return 0
   else:
     return self._getMaxLiquidAssets() * flashFeeNumerator / FEE_DENOMINATOR
@@ -770,20 +779,36 @@ def flashLoan(
   assert amount <= self._getMaxLiquidAssets()
 
   # give them the flashloan
-  ERC20(asset).transfer(msg.sender, amount)
+  ERC20(self.asset).transfer(msg.sender, amount)
 
-  fee = self_getFlashFee()
+  fee = self._getFlashFee()
   # ensure they can receive flash loan
   assert IERC3156FlashBorrower(receiver).onFlashLoan(msg.sender, token, amount, fee, data) == keccak256("ERC3156FlashBorrower.onFlashLoan")
   
   # receive payment
-  ERC20(asset).transferFrom(msg.sender, self, amount + fee)
+  ERC20(self.asset).transferFrom(msg.sender, self, amount + fee)
 
   self._updateShares(fee)
 
   return True
 
 # EIP712 permit functionality
+
+@pure
+@external
+def apiVersion() -> String[28]:
+    """
+    @notice
+        Used to track the deployed version of this contract. In practice you
+        can use this version number to compare with Debt DAO's GitHub and
+        determine which version of the source matches this deployed contract.
+    @dev
+        All strategies must have an `apiVersion()` that matches the Vault's
+        `API_VERSION`.
+    @return API_VERSION which holds the current version of this contract.
+    """
+    return API_VERSION
+
 @view
 @internal
 def domain_separator() -> bytes32:
@@ -912,12 +937,12 @@ def maxDeposit():
   """
     add assets
   """
-  return MAX_UINT256 - totalAssets
+  return MAX_UINT256 - self.totalAssets
 
 @external
 @view
 def maxMint():
-  return MAX_UINT256 - totalAssets
+  return MAX_UINT256 - self.totalAssets
 
 @external
 @view
@@ -937,38 +962,27 @@ def maxRedeem(owner: address):
 
 @external
 @view
-def previewMint():
-  # MUST be inclusive of deposit fees
-  return MAX_UINT256 - totalAssets
-
-
-@external
-@view
-def previewWithdraw():
-  # MUST be inclusive of withdraw fees
-  return MAX_UINT256 - totalAssets
+def previewDeposit(assets: uint256):
+  # TODO MUST be inclusive of deposit fees
+  return min(MAX_UINT256 - self.totalAssets, assets) / self._getSharePrice()
 
 @external
 @view
-def previewRedeem():
-  # MUST be inclusive of withdraw fees
-  return MAX_UINT256 - totalAssets
+def previewMint(shares: uint256):
+  # TODO MUST be inclusive of deposit fees
+  return min(MAX_UINT256 - self.totalAssets, shares * self._getSharePrice())
 
-
-@pure
 @external
-def apiVersion() -> String[28]:
-    """
-    @notice
-        Used to track the deployed version of this contract. In practice you
-        can use this version number to compare with Debt DAO's GitHub and
-        determine which version of the source matches this deployed contract.
-    @dev
-        All strategies must have an `apiVersion()` that matches the Vault's
-        `API_VERSION`.
-    @return API_VERSION which holds the current version of this contract.
-    """
-    return API_VERSION
+@view
+def previewWithdraw(assets: uint256):
+  # TODO MUST be inclusive of withdraw fees
+  return  min(self._getMaxLiquidAssets(), (MAX_UINT256 - assets)) / self._getSharePrice()
+
+@external
+@view
+def previewRedeem(shares: uint256):
+  # TODO MUST be inclusive of withdraw fees
+  return min(self._getMaxLiquidAssets(), shares * self._getSharePrice())
 
 
 # ERC20 Events
