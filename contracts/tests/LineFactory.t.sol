@@ -87,19 +87,10 @@ contract LineFactoryTest is Test {
             borrower
         );
 
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: borrower,
-                ttl: ttl,
-                cratio: 3000,
-                revenueSplit: 90
-            });
+        ILineFactory.CoreLineParams memory coreParams =
+            ILineFactory.CoreLineParams({borrower: borrower, ttl: ttl, cratio: 3000, revenueSplit: 90});
 
-        address moduleLine = lineFactory.deploySecuredLineWithModules(
-            coreParams,
-            moduleSpigot,
-            moduleEscrow
-        );
+        address moduleLine = lineFactory.deploySecuredLineWithModules(coreParams, moduleSpigot, moduleEscrow);
 
         ISpigot(moduleSpigot).updateOwner(moduleLine);
         IEscrow(moduleEscrow).updateLine(moduleLine);
@@ -120,13 +111,8 @@ contract LineFactoryTest is Test {
     // TODO: should use some fuzzing here
     function test_fail_if_revenueSplit_exceeds_100() public {
         // vm.assume( pct > 100)
-        ILineFactory.CoreLineParams memory coreParams = ILineFactory
-            .CoreLineParams({
-                borrower: borrower,
-                ttl: ttl,
-                cratio: 3000,
-                revenueSplit: 110
-            });
+        ILineFactory.CoreLineParams memory coreParams =
+            ILineFactory.CoreLineParams({borrower: borrower, ttl: ttl, cratio: 3000, revenueSplit: 110});
 
         vm.expectRevert(ILineFactory.InvalidRevenueSplit.selector);
         address bad_line = lineFactory.deploySecuredLineWithConfig(coreParams);
@@ -148,11 +134,7 @@ contract LineFactoryTest is Test {
 
     function test_rollover_params_consistent() public {
         skip(10000);
-        address new_line_address = lineFactory.rolloverSecuredLine(
-            payable(line_address),
-            borrower,
-            ttl
-        );
+        address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, ttl);
 
         SecuredLine new_line = SecuredLine(payable(new_line_address));
         assertEq(new_line.deadline(), ttl + 10001);
@@ -163,19 +145,12 @@ contract LineFactoryTest is Test {
         address new_escrow_address = address(new_line.escrow());
         Escrow new_escrow = Escrow(payable(new_escrow_address));
 
-        assertEq(
-            new_escrow.minimumCollateralRatio(),
-            escrow.minimumCollateralRatio()
-        );
+        assertEq(new_escrow.minimumCollateralRatio(), escrow.minimumCollateralRatio());
     }
 
     function test_cannot_rollover_if_not_repaid() public {
         skip(10000);
-        address new_line_address = lineFactory.rolloverSecuredLine(
-            payable(line_address),
-            borrower,
-            ttl
-        );
+        address new_line_address = lineFactory.rolloverSecuredLine(payable(line_address), borrower, ttl);
 
         vm.startPrank(borrower);
         vm.expectRevert(ISecuredLine.DebtOwed.selector);

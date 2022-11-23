@@ -3,14 +3,20 @@ pragma solidity 0.8.9;
 
 import "forge-std/Script.sol";
 
-import {SimpleOracle} from "../mock/SimpleOracle.sol";
+import {Oracle} from "../modules/oracle/Oracle.sol";
+import {LineFactory} from "../modules/factories/LineFactory.sol";
+import {ModuleFactory} from "../modules/factories/ModuleFactory.sol";
 
-contract DeployBase is Script {
-    SimpleOracle oracle;
+abstract contract DeployBase is Script {
+    Oracle oracle;
+    LineFactory lineFactory;
+    ModuleFactory moduleFactory;
 
-    constructor() {}
+    // function run() public {
+    //     console.log('running');
+    // }
 
-    function run() external {
+    function run(address arbiter_, address swapTarget_, address feedRegistry_) public {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
         console.log("deployer: ", deployer);
@@ -19,6 +25,22 @@ contract DeployBase is Script {
         console.log(deployer.balance);
 
         vm.startBroadcast(deployerKey);
-        oracle = new SimpleOracle(address(0), address(1));
+
+        oracle = new Oracle(feedRegistry_);
+
+        moduleFactory = new ModuleFactory();
+        lineFactory = new LineFactory(
+            address(moduleFactory),
+            arbiter_,
+            address(oracle),
+            swapTarget_
+        );
+
+        vm.stopBroadcast();
+
+        // log the deployed contracts
+        console.log("Oracle:", address(oracle));
+        console.log("Module Factory:", address(moduleFactory));
+        console.log("Line Factory:", address(lineFactory));
     }
 }

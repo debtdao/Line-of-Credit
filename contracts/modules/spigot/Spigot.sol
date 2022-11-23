@@ -1,8 +1,8 @@
 pragma solidity 0.8.9;
 
-import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
-import { LineLib } from  "../../utils/LineLib.sol";
-import { SpigotState, SpigotLib } from  "../../utils/SpigotLib.sol";
+import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
+import {LineLib} from "../../utils/LineLib.sol";
+import {SpigotState, SpigotLib} from "../../utils/SpigotLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 
@@ -10,29 +10,25 @@ import {ISpigot} from "../../interfaces/ISpigot.sol";
  * @title   Debt DAO Spigot
  * @author  Kiba Gateaux
  * @notice  - a contract allowing the revenue stream of a smart contract to be split between two parties, Owner and Treasury
-            - operational control of revenue generating contract belongs to Spigot's Owner and delegated to Operator.
+ *             - operational control of revenue generating contract belongs to Spigot's Owner and delegated to Operator.
  * @dev     - Should be deployed once per agreement. Multiple revenue contracts can be attached to a Spigot.
  */
 contract Spigot is ISpigot, ReentrancyGuard {
     using SpigotLib for SpigotState;
 
     // Stakeholder variables
-    
+
     SpigotState private state;
 
     /**
      * @notice          - Configure data for Spigot stakeholders
-                        - Owner/operator/treasury can all be the same address when setting up a Spigot
+     *                     - Owner/operator/treasury can all be the same address when setting up a Spigot
      * @param _owner    - An address that controls the Spigot and owns rights to some or all tokens earned by owned revenue contracts
      * @param _treasury - A non-active address for non-Owner that receives revenue tokens that aren't allocated and escrowed for the Owner
      * @param _operator - An active address for non-Owner that can execute whitelisted functions to manage and maintain product operations
-                          on revenue generating contracts controlled by the Spigot.
+     *                       on revenue generating contracts controlled by the Spigot.
      */
-    constructor (
-        address _owner,
-        address _treasury,
-        address _operator
-    ) {
+    constructor(address _owner, address _treasury, address _operator) {
         state.owner = _owner;
         state.operator = _operator;
         state.treasury = _treasury;
@@ -55,41 +51,34 @@ contract Spigot is ISpigot, ReentrancyGuard {
     // ##########################
 
     /**
-
      * @notice - Claims revenue tokens from the Spigot (push and pull payments) and escrows them for the Owner withdraw later.
-               - Calls predefined function in contract settings to claim revenue.
-               - Automatically sends portion to Treasury and then escrows Owner's share
-               - There is no conversion or trade of revenue tokens. 
+     *            - Calls predefined function in contract settings to claim revenue.
+     *            - Automatically sends portion to Treasury and then escrows Owner's share
+     *            - There is no conversion or trade of revenue tokens. 
      * @dev    - Assumes the only side effect of calling claimFunc on revenueContract is we receive new tokens.
-               - Any other side effects could be dangerous to the Spigot or upstream contracts.
+     *            - Any other side effects could be dangerous to the Spigot or upstream contracts.
      * @dev    - callable by anyone
      * @param revenueContract - Contract with registered settings to claim revenue from
      * @param data - Transaction data, including function signature, to properly claim revenue on revenueContract
      * @return claimed -  The amount of revenue tokens claimed from revenueContract and split between `owner` and `treasury`
-    */
+     */
     function claimRevenue(address revenueContract, address token, bytes calldata data)
-        external nonReentrant
+        external
+        nonReentrant
         returns (uint256 claimed)
     {
         return state.claimRevenue(revenueContract, token, data);
     }
-
 
     /**
      * @notice - Allows Spigot Owner to claim escrowed revenue tokens
      * @dev - callable by `owner`
      * @param token - address of revenue token that is being escrowed by spigot
      * @return claimed -  The amount of tokens claimed by the `owner`
-
-    */
-    function claimEscrow(address token)
-        external
-        nonReentrant
-        returns (uint256 claimed) 
-    {
+     */
+    function claimEscrow(address token) external nonReentrant returns (uint256 claimed) {
         return state.claimEscrow(token);
     }
-
 
     // ##########################
     // ##### *ring* *ring*  #####
@@ -102,14 +91,12 @@ contract Spigot is ISpigot, ReentrancyGuard {
      *           while still allowing Spigot Owner to receive its revenue stream
      * @dev - cannot call revenueContracts claim or transferOwner functions
      * @dev - callable by `operator`
-     * @param revenueContract - contract to call. Must have existing settings added by Owner 
+     * @param revenueContract - contract to call. Must have existing settings added by Owner
      * @param data - tx data, including function signature, to call contract with
      */
     function operate(address revenueContract, bytes calldata data) external returns (bool) {
         return state.operate(revenueContract, data);
     }
-
-
 
     // ##########################
     // #####  Maintainooor  #####
@@ -120,34 +107,27 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - revenueContract cannot be address(this)
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to claim tokens from
-     * @param setting - Spigot settings for smart contract   
+     * @param setting - Spigot settings for smart contract
      */
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool) {
         return state.addSpigot(revenueContract, setting);
     }
 
     /**
-
      * @notice - uses predefined function in revenueContract settings to transfer complete control and ownership from this Spigot to the Operator
      *         - sends any escrowed tokens to the Spigot Owner.
      * @dev - revenuContract's transfer func MUST only accept one paramteter which is the new owner.
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
      */
-    function removeSpigot(address revenueContract)
-        external
-        returns (bool)
-    {
-       return state.removeSpigot(revenueContract);
+    function removeSpigot(address revenueContract) external returns (bool) {
+        return state.removeSpigot(revenueContract);
     }
 
     // Changes the revenue split between the Treasury and the Owner based upon the status of the Line of Credit
     // or otherwise if the Owner and Borrower wish to change the split.
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
-        external
-        returns(bool)
-    {
-      return state.updateOwnerSplit(revenueContract, ownerSplit);
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool) {
+        return state.updateOwnerSplit(revenueContract, ownerSplit);
     }
 
     /**
@@ -161,7 +141,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
     }
 
     /**
-
      * @notice - Update Operator role of Spigot contract.
      *      New Operator can interact with revenue contracts.
      * @dev - callable by `operator`
@@ -170,9 +149,8 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function updateOperator(address newOperator) external returns (bool) {
         return state.updateOperator(newOperator);
     }
-    
-    /**
 
+    /**
      * @notice - Update Treasury role of Spigot contract.
      *      New Treasury receives revenue stream split
      * @dev - callable by `treasury`
@@ -183,7 +161,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
     }
 
     /**
-
      * @notice - Allows Owner to whitelist function methods across all revenue contracts for Operator to call.
      *           Can whitelist "transfer ownership" functions on revenue contracts
      *           allowing Spigot to give direct control back to Operator.
@@ -191,7 +168,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param func - smart contract function signature to whitelist
      * @param allowed - true/false whether to allow this function to be called by Operator
      */
-     function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
         return state.updateWhitelistedFunction(func, allowed);
     }
 
@@ -202,30 +179,26 @@ contract Spigot is ISpigot, ReentrancyGuard {
     /**
      * @notice - Retrieve amount of revenue tokens escrowed waiting for claim
      * @param token Revenue token that is being garnished from spigots
-    */
+     */
     function getEscrowed(address token) external view returns (uint256) {
         return state.getEscrowed(token);
     }
 
     /**
      * @notice - Returns the list of whitelisted functions that an Operator is allowed to perform
-                 on the revenue generating smart contracts whilst the Spigot is attached.
-     * @param func Function to check on whitelist 
-    */
+     *              on the revenue generating smart contracts whilst the Spigot is attached.
+     * @param func Function to check on whitelist
+     */
 
-    function isWhitelisted(bytes4 func) external view returns(bool) {
-      return state.isWhitelisted(func);
+    function isWhitelisted(bytes4 func) external view returns (bool) {
+        return state.isWhitelisted(func);
     }
 
-    function getSetting(address revenueContract)
-        external view
-        returns(uint8, bytes4, bytes4)
-    {
+    function getSetting(address revenueContract) external view returns (uint8, bytes4, bytes4) {
         return state.getSetting(revenueContract);
     }
 
     receive() external payable {
         return;
     }
-
 }

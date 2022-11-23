@@ -1,6 +1,7 @@
 pragma solidity 0.8.9;
-import { Denominations } from "chainlink/Denominations.sol";
-import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
+
+import {Denominations} from "chainlink/Denominations.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract SimpleRevenueContract {
     address owner;
@@ -11,9 +12,9 @@ contract SimpleRevenueContract {
         revenueToken = IERC20(token);
     }
 
-    function claimPullPayment() external returns(bool) {
+    function claimPullPayment() external returns (bool) {
         require(msg.sender == owner, "Revenue: Only owner can claim");
-        if(address(revenueToken) != Denominations.ETH) {
+        if (address(revenueToken) != Denominations.ETH) {
             require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
@@ -21,8 +22,8 @@ contract SimpleRevenueContract {
         return true;
     }
 
-    function sendPushPayment() external returns(bool) {
-        if(address(revenueToken) != Denominations.ETH) {
+    function sendPushPayment() external returns (bool) {
+        if (address(revenueToken) != Denominations.ETH) {
             require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
@@ -30,19 +31,16 @@ contract SimpleRevenueContract {
         return true;
     }
 
-    function doAnOperationsThing() external returns(bool)  {
+    function doAnOperationsThing() external returns (bool) {
         require(msg.sender == owner, "Revenue: Only owner can operate");
         return true;
     }
 
-    function transferOwnership(address newOwner) external returns(bool) {
+    function transferOwnership(address newOwner) external returns (bool) {
         require(msg.sender == owner, "Revenue: Only owner can transfer");
         owner = newOwner;
         return true;
     }
 
-    receive() external payable {
-
-    }
-
+    receive() external payable {}
 }
