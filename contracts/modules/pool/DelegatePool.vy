@@ -123,59 +123,29 @@ interface LineOfCredit:
     def liquidate(amount: uint256, targetToken: address)-> uint256: modifying
     def addSpigot(revenueContract: address, settings: Bytes[9])-> uint256: modifying
 
+interface PoolDelegate:
+  # TODO
+  # delegate
+  # getters
+  def getShareAPR() -> int128: view # should update price or no?
 
-implements: [ERC20, ERC2612, ERC4626, ERC3156]
+implements: [ERC20, ERC2612, ERC4626, ERC3156, PoolDelegate]
     
 
 # Constants
 
 # @notice LineLib.STATUS.INSOLVENT
 INSOLVENT_STATUS: constant(uint256) = 4
-# @notice number to divide after multiplying by fee numerator variables
-FEE_DENOMINATOR: constant(private(uint256)) = 10000 # TODO figure it out
-# EIP712 contract name
+# @notice 100% in bps. Max fee_numerator value and number to divide after multiplying fee_numerators
+FEE_COEFFICIENT: constant(private(uint256)) = 10000
+# @notice EIP712 contract name
 CONTRACT_NAME: constant(private(String[13])) = "Debt DAO Pool"
-# EIP712 contract version
+# @notice EIP712 contract version
 API_VERSION: constant(private(String[28])) = "0.0.1"
-# EIP712 type hash
+# @notice EIP712 type hash
 DOMAIN_TYPE_HASH: constant(bytes32) = keccak256('EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)')
-# EIP712 permit type hash
+# @notice EIP712 permit type hash
 PERMIT_TYPE_HASH: constant(bytes32) = keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
-
-
-# Pool Variables
-
-# asset manager who directs funds into investment strategies
-delegate: public(address)
-# address to migrate delegate powers to. Must be accepted before transfer occurs
-pendingDelegate: public(address)
-# address that can came delegates fees
-feeRecipient: public(address)
-# minimum amount of assets that can be deposited at once. whales only, fuck plebs.
-minDeposit: public(uint256)
-# amount of asset held externally in lines or vaults
-totalDeployed: public(uint256)
-# amount of assets written down after line defaulted.
-# only stores initial deposit remaining. doesnt track total owed w/ interest
-impaired: public(HashMap[address, uint256])
-
-
-# Fees Variables
-
-# max amount of fees that can be taken
-MAX_FEE: constant(public(uint16)) = 2500 # 25%
-# shares earned by Delegate for managing pool
-accruedFees: public(uint256)
-# % (in bps) of profit that delegate keeps as incentives
-performanceFeeNumerator: public(uint16)
-# % (in bps) of performance fee to give to caller for automated collections
-collectorFeeNumerator: public(uint16)
-# % fee (in bps) to charge flash borrowers
-flashFeeNumerator: public(uint16)
-# % fee (in bps) to charge flash borrowers
-referralFeeNumerator: public(uint16)
-# % fee (in bps) to charge flash borrowers
-withdrawFeeNumerator: public(uint16)
 
 
 # ERC20 vars
@@ -199,6 +169,33 @@ totalAssets: public(uint256)
 
 # EIP 2612 Variables
 nonces: private(HashMap[address, uint256])
+
+
+# Pool Variables
+
+# asset manager who directs funds into investment strategies
+delegate: public(address)
+# address to migrate delegate powers to. Must be accepted before transfer occurs
+pendingDelegate: public(address)
+# address that can came delegates fees
+feeRecipient: public(address)
+# minimum amount of assets that can be deposited at once. whales only, fuck plebs.
+minDeposit: public(uint256)
+# amount of asset held externally in lines or vaults
+totalDeployed: public(uint256)
+# shares earned by Delegate for managing pool
+accruedFees: public(uint256)
+# % (in bps) of profit that delegate keeps as incentives
+performanceFeeNumerator: public(uint16)
+# % (in bps) of performance fee to give to caller for automated collections
+collectorFeeNumerator: public(uint16)
+# % fee (in bps) to charge flash borrowers
+flashFeeNumerator: public(uint16)
+# % fee (in bps) to charge flash borrowers
+referralFeeNumerator: public(uint16)
+# % fee (in bps) to charge flash borrowers
+withdrawFeeNumerator: public(uint16)
+
 
 @external
 def __init__(
@@ -267,14 +264,6 @@ def sweep(token: address, receiver: address):
   assert token != asset
   return ERC20(token).transfer(receiver, ERC20(token).balanceOf(self))
 
-@external
-@nonreentrant("lock")
-def collectInterest(
-  line: address,
-  id: bytes32
-):
-  return self._reduceCredit(line, id, 0)
-
 @internal 
 def _reduceCredit(line: address, id: bytes32, amount: uint256):
   interest: uint256 = 0
@@ -287,10 +276,11 @@ def _reduceCredit(line: address, id: bytes32, amount: uint256):
   elif amount == MAX_UINT256:
     # MAX is shorthand for all assets
     amount = deposit + interest
-  
+
+
+  # @dev MUST come after `amount == 0` check
   if amount < interest:
-    # if we withdraw less than interest update incoming interest amount
-    # @dev MUST come after `amount == 0` check
+    # if we want less than claimable interest, reduce incoming interest
     interest = amount
 
   LineOfCredit(line).withdraw(id, amount)
@@ -299,10 +289,18 @@ def _reduceCredit(line: address, id: bytes32, amount: uint256):
   self._updateShares(interest, False)
 
   # payout fees with new share price
-  # TODO does taking fees before/after updating shares affect RDT???
+  # TODO does taking fees before/after updating shares affect RDT ???
   fees: uint256 = self._takePerformanceFees(interest)
 
   return interest - fees
+
+@external
+@nonreentrant("lock")
+def collectInterest(
+  line: address,
+  id: bytes32
+):
+  return self._reduceCredit(line, id, 0)
 
 ## Divestment functions
 
@@ -323,54 +321,31 @@ def reduceCredit(
 
 @external
 @nonreentrant("lock")
-def claimAndRepay(line: address, claimToken: address, tradeData: Bytes[50000], collect: boolean) -> uint256:
+def claimAndRepay(line: address, claimToken: address, tradeData: Bytes[50000]) -> uint256:
   assert msg.sender == self.delegate
   # Assume we are next lender in queue. 
-  # save id for later internal functions incase we repay
+  # save id for later incase we fully repay and close
   id: bytes32 = line.ids(0)
   repaid: uint256 = LineOfCredit(line).claimAndRepay(claimToken, tradeData)
 
-  if repaid > 0 and collect:
-    self._reduceCredit(line, id, 0)
+  # collect all available interest payments
+  self._reduceCredit(line, id, 0)
 
   return repaid
 
 @external
 @nonreentrant("lock")
-def useAndRepay(line: address, amount: uint256, collect: boolean):
+def useAndRepay(line: address, amount: uint256):
   assert msg.sender == self.delegate
   # Assume we are next lender in queue. 
   # save id for later internal functions incase we repay
   id: bytes32 = line.ids(0)
   repaid: uint256 = LineOfCredit(line).useAndRepay(amount)
 
-  if repaid > 0 and collect:
-    self._reduceCredit(line, id, 0)
+  # collect all available interest payments
+  self._reduceCredit(line, id, 0)
+
   return True
-
-@external
-@nonreentrant("lock")
-def close(vline: address, id: bytes32):
-  """
-    @notice
-      We have to pay our own facility fee to close a position sso this is basically an emergency exit
-      Use if you really want to remove liquidity from borrower fast.
-      Missed interest payments are less than the principal you think you'll lose
-  """
-  assert msg.sender == self.delegate
-  position: Position = ILineOfCredit(line).credits(id)
-  
-  # must approve line to use our tokens so we can repay our own interest
-  ERC20(self.asset).approve(line, MAX_UINT256)
-  assert ILineOfCredit(line).close(id)
-  
-  # reduce deployed by withdrawn principal
-  self.totalDeployed -= position.deposit
-
-  # TODO need to know how much interest we got in excess of the interest we paid (if any)
-  # can check balance before/after
-  return True
-
 
 @external
 @nonreentrant("lock")
@@ -450,7 +425,7 @@ def acceptDelegate():
 @views
 @internal 
 def _validateFee(fee: uint16):
-  assert fee <= MAX_FEE
+  assert fee <= FEE_COEFFICIENT
   return fee
 
 @external
@@ -532,24 +507,15 @@ def deposit(assets: uint256, receiver: address):
   """
     adds assets
   """
-  return self._deposit(amount, receiver, ZERO_ADDRESS)
-
-# 4626 action functions
-@external
-@nonreentrant("lock")
-def deposit(assets: uint256, receiver: address):
-  """
-    adds assets
-  """
-  return self._deposit(amount, receiver, ZERO_ADDRESS)
+  return self._deposit(assets, receiver, ZERO_ADDRESS)
 
 @external
 @nonreentrant("lock")
-def depositWithReferral(shares: uint256, receiver: address, referrer: address):
+def depositWithReferral(assets: uint256, receiver: address, referrer: address):
   """
     adds shares
   """
-  return self._deposit(amount, receiver, referrer)
+  return self._deposit(assets, receiver, referrer)
 
 @external
 @nonreentrant("lock")
@@ -557,7 +523,7 @@ def mint(shares: uint256, receiver: address):
   """
     adds shares
   """
-  return self._deposit(amount, receiver, ZERO_ADDRESS)
+  return self._deposit(shares * self._getSharePrice(), receiver, ZERO_ADDRESS)
 
 @external
 @nonreentrant("lock")
@@ -565,18 +531,16 @@ def mintWithReferral(shares: uint256, receiver: address, referrer: address):
   """
     adds shares
   """
-  return self._deposit(amount, receiver, referrer)
+  return self._deposit(shares * self._getSharePrice(), receiver, referrer)
 
 @external
 @nonreentrant("lock")
 def withdraw(
-  amount: uint256,
+  assets: uint256,
   receiver: address,
   owner: address
 ):
-  assert msg.sender == owner or self.allowances[owner][msg.sender] >= amount
-  self.allowances[owner][msg.sender] -= amount
-  return self._withdraw(amount, owner, receiver)
+  return self._withdraw(assets, owner, receiver)
 
 @external
 @nonreentrant("lock")
@@ -584,9 +548,8 @@ def redeem(shares: uint256, receiver: address, owner: address):
   """
     adds shares
   """
-  assert msg.sender == owner or self.allowances[owner][msg.sender] >= amount
-  self.allowances[owner][msg.sender] -= amount
-  return self._withdraw(amount, owner, receiver)
+  return self._withdraw(shares * self._getSharePrice(), owner, receiver)
+
 
 
 # pool interals
@@ -604,15 +567,13 @@ def _deposit(
   assert assets >= minDeposit
   
   sharePrice = self._getSharePrice()
-  
   referralFee = 0
+
   if referrer != ZERO_ADDRESS and self.referralFeeNumerator > 0:
-    referralFee = assets *  self.referralFeeNumerator / FEE_DENOMINATOR
+    referralFee = assets * self.referralFeeNumerator / FEE_COEFFICIENT
     self.balances[referrer] += referralFee / sharePrice
 
   self.totalAssets += assets
-  # TODO take referral fees from user deposit or accruedFees?
-  # if accruedFees, then should be withdrawalFee > referralFee to prevent draining
   self.balances[receiver] += (assets - referralFee) / sharePrice
 
   assert ERC20(self.asset).transferFrom(msg.sender, self, assets)
@@ -629,11 +590,22 @@ def _withdraw(
 ):
   assert assets <= self._getMaxLiquidAssets()
 
-  sharePrice = self._getSharePrice()
-  self.totalAssets -= amount
-  self.balances[to] -= amount / sharePrice
+  if msg.sender != owner:
+    allowance = self.allowance[sender][msg.sender]
+    assert allowance >= assets
+    # Unlimited approval (saves an SSTORE)
+    if (allowance < MAX_UINT256):
+        allowance: uint256 = allowance - assets
+        self.allowance[sender][msg.sender] = allowance
+        # NOTE: Allows log filters to have a full accounting of allowance changes
+        log Approval(sender, msg.sender, allowance)
 
-  assert ERC20(self.asset).transfer(receiver, amount)
+
+  sharePrice = self._getSharePrice()
+  self.totalAssets -= assets
+  self.balances[to] -= assets / sharePrice
+
+  assert ERC20(self.asset).transfer(receiver, assets)
 
   log Withdraw(msg.sender, receiver, assets, shares)
   return True
@@ -648,14 +620,14 @@ def _takePerformanceFees(interestEarned: uint256):
   if performanceFeeNumerator == 0:
     return 0
 
-  totalFees: uint256 = interestEarned * performanceFeeNumerator / FEE_DENOMINATOR
+  totalFees: uint256 = interestEarned * performanceFeeNumerator / FEE_COEFFICIENT
   collectorFee: uint256 = 0
   
   if (
     collectorFeeNumerator != 0 or
     msg.sender != delegate
   ):
-    collectorFee = totalFees * collectorFeeNumerator / FEE_DENOMINATOR
+    collectorFee = totalFees * collectorFeeNumerator / FEE_COEFFICIENT
     # caller gets collector fees in raw asset for easier mev
     self.totalAssets -= collectorFee
     assert ERC20(self.asset).transfer(msg.sender, collectorFee)
@@ -760,7 +732,7 @@ def _getFlashFee(token: address, amount: uint256) -> uint256:
   if self.flashFeeNumerator == 0:
     return 0
   else:
-    return self._getMaxLiquidAssets() * flashFeeNumerator / FEE_DENOMINATOR
+    return self._getMaxLiquidAssets() * flashFeeNumerator / FEE_COEFFICIENT
 
 @view
 @external
