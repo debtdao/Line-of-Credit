@@ -309,7 +309,7 @@ contract SpigotTest is Test {
         uint256 claimed = spigot.claimOperatorTokens(address(token));
         (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
 
-        assertEq(maxRevenue * ((100 - settings.ownerSplit) / 100), claimed, "Invalid escrow claimed");
+        assertEq(maxRevenue * (100 - settings.ownerSplit) / 100, claimed, "Invalid escrow claimed");
         assertEq(token.balanceOf(operator), claimed, "Claimed escrow not sent to owner");
     }
 

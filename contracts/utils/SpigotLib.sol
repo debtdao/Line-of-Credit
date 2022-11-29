@@ -222,9 +222,7 @@ library SpigotLib {
     }
 
     /** see Spigot.getEscrowed*/
-    function getOwnerTokens(SpigotState storage self, address token) external view returns (uint256) {
-        return self.ownerTokens[token];
-    }
+   
 
     /** see Spigot.isWhitelisted*/
     function isWhitelisted(SpigotState storage self, bytes4 func) external view returns(bool) {
