@@ -45,7 +45,8 @@ library LineLib {
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH
-            payable(receiver).transfer(amount);
+            // payable(receiver).transfer(amount);
+            _safeTransferFunds(receiver, amount, "Sending Eth failed");
         }
         return true;
     }
@@ -82,6 +83,22 @@ library LineLib {
         return token != Denominations.ETH ?
             IERC20(token).balanceOf(address(this)) :
             address(this).balance;
+    }
+
+
+    /**
+     * @notice - Helper function to safely transfer Eth using native call
+     * @param recipient - address of the recipient
+     * @param value - value to be sent (in wei)
+     * @param errorMessage - the reason for the revert
+    */
+    function _safeTransferFunds(
+        address recipient,
+        uint256 value,
+        string memory errorMessage
+    ) internal {
+        (bool success, ) = payable(recipient).call{value: value}("");
+        require(success, errorMessage);
     }
 
 }
