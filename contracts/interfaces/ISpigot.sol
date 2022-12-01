@@ -15,23 +15,11 @@ interface ISpigot {
 
     event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
 
-    event UpdateOwnerSplit(
-        address indexed revenueContract,
-        uint8 indexed split
-    );
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
 
-    event ClaimRevenue(
-        address indexed token,
-        uint256 indexed amount,
-        uint256 escrowed,
-        address revenueContract
-    );
+    event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
 
-    event ClaimEscrow(
-        address indexed token,
-        uint256 indexed amount,
-        address owner
-    );
+    event ClaimEscrow(address indexed token, uint256 indexed amount, address owner);
 
     // Stakeholder Events
 
@@ -62,30 +50,22 @@ interface ISpigot {
 
     // ops funcs
 
-    function claimRevenue(
-        address revenueContract,
-        address token,
-        bytes calldata data
-    ) external returns (uint256 claimed);
-
-    function operate(address revenueContract, bytes calldata data)
+    function claimRevenue(address revenueContract, address token, bytes calldata data)
         external
-        returns (bool);
+        returns (uint256 claimed);
+
+    function operate(address revenueContract, bytes calldata data) external returns (bool);
 
     // owner funcs
     function claimEscrow(address token) external returns (uint256 claimed);
 
-    function addSpigot(address revenueContract, Setting memory setting)
-        external
-        returns (bool);
+    function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
 
     function removeSpigot(address revenueContract) external returns (bool);
 
     // stakeholder funcs
 
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
-        external
-        returns (bool);
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool);
 
     function updateOwner(address newOwner) external returns (bool);
 
@@ -93,9 +73,7 @@ interface ISpigot {
 
     function updateTreasury(address newTreasury) external returns (bool);
 
-    function updateWhitelistedFunction(bytes4 func, bool allowed)
-        external
-        returns (bool);
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool);
 
     // Getters
     function owner() external view returns (address);
@@ -111,9 +89,5 @@ interface ISpigot {
     function getSetting(address revenueContract)
         external
         view
-        returns (
-            uint8 split,
-            bytes4 claimFunc,
-            bytes4 transferFunc
-        );
+        returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc);
 }

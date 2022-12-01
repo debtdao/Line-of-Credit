@@ -25,10 +25,7 @@ contract InterestRateCreditTest is Test {
         assertEq(l, block.timestamp);
     }
 
-    function test_can_accrue_interest_all_drawn(
-        uint128 dRate,
-        uint64 drawnBalance
-    ) public {
+    function test_can_accrue_interest_all_drawn(uint128 dRate, uint64 drawnBalance) public {
         vm.assume(dRate > 0 && dRate <= 1e4);
         vm.assume(drawnBalance >= 1e4);
         bytes32 id = bytes32("");
@@ -51,11 +48,7 @@ contract InterestRateCreditTest is Test {
         skip(365.25 days);
         uint256 accrued = i.accrueInterest(id, drawnBalance, facilityBalance);
 
-        assertEq(
-            accrued,
-            (((dRate * drawnBalance) / 1e4) +
-                ((fRate * (facilityBalance - drawnBalance)) / 1e4))
-        );
+        assertEq(accrued, (((dRate * drawnBalance) / 1e4) + ((fRate * (facilityBalance - drawnBalance)) / 1e4)));
     }
 
     function test_can_accrue_interest_none_drawn(uint200 balance) public {
@@ -75,7 +68,7 @@ contract InterestRateCreditTest is Test {
         i.setRate(id, uint128(0), uint128(0));
         skip(timeToSkip);
         i.accrueInterest(bytes32(0), 0, 1);
-        (, , uint256 lastAccrued) = i.rates(id);
+        (,, uint256 lastAccrued) = i.rates(id);
         assertEq(lastAccrued, prevBlocktime + timeToSkip);
     }
 

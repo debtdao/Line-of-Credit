@@ -1,0 +1,17 @@
+{
+  "name": "Line-of-Credit",
+  "version": "1.0.0",
+  "description": "DebtDAO",
+  "main": "index.js",
+  "repository": "git@github.com:debtdao/Line-of-Credit.git",
+  "author": "DebtDAO",
+  "scripts": {
+    "prettier": "prettier --write **.sol",
+    "prettier:list": "prettier --list-different **.sol",
+    "prettier:check": "prettier --check **.sol"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.0",
+    "prettier-plugin-solidity": "^1.0.0"
+  }
+}
