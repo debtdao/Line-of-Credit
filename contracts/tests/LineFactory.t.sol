@@ -38,12 +38,7 @@ contract LineFactoryTest is Test {
         swapTarget = address(0xb0b0);
 
         moduleFactory = new ModuleFactory();
-        lineFactory = new LineFactory(
-            address(moduleFactory),
-            arbiter,
-            oracle,
-            swapTarget
-        );
+        lineFactory = new LineFactory(address(moduleFactory), arbiter, oracle, swapTarget);
 
         line_address = lineFactory.deploySecuredLine(borrower, ttl);
 
@@ -63,12 +58,7 @@ contract LineFactoryTest is Test {
 
     function test_arbiter_cant_be_null() public {
         vm.expectRevert(ILineFactory.InvalidArbiterAddress.selector);
-        LineFactory tempLineFactory = new LineFactory(
-            address(moduleFactory),
-            address(0),
-            oracle,
-            swapTarget
-        );
+        LineFactory tempLineFactory = new LineFactory(address(moduleFactory), address(0), oracle, swapTarget);
     }
 
     function test_deploying_secure_line_with_modules() public {

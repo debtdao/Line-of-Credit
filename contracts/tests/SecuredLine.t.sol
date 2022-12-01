@@ -49,14 +49,14 @@ contract SecuredLineTest is Test {
         escrow = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
 
         line = new SecuredLine(
-          address(oracle),
-          arbiter,
-          borrower,
-          payable(address(0)),
-          address(spigot),
-          address(escrow),
-          150 days,
-          0
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(spigot),
+            address(escrow),
+            150 days,
+            0
         );
 
         escrow.updateLine(address(line));
@@ -503,15 +503,15 @@ contract SecuredLineTest is Test {
         Spigot s = new Spigot(arbiter, borrower, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
         SecuredLine l = new SecuredLine(
-        address(oracle),
-        arbiter,
-        borrower,
-        payable(address(0)),
-        address(s),
-        address(e),
-        150 days,
-        0
-      );
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(s),
+            address(e),
+            150 days,
+            0
+        );
 
         e.updateLine(address(l));
         s.updateOwner(address(l));
@@ -548,15 +548,15 @@ contract SecuredLineTest is Test {
         Spigot s = new Spigot(arbiter, borrower, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
         SecuredLine l = new SecuredLine(
-        address(oracle),
-        arbiter,
-        borrower,
-        payable(address(0)),
-        address(s),
-        address(e),
-        150 days,
-        0
-      );
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(s),
+            address(e),
+            150 days,
+            0
+        );
 
         // giving our modules should fail because taken already
         vm.expectRevert(ISecuredLine.BadRollover.selector);
@@ -580,15 +580,15 @@ contract SecuredLineTest is Test {
         line.depositAndClose();
 
         SecuredLine l = new SecuredLine(
-        address(oracle),
-        arbiter,
-        borrower,
-        payable(address(0)),
-        address(spigot),
-        address(escrow),
-        150 days,
-        0
-      );
+            address(oracle),
+            arbiter,
+            borrower,
+            payable(address(0)),
+            address(spigot),
+            address(escrow),
+            150 days,
+            0
+        );
         hoax(borrower);
         line.rollover(address(l));
 

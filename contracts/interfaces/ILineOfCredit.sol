@@ -196,7 +196,9 @@ interface ILineOfCredit {
      * @return - if function executed successfully
      */
     function accrueInterest() external returns (bool);
+
     function healthcheck() external returns (LineLib.STATUS);
+
     /**
      * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
      * @dev    - Denominated in USD, 8 decimals.
@@ -209,9 +211,13 @@ interface ILineOfCredit {
     // State getters
 
     function status() external returns (LineLib.STATUS);
+
     function borrower() external returns (address);
+
     function arbiter() external returns (address);
+
     function oracle() external returns (IOracle);
+
     /**
      * @notice - getter for amount of active ids + total ids in list
      * @return - (uint, uint) - active credit lines, total length

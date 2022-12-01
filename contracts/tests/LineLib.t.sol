@@ -218,9 +218,12 @@ contract LineLibTest is Test {
         assertEq(ids.length, l);
 
         for (uint256 i = 0; i < l; i++) {
-            if (i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
-
-            else assertEq(ids[i], ids[i - 1]); // all others move one index down
+            if (i == 0) {
+                assertEq(ids[i], ids[l - 1]);
+            } // first -> last
+            else {
+                assertEq(ids[i], ids[i - 1]);
+            } // all others move one index down
         }
     }
 

@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {CreditLib} from "./CreditLib.sol";
+
 /**
  * @title Debt DAO Line of Credit Library
  * @author Kiba Gateaux

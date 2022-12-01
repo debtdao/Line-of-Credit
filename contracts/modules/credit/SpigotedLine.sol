@@ -104,8 +104,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
 
         uint256 newTokens = claimToken == credit.token
             ? spigot.claimEscrow(claimToken) // same asset. dont trade
-            : _claimAndTrade( // trade revenue token for debt obligation
-            claimToken, credit.token, zeroExTradeData);
+            : _claimAndTrade(claimToken, credit.token, zeroExTradeData); // trade revenue token for debt obligation
 
         uint256 repaid = newTokens + unusedTokens[credit.token];
         uint256 debt = credit.interestAccrued + credit.principal;
@@ -157,8 +156,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
         address targetToken = credits[ids[0]].token;
         uint256 newTokens = claimToken == targetToken
             ? spigot.claimEscrow(claimToken) // same asset. dont trade
-            : _claimAndTrade( // trade revenue token for debt obligation
-            claimToken, targetToken, zeroExTradeData);
+            : _claimAndTrade(claimToken, targetToken, zeroExTradeData); // trade revenue token for debt obligation
 
         // add bought tokens to unused balance
         unusedTokens[targetToken] += newTokens;

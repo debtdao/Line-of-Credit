@@ -54,7 +54,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @notice - Claims revenue tokens from the Spigot (push and pull payments) and escrows them for the Owner withdraw later.
      *            - Calls predefined function in contract settings to claim revenue.
      *            - Automatically sends portion to Treasury and then escrows Owner's share
-     *            - There is no conversion or trade of revenue tokens. 
+     *            - There is no conversion or trade of revenue tokens.
      * @dev    - Assumes the only side effect of calling claimFunc on revenueContract is we receive new tokens.
      *            - Any other side effects could be dangerous to the Spigot or upstream contracts.
      * @dev    - callable by anyone

@@ -50,13 +50,7 @@ contract EscrowedLineTest is Test {
 
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
         escrow = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
-        line = new MockEscrowedLine(
-            address(escrow),
-            address(oracle),
-            arbiter,
-            borrower,
-            ttl
-        );
+        line = new MockEscrowedLine(address(escrow), address(oracle), arbiter, borrower, ttl);
 
         escrow.updateLine(address(line));
         assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
@@ -149,14 +143,7 @@ contract EscrowedLineTest is Test {
         address mock = address(new MockLine(0, address(3)));
 
         Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
-        MockEscrowedLine l = new MockEscrowedLine(
-       
-            address(escrow),
-            address(oracle),
-            arbiter,
-            borrower,
-            ttl
-        );
+        MockEscrowedLine l = new MockEscrowedLine(address(escrow), address(oracle), arbiter, borrower, ttl);
 
         // configure other modules
 

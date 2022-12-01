@@ -47,12 +47,7 @@ contract LineTest is Test, Events {
 
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
 
-        line = new LineOfCredit(
-            address(oracle),
-            arbiter,
-            borrower,
-            ttl
-        );
+        line = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
         assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         _mintAndApprove();
     }
@@ -258,12 +253,7 @@ contract LineTest is Test, Events {
     }
 
     function test_line_is_uninitilized_on_deployment() public {
-        LineOfCredit l = new LineOfCredit(
-            address(oracle),
-            arbiter,
-            borrower,
-            ttl
-        );
+        LineOfCredit l = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
 
         assertEq(uint256(l.status()), uint256(LineLib.STATUS.UNINITIALIZED));
     }
@@ -340,7 +330,7 @@ contract LineTest is Test, Events {
         assertEq(address(line).balance, amount, "Line balance amount should be correct");
         assertEq(lender.balance, mintAmount - amount, "Contract should have initial mint balance minus 1e18");
 
-        uint256 borrowAmount = amount * 25 / 1000;
+        uint256 borrowAmount = (amount * 25) / 1000;
         vm.startPrank(borrower);
         line.borrow(id, borrowAmount);
         vm.stopPrank();

@@ -48,8 +48,8 @@ library LineFactoryLib {
             spigot.call(abi.encodeWithSignature("updateOwner(address)", address(line)));
         (bool success2, bytes memory returnVal2) =
             escrow.call(abi.encodeWithSignature("updateLine(address)", address(line)));
-        (bool res) = abi.decode(returnVal, (bool));
-        (bool res2) = abi.decode(returnVal2, (bool));
+        bool res = abi.decode(returnVal, (bool));
+        bool res2 = abi.decode(returnVal2, (bool));
         if (!(success && res && success2 && res2)) {
             revert ModuleTransferFailed(line, spigot, escrow);
         }
@@ -69,6 +69,6 @@ library LineFactoryLib {
         uint256 ttl,
         uint8 revenueSplit
     ) external returns (address) {
-        return address(new SecuredLine(oracle, arbiter, borrower, swapTarget,s, e, ttl, revenueSplit));
+        return address(new SecuredLine(oracle, arbiter, borrower, swapTarget, s, e, ttl, revenueSplit));
     }
 }

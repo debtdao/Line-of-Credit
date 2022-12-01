@@ -6,6 +6,7 @@ interface IModuleFactory {
     event DeployedEscrow(address indexed deployedAt, uint32 indexed minCRatio, address indexed oracle, address owner);
 
     function deploySpigot(address owner, address treasury, address operator) external returns (address);
+
     function deployEscrow(uint32 minCRatio, address oracle, address owner, address borrower)
         external
         returns (address);

@@ -7,6 +7,7 @@ import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
 // used for importing NATSPEC docs, not used
 import {LineOfCredit} from "./LineOfCredit.sol";
+
 // import { SecuredLine } from "./SecuredLine.sol";
 
 abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {

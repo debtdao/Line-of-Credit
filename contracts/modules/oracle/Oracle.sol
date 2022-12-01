@@ -22,15 +22,15 @@ contract Oracle is IOracle {
      */
     function getLatestAnswer(address token) external returns (int256) {
         (
+            ,
             /* uint80 roundID */
-            ,
             int256 price,
-            /* uint80 startedAt */
             ,
-            /* uint80 timeStamp */
             ,
-            /* uint80 answeredInRound */
-        ) = registry.latestRoundData(token, Denominations.USD);
+        ) = /* uint80 startedAt */
+        /* uint80 timeStamp */
+        /* uint80 answeredInRound */
+         registry.latestRoundData(token, Denominations.USD);
 
         return price;
     }

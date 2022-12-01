@@ -59,13 +59,13 @@ contract SpigotedLineTest is Test {
         spigot = new Spigot(address(this), borrower, borrower);
 
         line = new SpigotedLine(
-          address(oracle),
-          arbiter,
-          borrower,
-          address(spigot),
-          payable(address(dex)),
-          ttl,
-          ownerSplit
+            address(oracle),
+            arbiter,
+            borrower,
+            address(spigot),
+            payable(address(dex)),
+            ttl,
+            ownerSplit
         );
 
         spigot.updateOwner(address(line));
@@ -629,6 +629,7 @@ contract SpigotedLineTest is Test {
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         line.releaseSpigot(arbiter);
     }
+
     // sweep()
 
     function test_cant_sweep_tokens_while_active() public {
@@ -845,13 +846,13 @@ contract SpigotedLineTest is Test {
         }
 
         new SpigotedLine(
-          address(oracle),
-          arbiter,
-          borrower,
-          address(spigot),
-          payable(address(dex)),
-          ttl,
-          proposedSplit
+            address(oracle),
+            arbiter,
+            borrower,
+            address(spigot),
+            payable(address(dex)),
+            ttl,
+            proposedSplit
         );
     }
 
