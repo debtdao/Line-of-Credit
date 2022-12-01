@@ -60,8 +60,9 @@ library EscrowLib {
             if (deposit != 0) {
                 if (d.isERC4626) {
                     // this conversion could shift, hence it is best to get it each time
-                    (bool success, bytes memory assetAmount) =
-                        token.call(abi.encodeWithSignature("previewRedeem(uint256)", deposit));
+                    (bool success, bytes memory assetAmount) = token.call(
+                        abi.encodeWithSignature("previewRedeem(uint256)", deposit)
+                    );
                     if (!success) continue;
                     deposit = abi.decode(assetAmount, (uint256));
                 }
@@ -76,10 +77,12 @@ library EscrowLib {
     /**
      * see Escrow.addCollateral
      */
-    function addCollateral(EscrowState storage self, address oracle, uint256 amount, address token)
-        external
-        returns (uint256)
-    {
+    function addCollateral(
+        EscrowState storage self,
+        address oracle,
+        uint256 amount,
+        address token
+    ) external returns (uint256) {
         require(amount > 0);
         if (!self.enabled[token]) revert InvalidCollateral();
 
@@ -118,8 +121,9 @@ library EscrowLib {
                     revert InvalidCollateral();
                 }
 
-                (bool successDecimals, bytes memory decimalBytes) =
-                    deposit.asset.call(abi.encodeWithSignature("decimals()"));
+                (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(
+                    abi.encodeWithSignature("decimals()")
+                );
                 if (decimalBytes.length > 0 && successDecimals) {
                     deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
                 } else {
@@ -160,8 +164,8 @@ library EscrowLib {
         // fail if reduces cratio below min
         // but allow borrower to always withdraw if fully repaid
         if (
-            cratio < minimumCollateralRatio // if undercollateralized, revert;
-                && ILineOfCredit(self.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
+            cratio < minimumCollateralRatio && // if undercollateralized, revert;
+            ILineOfCredit(self.line).status() != LineLib.STATUS.REPAID // if repaid, skip;
         ) revert UnderCollateralized();
 
         emit RemoveCollateral(token, amount);
@@ -201,10 +205,11 @@ library EscrowLib {
     /**
      * see Escrow.isLiquidatable
      */
-    function isLiquidatable(EscrowState storage self, address oracle, uint256 minimumCollateralRatio)
-        external
-        returns (bool)
-    {
+    function isLiquidatable(
+        EscrowState storage self,
+        address oracle,
+        uint256 minimumCollateralRatio
+    ) external returns (bool) {
         return _getLatestCollateralRatio(self, oracle) < minimumCollateralRatio;
     }
 

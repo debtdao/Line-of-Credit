@@ -122,7 +122,7 @@ contract EscrowedLineTest is Test {
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (uint256 p,) = line.updateOutstandingDebt();
+        (uint256 p, ) = line.updateOutstandingDebt();
         assertGt(p, 0);
         console.log("checkpoint");
         oracle.changePrice(address(supportedToken2), 1);

@@ -117,8 +117,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // if line is in a final end state then do not run _healthcheck()
         LineLib.STATUS s = status;
         if (
-            s == LineLib.STATUS.REPAID // end state - good
-                || s == LineLib.STATUS.INSOLVENT // end state - bad
+            s == LineLib.STATUS.REPAID || // end state - good
+            s == LineLib.STATUS.INSOLVENT // end state - bad
         ) {
             return s;
         }
@@ -173,8 +173,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             // null element in array from closing a position. skip for gas savings
             if (id == bytes32(0)) continue;
 
-            (Credit memory c, uint256 _p, uint256 _i) =
-                CreditLib.getOutstandingDebt(credits[id], id, oracle_, interestRate_);
+            (Credit memory c, uint256 _p, uint256 _i) = CreditLib.getOutstandingDebt(
+                credits[id],
+                id,
+                oracle_,
+                interestRate_
+            );
             // update total outstanding debt
             principal += _p;
             interest += _i;
@@ -207,14 +211,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.addCredit
-    function addCredit(uint128 drate, uint128 frate, uint256 amount, address token, address lender)
-        external
-        payable
-        override
-        whileActive
-        mutualConsent(lender, borrower)
-        returns (bytes32)
-    {
+    function addCredit(
+        uint128 drate,
+        uint128 frate,
+        uint256 amount,
+        address token,
+        address lender
+    ) external payable override whileActive mutualConsent(lender, borrower) returns (bytes32) {
         LineLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);
@@ -225,12 +228,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.setRates
-    function setRates(bytes32 id, uint128 drate, uint128 frate)
-        external
-        override
-        mutualConsentById(id)
-        returns (bool)
-    {
+    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) returns (bool) {
         Credit memory credit = credits[id];
         credits[id] = _accrue(credit, id);
         require(interestRate.setRate(id, drate, frate));
@@ -239,14 +237,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.increaseCredit
-    function increaseCredit(bytes32 id, uint256 amount)
-        external
-        payable
-        override
-        whileActive
-        mutualConsentById(id)
-        returns (bool)
-    {
+    function increaseCredit(
+        bytes32 id,
+        uint256 amount
+    ) external payable override whileActive mutualConsentById(id) returns (bool) {
         Credit memory credit = credits[id];
         credit = _accrue(credit, id);
 
@@ -464,9 +458,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
             id = ids[i];
             if (p != id) {
                 if (
-                    id == bytes32(0) // deleted element. In the middle of the q because it was closed.
-                        || nextQSpot != lastSpot // position already found. skip to find `p` asap
-                        || credits[id].principal > 0 //`id` should be placed before `p`
+                    id == bytes32(0) || // deleted element. In the middle of the q because it was closed.
+                    nextQSpot != lastSpot || // position already found. skip to find `p` asap
+                    credits[id].principal > 0 //`id` should be placed before `p`
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
             } else {

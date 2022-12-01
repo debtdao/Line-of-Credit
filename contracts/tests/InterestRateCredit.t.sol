@@ -68,7 +68,7 @@ contract InterestRateCreditTest is Test {
         i.setRate(id, uint128(0), uint128(0));
         skip(timeToSkip);
         i.accrueInterest(bytes32(0), 0, 1);
-        (,, uint256 lastAccrued) = i.rates(id);
+        (, , uint256 lastAccrued) = i.rates(id);
         assertEq(lastAccrued, prevBlocktime + timeToSkip);
     }
 

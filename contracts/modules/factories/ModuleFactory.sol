@@ -22,10 +22,12 @@ contract ModuleFactory is IModuleFactory {
      * see Escrow.constructor
      * @notice - Deploys an Escrow module that can be used in a LineOfCredit
      */
-    function deployEscrow(uint32 minCRatio, address oracle, address owner, address borrower)
-        external
-        returns (address module)
-    {
+    function deployEscrow(
+        uint32 minCRatio,
+        address oracle,
+        address owner,
+        address borrower
+    ) external returns (address module) {
         module = address(new Escrow(minCRatio, oracle, owner, borrower));
         emit DeployedEscrow(module, minCRatio, borrower, owner);
     }

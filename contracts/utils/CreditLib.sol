@@ -56,10 +56,12 @@ library CreditLib {
     }
 
     // getOutstandingDebt() is called by updateOutstandingDebt()
-    function getOutstandingDebt(ILineOfCredit.Credit memory credit, bytes32 id, address oracle, address interestRate)
-        external
-        returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest)
-    {
+    function getOutstandingDebt(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        address oracle,
+        address interestRate
+    ) external returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest) {
         c = accrue(credit, id, interestRate);
 
         int256 price = IOracle(oracle).getLatestAnswer(c.token);
@@ -88,10 +90,13 @@ library CreditLib {
      * @notice called by LineOfCredit._createCredit during every repayment function
      * @param oracle - interset rate contract used by line that will calculate interest owed
      */
-    function create(bytes32 id, uint256 amount, address lender, address token, address oracle)
-        external
-        returns (ILineOfCredit.Credit memory credit)
-    {
+    function create(
+        bytes32 id,
+        uint256 amount,
+        address lender,
+        address token,
+        address oracle
+    ) external returns (ILineOfCredit.Credit memory credit) {
         int256 price = IOracle(oracle).getLatestAnswer(token);
         if (price <= 0) revert NoTokenPrice();
 
@@ -123,10 +128,11 @@ library CreditLib {
      * @notice called by LineOfCredit._repay during every repayment function
      * @param credit - The lender position being repaid
      */
-    function repay(ILineOfCredit.Credit memory credit, bytes32 id, uint256 amount)
-        external
-        returns (ILineOfCredit.Credit memory)
-    {
+    function repay(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        uint256 amount
+    ) external returns (ILineOfCredit.Credit memory) {
         unchecked {
             if (amount <= credit.interestAccrued) {
                 credit.interestAccrued -= amount;
@@ -155,10 +161,11 @@ library CreditLib {
      * @notice called by LineOfCredit.withdraw during every repayment function
      * @param credit - The lender position that is being bwithdrawn from
      */
-    function withdraw(ILineOfCredit.Credit memory credit, bytes32 id, uint256 amount)
-        external
-        returns (ILineOfCredit.Credit memory)
-    {
+    function withdraw(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        uint256 amount
+    ) external returns (ILineOfCredit.Credit memory) {
         unchecked {
             if (amount > credit.deposit - credit.principal + credit.interestRepaid) {
                 revert ILineOfCredit.NoLiquidity();
@@ -189,10 +196,11 @@ library CreditLib {
      * @notice called by LineOfCredit._accrue during every repayment function
      * @param interest - interset rate contract used by line that will calculate interest owed
      */
-    function accrue(ILineOfCredit.Credit memory credit, bytes32 id, address interest)
-        public
-        returns (ILineOfCredit.Credit memory)
-    {
+    function accrue(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        address interest
+    ) public returns (ILineOfCredit.Credit memory) {
         unchecked {
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate

@@ -28,12 +28,11 @@ contract InterestRateCredit is IInterestRateCredit {
     }
 
     /// see IInterestRateCredit
-    function accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance)
-        external
-        override
-        onlyLineContract
-        returns (uint256)
-    {
+    function accrueInterest(
+        bytes32 id,
+        uint256 drawnBalance,
+        uint256 facilityBalance
+    ) external override onlyLineContract returns (uint256) {
         return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
@@ -43,10 +42,8 @@ contract InterestRateCredit is IInterestRateCredit {
         // update last timestamp in storage
         rates[id].lastAccrued = block.timestamp;
 
-        return (
-            _calculateInterestOwed(rate.dRate, drawnBalance, timespan)
-                + _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan)
-        );
+        return (_calculateInterestOwed(rate.dRate, drawnBalance, timespan) +
+            _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan));
     }
 
     /**
@@ -59,11 +56,11 @@ contract InterestRateCredit is IInterestRateCredit {
      *
      * @return interestOwed
      */
-    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan)
-        internal
-        pure
-        returns (uint256)
-    {
+    function _calculateInterestOwed(
+        uint256 bpsRate,
+        uint256 balance,
+        uint256 timespan
+    ) internal pure returns (uint256) {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 

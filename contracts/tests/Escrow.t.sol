@@ -70,10 +70,12 @@ contract EscrowTest is Test {
         _enableCollateral(Denominations.ETH);
     }
 
-    function _createEscrow(uint32 _minimumCollateralRatio, address _oracle, address _line, address _borrower)
-        internal
-        returns (address)
-    {
+    function _createEscrow(
+        uint32 _minimumCollateralRatio,
+        address _oracle,
+        address _line,
+        address _borrower
+    ) internal returns (address) {
         escrow = new Escrow(_minimumCollateralRatio, _oracle, _line, _borrower);
 
         return address(escrow);
@@ -142,10 +144,14 @@ contract EscrowTest is Test {
         uint256 escrowBalance = address(escrow).balance;
         escrow.addCollateral{value: mintAmount}(mintAmount, Denominations.ETH);
         assertEq(
-            borrowerBalance, borrower.balance + mintAmount, "borrower should have decreased with collateral deposit"
+            borrowerBalance,
+            borrower.balance + mintAmount,
+            "borrower should have decreased with collateral deposit"
         );
         assertEq(
-            escrowBalance, address(escrow).balance - mintAmount, "escrow should have increased with collateral deposit"
+            escrowBalance,
+            address(escrow).balance - mintAmount,
+            "escrow should have increased with collateral deposit"
         );
     }
 
@@ -174,7 +180,9 @@ contract EscrowTest is Test {
         uint256 borrowerBalance = supportedToken1.balanceOf(borrower);
         escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
         assertEq(
-            borrowerBalance + 1 ether, supportedToken1.balanceOf(borrower), "borrower should have released collateral"
+            borrowerBalance + 1 ether,
+            supportedToken1.balanceOf(borrower),
+            "borrower should have released collateral"
         );
     }
 
@@ -185,10 +193,14 @@ contract EscrowTest is Test {
 
         uint256 borrowerBalance2 = borrower.balance;
         assertEq(
-            borrowerBalance, borrowerBalance2 + mintAmount, "borrower should have decreased with collateral deposit"
+            borrowerBalance,
+            borrowerBalance2 + mintAmount,
+            "borrower should have decreased with collateral deposit"
         );
         assertEq(
-            escrowBalance, address(escrow).balance - mintAmount, "escrow should have increased with collateral deposit"
+            escrowBalance,
+            address(escrow).balance - mintAmount,
+            "escrow should have increased with collateral deposit"
         );
 
         escrow.releaseCollateral(1 ether, Denominations.ETH, borrower);

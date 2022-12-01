@@ -24,7 +24,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     /**
      * @dev requires both Spigot and Escrow to pass _init to succeed
      */
-    function _init() internal virtual override (SpigotedLine, EscrowedLine) returns (LineLib.STATUS) {
+    function _init() internal virtual override(SpigotedLine, EscrowedLine) returns (LineLib.STATUS) {
         LineLib.STATUS s = LineLib.STATUS.ACTIVE;
 
         if (SpigotedLine._init() != s || EscrowedLine._init() != s) {
@@ -71,7 +71,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         return _liquidate(ids[0], amount, targetToken, msg.sender);
     }
 
-    function _healthcheck() internal override (EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
+    function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
         LineLib.STATUS s = LineOfCredit._healthcheck();
         if (s != LineLib.STATUS.ACTIVE) {
             return s;
@@ -85,7 +85,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
      * @dev - both underlying calls MUST return true for Line status to change to INSOLVENT
      * @return isInsolvent - if the entire Line including all collateral sources is fuly insolvent.
      */
-    function _canDeclareInsolvent() internal virtual override (EscrowedLine, SpigotedLine) returns (bool) {
+    function _canDeclareInsolvent() internal virtual override(EscrowedLine, SpigotedLine) returns (bool) {
         return (EscrowedLine._canDeclareInsolvent() && SpigotedLine._canDeclareInsolvent());
     }
 }

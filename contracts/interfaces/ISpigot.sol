@@ -50,9 +50,11 @@ interface ISpigot {
 
     // ops funcs
 
-    function claimRevenue(address revenueContract, address token, bytes calldata data)
-        external
-        returns (uint256 claimed);
+    function claimRevenue(
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external returns (uint256 claimed);
 
     function operate(address revenueContract, bytes calldata data) external returns (bool);
 
@@ -86,8 +88,7 @@ interface ISpigot {
 
     function getEscrowed(address token) external view returns (uint256);
 
-    function getSetting(address revenueContract)
-        external
-        view
-        returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc);
+    function getSetting(
+        address revenueContract
+    ) external view returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc);
 }

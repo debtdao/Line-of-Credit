@@ -24,13 +24,13 @@ contract Oracle is IOracle {
         (
             ,
             /* uint80 roundID */
-            int256 price,
+            int256 price /* uint80 startedAt */,
             ,
             ,
-        ) = /* uint80 startedAt */
-        /* uint80 timeStamp */
-        /* uint80 answeredInRound */
-         registry.latestRoundData(token, Denominations.USD);
+
+        ) = /* uint80 timeStamp */
+            /* uint80 answeredInRound */
+            registry.latestRoundData(token, Denominations.USD);
 
         return price;
     }

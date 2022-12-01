@@ -17,10 +17,12 @@ contract LineFactory is ILineFactory {
     address public immutable oracle;
     address public immutable swapTarget;
 
-    constructor(address moduleFactory, 
-    address arbiter_, 
-    address oracle_, 
-    address swapTarget_) {
+    constructor(
+        address moduleFactory, 
+        address arbiter_, 
+        address oracle_, 
+        address swapTarget_
+        ) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
@@ -66,7 +68,14 @@ contract LineFactory is ILineFactory {
         address s = factory.deploySpigot(address(this), coreParams.borrower, coreParams.borrower);
         address e = factory.deployEscrow(coreParams.cratio, oracle, address(this), coreParams.borrower);
         line = LineFactoryLib.deploySecuredLine(
-            oracle, arbiter, coreParams.borrower, payable(swapTarget), s, e, coreParams.ttl, coreParams.revenueSplit
+            oracle,
+            arbiter,
+            coreParams.borrower,
+            payable(swapTarget),
+            s,
+            e,
+            coreParams.ttl,
+            coreParams.revenueSplit
         );
         // give modules from address(this) to line so we can run line.init()
         LineFactoryLib.transferModulesToLine(address(line), s, e);
@@ -80,10 +89,11 @@ contract LineFactory is ILineFactory {
      *   @dev   The `cratio` in the CoreParams are not used, due to the fact
      *          they're passed in when the Escrow is created separately.
      */
-    function deploySecuredLineWithModules(CoreLineParams calldata coreParams, address mSpigot, address mEscrow)
-        external
-        returns (address line)
-    {
+    function deploySecuredLineWithModules(
+        CoreLineParams calldata coreParams,
+        address mSpigot,
+        address mEscrow
+    ) external returns (address line) {
         // TODO: test
         if (mSpigot == address(0)) {
             revert InvalidSpigotAddress();
@@ -116,10 +126,11 @@ contract LineFactory is ILineFactory {
      *   @param ttl      - set total term length of line
      *   @return newLine - address of newly deployed line with oldLine config
      */
-    function rolloverSecuredLine(address payable oldLine, address borrower, uint256 ttl)
-        external
-        returns (address newLine)
-    {
+    function rolloverSecuredLine(
+        address payable oldLine,
+        address borrower,
+        uint256 ttl
+    ) external returns (address newLine) {
         if (arbiter == address(0)) {
             revert InvalidArbiterAddress();
         }

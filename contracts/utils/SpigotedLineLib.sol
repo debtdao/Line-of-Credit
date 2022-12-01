@@ -97,17 +97,19 @@ library SpigotedLineLib {
         }
     }
 
-    function trade(uint256 amount, address sellToken, address payable swapTarget, bytes calldata zeroExTradeData)
-        public
-        returns (bool)
-    {
+    function trade(
+        uint256 amount,
+        address sellToken,
+        address payable swapTarget,
+        bytes calldata zeroExTradeData
+    ) public returns (bool) {
         if (sellToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success,) = swapTarget.call{value: amount}(zeroExTradeData);
+            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData);
             if (!success) revert TradeFailed();
         } else {
             IERC20(sellToken).approve(swapTarget, amount);
-            (bool success,) = swapTarget.call(zeroExTradeData);
+            (bool success, ) = swapTarget.call(zeroExTradeData);
             if (!success) revert TradeFailed();
         }
 
@@ -137,11 +139,13 @@ library SpigotedLineLib {
      * @param revenueContract - spigot to update
      * @return whether or not split was updated
      */
-    function updateSplit(address spigot, address revenueContract, LineLib.STATUS status, uint8 defaultSplit)
-        external
-        returns (bool)
-    {
-        (uint8 split,, bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
+    function updateSplit(
+        address spigot,
+        address revenueContract,
+        LineLib.STATUS status,
+        uint8 defaultSplit
+    ) external returns (bool) {
+        (uint8 split, , bytes4 transferFunc) = ISpigot(spigot).getSetting(revenueContract);
 
         if (transferFunc == bytes4(0)) revert NoSpigot();
 
@@ -163,10 +167,13 @@ library SpigotedLineLib {
      * @dev    - callable by anyone
      * @return - whether or not Spigot was released
      */
-    function releaseSpigot(address spigot, LineLib.STATUS status, address borrower, address arbiter, address to)
-        external
-        returns (bool)
-    {
+    function releaseSpigot(
+        address spigot,
+        LineLib.STATUS status,
+        address borrower,
+        address arbiter,
+        address to
+    ) external returns (bool) {
         if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {
             if (!ISpigot(spigot).updateOwner(to)) revert ReleaseSpigotFailed();
             return true;
@@ -188,10 +195,14 @@ library SpigotedLineLib {
      *          -  Does not transfer anything if line is healthy
      * @return - whether or not spigot was released
      */
-    function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter)
-        external
-        returns (bool)
-    {
+    function sweep(
+        address to,
+        address token,
+        uint256 amount,
+        LineLib.STATUS status,
+        address borrower,
+        address arbiter
+    ) external returns (bool) {
         if (amount == 0) revert UsedExcessTokens(token, 0);
 
         if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {

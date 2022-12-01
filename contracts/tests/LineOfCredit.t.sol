@@ -312,7 +312,7 @@ contract LineTest is Test, Events {
         assertEq(supportedToken1.balanceOf(borrower), mintAmount + amount, "Contract should have initial mint balance");
         int256 prc = oracle.getLatestAnswer(address(supportedToken1));
         uint256 tokenPriceOneUnit = prc < 0 ? 0 : uint256(prc);
-        (uint256 p,) = line.updateOutstandingDebt();
+        (uint256 p, ) = line.updateOutstandingDebt();
         assertEq(p, (tokenPriceOneUnit * amount) / 1e18, "Principal should be set as one full unit price in USD");
     }
 
@@ -339,7 +339,7 @@ contract LineTest is Test, Events {
 
         int256 prc = oracle.getLatestAnswer(Denominations.ETH);
         uint256 tokenPriceOneUnit = prc < 0 ? 0 : uint256(prc);
-        (uint256 p,) = line.updateOutstandingDebt();
+        (uint256 p, ) = line.updateOutstandingDebt();
         assertEq(p, (borrowAmount * tokenPriceOneUnit) / 1e18, "Principal should be set as one full unit price in USD");
     }
 
@@ -387,7 +387,9 @@ contract LineTest is Test, Events {
         line.depositAndRepay(0.5 ether);
         (uint256 p, uint256 i) = line.updateOutstandingDebt();
         assertEq(
-            p + i, tokenPriceOneUnit / 2, "Line outstanding credit should be set as half of one full unit price in USD"
+            p + i,
+            tokenPriceOneUnit / 2,
+            "Line outstanding credit should be set as half of one full unit price in USD"
         );
         assertEq(p, tokenPriceOneUnit / 2, "Principal should be set as half of one full unit price in USD");
         assertEq(i, 0, "No interest should have been accrued");
@@ -470,14 +472,18 @@ contract LineTest is Test, Events {
         line.borrow(id, 1 ether);
 
         assertEq(
-            supportedToken1.balanceOf(borrower), mintAmount + 1 ether, "Borrower should have initial balance + loan"
+            supportedToken1.balanceOf(borrower),
+            mintAmount + 1 ether,
+            "Borrower should have initial balance + loan"
         );
 
         hoax(borrower);
         line.depositAndClose();
 
         assertEq(
-            supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial balance after depositAndClose"
+            supportedToken1.balanceOf(lender),
+            mintAmount,
+            "Lender should have initial balance after depositAndClose"
         );
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line should not have tokens");
 
@@ -502,7 +508,9 @@ contract LineTest is Test, Events {
         hoax(borrower);
         line.borrow(id, 1 ether);
         assertEq(
-            supportedToken1.balanceOf(borrower), mintAmount + 1 ether, "Borrower should have initial balance + loan"
+            supportedToken1.balanceOf(borrower),
+            mintAmount + 1 ether,
+            "Borrower should have initial balance + loan"
         );
 
         hoax(borrower);
@@ -662,20 +670,20 @@ contract LineTest is Test, Events {
     function test_increase_credit_limit_with_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint256 d,,,,,,) = line.credits(id);
+        (uint256 d, , , , , , ) = line.credits(id);
 
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
         hoax(lender);
         line.increaseCredit(id, 1 ether);
-        (uint256 d2,,,,,,) = line.credits(id);
+        (uint256 d2, , , , , , ) = line.credits(id);
         assertEq(d2 - d, 1 ether);
     }
 
     function test_cannot_increase_credit_limit_without_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint256 d,,,,,,) = line.credits(id);
+        (uint256 d, , , , , , ) = line.credits(id);
 
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
@@ -692,7 +700,7 @@ contract LineTest is Test, Events {
         line.setRates(id, uint128(1 ether), uint128(1 ether));
         hoax(lender);
         line.setRates(id, uint128(1 ether), uint128(1 ether));
-        (uint128 drate, uint128 frate,) = line.interestRate().rates(id);
+        (uint128 drate, uint128 frate, ) = line.interestRate().rates(id);
         assertEq(drate, uint128(1 ether));
         assertEq(frate, uint128(1 ether));
         assertGt(frate, fRate);
@@ -849,14 +857,14 @@ contract LineTest is Test, Events {
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (,, uint256 interestAccruedBefore,,,,) = line.credits(id);
+        (, , uint256 interestAccruedBefore, , , , ) = line.credits(id);
 
         vm.warp(ttl + 10 days);
         // accrue interest can be called after deadline
         line.accrueInterest();
 
         // check that accrued interest is saved to line credits
-        (,, uint256 interestAccruedAfter,,,,) = line.credits(id);
+        (, , uint256 interestAccruedAfter, , , , ) = line.credits(id);
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
 }

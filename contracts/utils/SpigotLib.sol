@@ -26,10 +26,12 @@ library SpigotLib {
     // cap revenue per claim to avoid overflows on multiplication when calculating percentages
     uint256 constant MAX_REVENUE = type(uint256).max / MAX_SPLIT;
 
-    function _claimRevenue(SpigotState storage self, address revenueContract, address token, bytes calldata data)
-        public
-        returns (uint256 claimed)
-    {
+    function _claimRevenue(
+        SpigotState storage self,
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) public returns (uint256 claimed) {
         uint256 existingBalance = LineLib.getBalance(token);
         if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
@@ -42,7 +44,7 @@ library SpigotLib {
             if (bytes4(data) != self.settings[revenueContract].claimFunction) {
                 revert BadFunction();
             }
-            (bool claimSuccess,) = revenueContract.call(data);
+            (bool claimSuccess, ) = revenueContract.call(data);
             if (!claimSuccess) {
                 revert ClaimFailed();
             }
@@ -81,13 +83,13 @@ library SpigotLib {
         // cant claim revenue via operate() because that fucks up accounting logic. Owner shouldn't whitelist it anyway but just in case
         // also can't transfer ownership so Owner retains control of revenue contract
         if (
-            func == self.settings[revenueContract].claimFunction
-                || func == self.settings[revenueContract].transferOwnerFunction
+            func == self.settings[revenueContract].claimFunction ||
+            func == self.settings[revenueContract].transferOwnerFunction
         ) {
             revert OperatorFnNotValid();
         }
 
-        (bool success,) = revenueContract.call(data);
+        (bool success, ) = revenueContract.call(data);
         if (!success) {
             revert OperatorFnCallFailed();
         }
@@ -98,10 +100,12 @@ library SpigotLib {
     /**
      * see Spigot.claimRevenue
      */
-    function claimRevenue(SpigotState storage self, address revenueContract, address token, bytes calldata data)
-        external
-        returns (uint256 claimed)
-    {
+    function claimRevenue(
+        SpigotState storage self,
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external returns (uint256 claimed) {
         claimed = _claimRevenue(self, revenueContract, token, data);
 
         // splits revenue stream according to Spigot settings
@@ -145,10 +149,11 @@ library SpigotLib {
     /**
      * see Spigot.addSpigot
      */
-    function addSpigot(SpigotState storage self, address revenueContract, ISpigot.Setting memory setting)
-        external
-        returns (bool)
-    {
+    function addSpigot(
+        SpigotState storage self,
+        address revenueContract,
+        ISpigot.Setting memory setting
+    ) external returns (bool) {
         if (msg.sender != self.owner) {
             revert CallerAccessDenied();
         }
@@ -179,7 +184,7 @@ library SpigotLib {
             revert CallerAccessDenied();
         }
 
-        (bool success,) = revenueContract.call(
+        (bool success, ) = revenueContract.call(
             abi.encodeWithSelector(
                 self.settings[revenueContract].transferOwnerFunction,
                 self.operator // assume function only takes one param that is new owner address
@@ -196,10 +201,11 @@ library SpigotLib {
     /**
      * see Spigot.updateOwnerSplit
      */
-    function updateOwnerSplit(SpigotState storage self, address revenueContract, uint8 ownerSplit)
-        external
-        returns (bool)
-    {
+    function updateOwnerSplit(
+        SpigotState storage self,
+        address revenueContract,
+        uint8 ownerSplit
+    ) external returns (bool) {
         if (msg.sender != self.owner) {
             revert CallerAccessDenied();
         }
@@ -282,11 +288,10 @@ library SpigotLib {
     /**
      * see Spigot.getSetting
      */
-    function getSetting(SpigotState storage self, address revenueContract)
-        external
-        view
-        returns (uint8, bytes4, bytes4)
-    {
+    function getSetting(
+        SpigotState storage self,
+        address revenueContract
+    ) external view returns (uint8, bytes4, bytes4) {
         return (
             self.settings[revenueContract].ownerSplit,
             self.settings[revenueContract].claimFunction,

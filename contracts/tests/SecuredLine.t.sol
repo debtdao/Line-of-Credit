@@ -119,7 +119,7 @@ contract SecuredLineTest is Test {
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (uint256 p,) = line.updateOutstandingDebt();
+        (uint256 p, ) = line.updateOutstandingDebt();
         assertGt(p, 0);
         console.log("checkpoint");
         oracle.changePrice(address(supportedToken2), 1);
@@ -155,7 +155,7 @@ contract SecuredLineTest is Test {
     function invariant_position_count_equals_non_null_ids() public {
         (uint256 c, uint256 l) = line.counts();
         uint256 count = 0;
-        for (uint256 i = 0; i < l;) {
+        for (uint256 i = 0; i < l; ) {
             if (line.ids(i) != bytes32(0)) {
                 unchecked {
                     ++count;

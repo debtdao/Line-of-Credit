@@ -51,11 +51,12 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
      *
      * @return amount - the total amount of `targetToken` sold to repay credit
      */
-    function _liquidate(bytes32 id, uint256 amount, address targetToken, address to)
-        internal
-        virtual
-        returns (uint256)
-    {
+    function _liquidate(
+        bytes32 id,
+        uint256 amount,
+        address targetToken,
+        address to
+    ) internal virtual returns (uint256) {
         IEscrow escrow_ = escrow; // gas savings
         require(escrow_.liquidate(amount, targetToken, to));
 

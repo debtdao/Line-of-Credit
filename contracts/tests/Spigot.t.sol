@@ -49,9 +49,13 @@ contract SpigotTest is Test {
     /**
      * @dev Helper function to initialize new Spigots with different params to test functionality
      */
-    function _initSpigot(address _token, uint8 split, bytes4 claimFunc, bytes4 newOwnerFunc, bytes4[] memory _whitelist)
-        internal
-    {
+    function _initSpigot(
+        address _token,
+        uint8 split,
+        bytes4 claimFunc,
+        bytes4 newOwnerFunc,
+        bytes4[] memory _whitelist
+    ) internal {
         // deploy new revenue contract with settings
         revenueContract = address(new SimpleRevenueContract(owner, _token));
 
@@ -267,7 +271,7 @@ contract SpigotTest is Test {
         assertSpigotSplits(address(token), totalRevenue);
 
         uint256 claimed = spigot.claimEscrow(address(token));
-        (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
+        (uint256 maxRevenue, ) = getMaxRevenue(totalRevenue);
 
         assertEq((maxRevenue * settings.ownerSplit) / 100, claimed, "Invalid escrow claimed");
         assertEq(token.balanceOf(owner), claimed, "Claimed escrow not sent to owner");
@@ -365,7 +369,7 @@ contract SpigotTest is Test {
         if (func == claimPushPaymentFunc) return;
         _initSpigot(address(token), 100, claimPushPaymentFunc, func, whitelist);
 
-        (,, bytes4 _transfer) = spigot.getSetting(address(revenueContract));
+        (, , bytes4 _transfer) = spigot.getSetting(address(revenueContract));
         assertEq(_transfer, func);
     }
 
@@ -393,7 +397,7 @@ contract SpigotTest is Test {
     function test_updateOwnerSplit_0To100(uint8 split) public {
         if (split > 100) return;
         assertTrue(spigot.updateOwnerSplit(revenueContract, split));
-        (uint8 split_,,) = spigot.getSetting(revenueContract);
+        (uint8 split_, , ) = spigot.getSetting(revenueContract);
         assertEq(split, split_);
     }
 
@@ -469,8 +473,10 @@ contract SpigotTest is Test {
 
         spigot.updateWhitelistedFunction(SimpleRevenueContract.doAnOperationsThingWithArgs.selector, true);
 
-        bytes memory operationsThingData =
-            abi.encodeWithSelector(SimpleRevenueContract.doAnOperationsThingWithArgs.selector, 5);
+        bytes memory operationsThingData = abi.encodeWithSelector(
+            SimpleRevenueContract.doAnOperationsThingWithArgs.selector,
+            5
+        );
 
         vm.expectRevert(ISpigot.OperatorFnCallFailed.selector);
         vm.prank(operator);
@@ -503,12 +509,12 @@ contract SpigotTest is Test {
     // Release
 
     function test_removeSpigot() public {
-        (,, bytes4 transferOwnerFunc_) = spigot.getSetting(revenueContract);
+        (, , bytes4 transferOwnerFunc_) = spigot.getSetting(revenueContract);
         assertEq(bytes4(transferOwnerFunc), transferOwnerFunc_);
 
         spigot.removeSpigot(revenueContract);
 
-        (,, bytes4 transferOwnerFunc__) = spigot.getSetting(revenueContract);
+        (, , bytes4 transferOwnerFunc__) = spigot.getSetting(revenueContract);
         assertEq(bytes4(0), transferOwnerFunc__);
     }
 

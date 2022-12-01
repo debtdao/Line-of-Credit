@@ -9,19 +9,22 @@ import {CreditLib} from "../utils/CreditLib.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 
 contract MockEscrowedLine is EscrowedLine, LineOfCredit {
-    constructor(address _escrow, address oracle_, address arbiter_, address borrower_, uint256 ttl_)
-        EscrowedLine(_escrow)
-        LineOfCredit(oracle_, arbiter_, borrower_, ttl_)
-    {}
+    constructor(
+        address _escrow,
+        address oracle_,
+        address arbiter_,
+        address borrower_,
+        uint256 ttl_
+    ) EscrowedLine(_escrow) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {}
 
-    function _init() internal override (EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
+    function _init() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
         return EscrowedLine._init();
     }
 
     /**
      * @dev see BaseLine._healthcheck
      */
-    function _healthcheck() internal override (EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
+    function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
         return EscrowedLine._healthcheck();
     }
 
@@ -35,11 +38,12 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
      * @return amount - the total amount of `targetToken` sold to repay credit
      *
      */
-    function _liquidate(bytes32 id, uint256 amount, address targetToken, address to)
-        internal
-        override
-        returns (uint256)
-    {
+    function _liquidate(
+        bytes32 id,
+        uint256 amount,
+        address targetToken,
+        address to
+    ) internal override returns (uint256) {
         return EscrowedLine._liquidate(id, amount, targetToken, to);
     }
 
@@ -48,7 +52,7 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
      * (@dev priviliegad internal function.
      * @return if line is insolvent or not
      */
-    function _canDeclareInsolvent() internal override (EscrowedLine, LineOfCredit) returns (bool) {
+    function _canDeclareInsolvent() internal override(EscrowedLine, LineOfCredit) returns (bool) {
         return EscrowedLine._canDeclareInsolvent();
     }
 

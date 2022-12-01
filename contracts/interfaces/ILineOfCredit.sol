@@ -96,10 +96,13 @@ interface ILineOfCredit {
      * @param lender  - The address that will manage credit line
      * @return id     - Lender's position id to look up in `credits`
      */
-    function addCredit(uint128 drate, uint128 frate, uint256 amount, address token, address lender)
-        external
-        payable
-        returns (bytes32);
+    function addCredit(
+        uint128 drate,
+        uint128 frate,
+        uint256 amount,
+        address token,
+        address lender
+    ) external payable returns (bytes32);
 
     /**
      * @notice           - lets Lender and Borrower update rates on the lender's position

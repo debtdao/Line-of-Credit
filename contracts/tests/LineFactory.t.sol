@@ -77,8 +77,12 @@ contract LineFactoryTest is Test {
             borrower
         );
 
-        ILineFactory.CoreLineParams memory coreParams =
-            ILineFactory.CoreLineParams({borrower: borrower, ttl: ttl, cratio: 3000, revenueSplit: 90});
+        ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
+            borrower: borrower,
+            ttl: ttl,
+            cratio: 3000,
+            revenueSplit: 90
+        });
 
         address moduleLine = lineFactory.deploySecuredLineWithModules(coreParams, moduleSpigot, moduleEscrow);
 
@@ -101,8 +105,12 @@ contract LineFactoryTest is Test {
     // TODO: should use some fuzzing here
     function test_fail_if_revenueSplit_exceeds_100() public {
         // vm.assume( pct > 100)
-        ILineFactory.CoreLineParams memory coreParams =
-            ILineFactory.CoreLineParams({borrower: borrower, ttl: ttl, cratio: 3000, revenueSplit: 110});
+        ILineFactory.CoreLineParams memory coreParams = ILineFactory.CoreLineParams({
+            borrower: borrower,
+            ttl: ttl,
+            cratio: 3000,
+            revenueSplit: 110
+        });
 
         vm.expectRevert(ILineFactory.InvalidRevenueSplit.selector);
         address bad_line = lineFactory.deploySecuredLineWithConfig(coreParams);

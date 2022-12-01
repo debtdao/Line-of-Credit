@@ -155,7 +155,11 @@ contract SpigotedLineTest is Test {
         uint256 claimable = spigot.getEscrowed(address(revenueToken));
 
         bytes memory tradeData = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), address(creditToken), claimable, 1
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            address(creditToken),
+            claimable,
+            1
         );
 
         hoax(borrower);
@@ -219,8 +223,13 @@ contract SpigotedLineTest is Test {
         assertEq(line.unused(creditT), 0);
 
         // test claimAndTrade + claimAndRepay
-        bytes memory tradeData =
-            abi.encodeWithSignature("trade(address,address,uint256,uint256)", creditT, creditT, claimable, 15 ether);
+        bytes memory tradeData = abi.encodeWithSignature(
+            "trade(address,address,uint256,uint256)",
+            creditT,
+            creditT,
+            claimable,
+            15 ether
+        );
 
         hoax(borrower);
 
@@ -266,7 +275,7 @@ contract SpigotedLineTest is Test {
         vm.startPrank(borrower);
         vm.expectRevert(SpigotedLineLib.TradeFailed.selector);
         line.claimAndTrade(address(revenueToken), tradeData);
-        (, uint256 p,,,,,) = line.credits(line.ids(0));
+        (, uint256 p, , , , , ) = line.credits(line.ids(0));
 
         assertEq(p, lentAmount); // nothing repaid
 
@@ -328,7 +337,11 @@ contract SpigotedLineTest is Test {
         spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
 
         bytes memory tradeData2 = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), address(creditToken), claimable + 1, 1
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            address(creditToken),
+            claimable + 1,
+            1
         );
 
         line.claimAndTrade(address(revenueToken), tradeData2);
@@ -401,7 +414,7 @@ contract SpigotedLineTest is Test {
         );
 
         line.claimAndRepay(address(revenueToken), repayData);
-        (, uint256 p,,,,,) = line.credits(line.ids(0));
+        (, uint256 p, , , , , ) = line.credits(line.ids(0));
         vm.stopPrank();
 
         assertEq(p, 0);
@@ -419,7 +432,11 @@ contract SpigotedLineTest is Test {
         _borrow(line.ids(0), lentAmount);
 
         bytes memory tradeData = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), address(creditToken), sellAmount, buyAmount
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            address(creditToken),
+            sellAmount,
+            buyAmount
         );
 
         uint256 claimable = spigot.getEscrowed(address(revenueToken));
@@ -506,7 +523,11 @@ contract SpigotedLineTest is Test {
         _borrow(id, lentAmount);
 
         bytes memory tradeData = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), Denominations.ETH, 1 gwei, lentAmount
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            Denominations.ETH,
+            1 gwei,
+            lentAmount
         );
 
         uint256 claimable = spigot.getEscrowed(address(revenueToken));
@@ -531,7 +552,11 @@ contract SpigotedLineTest is Test {
 
         // oracle prices not relevant to trading test
         bytes memory tradeData = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), address(creditToken), sellAmount, buyAmount
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            address(creditToken),
+            sellAmount,
+            buyAmount
         );
 
         uint256 claimable = spigot.getEscrowed(address(revenueToken));
@@ -542,7 +567,7 @@ contract SpigotedLineTest is Test {
         line.claimAndRepay(address(revenueToken), tradeData);
 
         // principal, interest, repaid
-        (, uint256 p, uint256 i, uint256 r,,,) = line.credits(line.ids(0));
+        (, uint256 p, uint256 i, uint256 r, , , ) = line.credits(line.ids(0));
 
         // outstanding debt = initial principal + accrued interest - tokens repaid
         uint256 _buyAmount = buyAmount > lentAmount + interest ? lentAmount + interest : buyAmount;
@@ -863,20 +888,20 @@ contract SpigotedLineTest is Test {
 
     function test_update_split_no_action_on_already_liquidated() public {
         // validate original settings
-        (uint8 split,,) = spigot.getSetting(revenueContract);
+        (uint8 split, , ) = spigot.getSetting(revenueContract);
         assertEq(split, ownerSplit);
 
         // fast forward to past deadline
         vm.warp(ttl + 1);
 
         assertTrue(line.updateOwnerSplit(revenueContract));
-        (uint8 split2,,) = spigot.getSetting(revenueContract);
+        (uint8 split2, , ) = spigot.getSetting(revenueContract);
         assertEq(split2, 100); // to 100 since LIQUIDATABLE
 
         // second run shouldnt updte
         assertFalse(line.updateOwnerSplit(revenueContract));
         // split should still be 100%
-        (uint8 split3,,) = spigot.getSetting(revenueContract);
+        (uint8 split3, , ) = spigot.getSetting(revenueContract);
         assertEq(split3, 100);
     }
 
@@ -891,13 +916,13 @@ contract SpigotedLineTest is Test {
 
         assertTrue(line.updateOwnerSplit(revenueContract));
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.LIQUIDATABLE));
-        (uint8 split,,) = spigot.getSetting(revenueContract);
+        (uint8 split, , ) = spigot.getSetting(revenueContract);
         assertEq(split, 100);
     }
 
     function test_update_split_to_default_on_active_from_liquidate() public {
         // validate original settings
-        (uint8 split,,) = spigot.getSetting(revenueContract);
+        (uint8 split, , ) = spigot.getSetting(revenueContract);
         assertEq(split, ownerSplit);
 
         // fast forward to past deadline
@@ -905,12 +930,12 @@ contract SpigotedLineTest is Test {
 
         assertTrue(line.updateOwnerSplit(revenueContract));
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.LIQUIDATABLE));
-        (uint8 split2,,) = spigot.getSetting(revenueContract);
+        (uint8 split2, , ) = spigot.getSetting(revenueContract);
         assertEq(split2, 100); // to 100 since LIQUIDATABLE
 
         vm.warp(1); // sstatus = LIQUIDTABLE but healthcheck == ACTIVE
         assertTrue(line.updateOwnerSplit(revenueContract));
-        (uint8 split3,,) = spigot.getSetting(revenueContract);
+        (uint8 split3, , ) = spigot.getSetting(revenueContract);
         assertEq(split3, ownerSplit); // to default since ACTIVE
     }
 
@@ -918,19 +943,25 @@ contract SpigotedLineTest is Test {
 
     function test_cant_add_spigot_without_consent() public {
         address rev = address(0xf1c0);
-        ISpigot.Setting memory setting =
-            ISpigot.Setting({ownerSplit: ownerSplit, claimFunction: bytes4(0), transferOwnerFunction: bytes4("1234")});
+        ISpigot.Setting memory setting = ISpigot.Setting({
+            ownerSplit: ownerSplit,
+            claimFunction: bytes4(0),
+            transferOwnerFunction: bytes4("1234")
+        });
 
         line.addSpigot(rev, setting);
-        (,, bytes4 transferFunc) = spigot.getSetting(rev);
+        (, , bytes4 transferFunc) = spigot.getSetting(rev);
         // settings not saved on spigot contract
         assertEq(transferFunc, bytes4(0));
     }
 
     function test_can_add_spigot_with_consent() public {
         address rev = address(0xf1c0);
-        ISpigot.Setting memory setting =
-            ISpigot.Setting({ownerSplit: ownerSplit, claimFunction: bytes4(0), transferOwnerFunction: bytes4("1234")});
+        ISpigot.Setting memory setting = ISpigot.Setting({
+            ownerSplit: ownerSplit,
+            claimFunction: bytes4(0),
+            transferOwnerFunction: bytes4("1234")
+        });
 
         line.addSpigot(rev, setting);
         hoax(borrower);
@@ -982,7 +1013,11 @@ contract SpigotedLineTest is Test {
         _borrow(id, lentAmount);
 
         bytes memory tradeData = abi.encodeWithSignature(
-            "trade(address,address,uint256,uint256)", address(revenueToken), Denominations.ETH, 1 gwei, lentAmount
+            "trade(address,address,uint256,uint256)",
+            address(revenueToken),
+            Denominations.ETH,
+            1 gwei,
+            lentAmount
         );
 
         hoax(borrower);
@@ -990,7 +1025,7 @@ contract SpigotedLineTest is Test {
 
         vm.prank(lender); // prank lender
         line.useAndRepay(lentAmount);
-        (, uint256 principal,,,,,) = line.credits(line.ids(0));
+        (, uint256 principal, , , , , ) = line.credits(line.ids(0));
         assertEq(principal, 0);
     }
 

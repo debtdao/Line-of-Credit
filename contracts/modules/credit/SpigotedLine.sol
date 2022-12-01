@@ -69,7 +69,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
      * see LineOfCredit._init and Securedline.init
      * @notice requires this Line is owner of the Escrowed collateral else Line will not init
      */
-    function _init() internal virtual override (LineOfCredit) returns (LineLib.STATUS) {
+    function _init() internal virtual override(LineOfCredit) returns (LineLib.STATUS) {
         if (spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
         return LineOfCredit._init();
     }
@@ -89,12 +89,10 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     }
 
     /// see ISpigotedLine.claimAndRepay
-    function claimAndRepay(address claimToken, bytes calldata zeroExTradeData)
-        external
-        whileBorrowing
-        nonReentrant
-        returns (uint256)
-    {
+    function claimAndRepay(
+        address claimToken,
+        bytes calldata zeroExTradeData
+    ) external whileBorrowing nonReentrant returns (uint256) {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
@@ -145,12 +143,10 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     }
 
     /// see ISpigotedLine.claimAndTrade
-    function claimAndTrade(address claimToken, bytes calldata zeroExTradeData)
-        external
-        whileBorrowing
-        nonReentrant
-        returns (uint256)
-    {
+    function claimAndTrade(
+        address claimToken,
+        bytes calldata zeroExTradeData
+    ) external whileBorrowing nonReentrant returns (uint256) {
         require(msg.sender == borrower);
 
         address targetToken = credits[ids[0]].token;
@@ -174,12 +170,18 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
      *
      * @return - amount of target tokens bought
      */
-    function _claimAndTrade(address claimToken, address targetToken, bytes calldata zeroExTradeData)
-        internal
-        returns (uint256)
-    {
+    function _claimAndTrade(
+        address claimToken,
+        address targetToken,
+        bytes calldata zeroExTradeData
+    ) internal returns (uint256) {
         (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
-            claimToken, targetToken, swapTarget, address(spigot), unusedTokens[claimToken], zeroExTradeData
+            claimToken,
+            targetToken,
+            swapTarget,
+            address(spigot),
+            unusedTokens[claimToken],
+            zeroExTradeData
         );
 
         // we dont use revenue after this so can store now
@@ -191,17 +193,20 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
 
     /// see ISpigotedLine.updateOwnerSplit
     function updateOwnerSplit(address revenueContract) external returns (bool) {
-        return SpigotedLineLib.updateSplit(
-            address(spigot), revenueContract, _updateStatus(_healthcheck()), defaultRevenueSplit
-        );
+        return
+            SpigotedLineLib.updateSplit(
+                address(spigot),
+                revenueContract,
+                _updateStatus(_healthcheck()),
+                defaultRevenueSplit
+            );
     }
 
     /// see ISpigotedLine.addSpigot
-    function addSpigot(address revenueContract, ISpigot.Setting calldata setting)
-        external
-        mutualConsent(arbiter, borrower)
-        returns (bool)
-    {
+    function addSpigot(
+        address revenueContract,
+        ISpigot.Setting calldata setting
+    ) external mutualConsent(arbiter, borrower) returns (bool) {
         return spigot.addSpigot(revenueContract, setting);
     }
 

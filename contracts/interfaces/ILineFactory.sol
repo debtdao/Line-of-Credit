@@ -32,9 +32,11 @@ interface ILineFactory {
 
     function deploySecuredLineWithConfig(CoreLineParams calldata coreParams) external returns (address);
 
-    function deploySecuredLineWithModules(CoreLineParams calldata coreParams, address mSpigot, address mEscrow)
-        external
-        returns (address);
+    function deploySecuredLineWithModules(
+        CoreLineParams calldata coreParams,
+        address mSpigot,
+        address mEscrow
+    ) external returns (address);
 
     function rolloverSecuredLine(address payable oldLine, address borrower, uint256 ttl) external returns (address);
 }

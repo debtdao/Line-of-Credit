@@ -53,9 +53,7 @@ interface ISpigotedLine {
      * @param zeroExTradeData - 0x API data to use in trade to sell `claimToken` for `credits[ids[0]]`
      * @return tokensBought - amount of credit tokens bought
      */
-    function claimAndTrade(address claimToken, bytes calldata zeroExTradeData)
-        external
-        returns (uint256 tokensBought);
+    function claimAndTrade(address claimToken, bytes calldata zeroExTradeData) external returns (uint256 tokensBought);
 
     // Spigot management functions
 

@@ -12,8 +12,9 @@
     "prettier:check": "prettier --check **.sol"
   },
   "devDependencies": {
-    "husky": "^8.0.2",
+    "husky": "^8.0.0",
     "prettier": "^2.8.0",
-    "prettier-plugin-solidity": "^1.0.0"
+    "prettier-plugin-solidity": "^1.0.0",
+    "prettier-quick": "^0.0.5"
   }
 }

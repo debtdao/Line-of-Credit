@@ -62,11 +62,11 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param data - Transaction data, including function signature, to properly claim revenue on revenueContract
      * @return claimed -  The amount of revenue tokens claimed from revenueContract and split between `owner` and `treasury`
      */
-    function claimRevenue(address revenueContract, address token, bytes calldata data)
-        external
-        nonReentrant
-        returns (uint256 claimed)
-    {
+    function claimRevenue(
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external nonReentrant returns (uint256 claimed) {
         return state.claimRevenue(revenueContract, token, data);
     }
 
