@@ -34,8 +34,8 @@ library SpigotedLineLib {
 
     /**
      * @notice              Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt.
-     *                         The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay 
-     *                         This feature allows a Borrower to take advantage of an increase in the value of the revenue token compared 
+     *                         The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay
+     *                         This feature allows a Borrower to take advantage of an increase in the value of the revenue token compared
      *                         to the credit token and to in effect use less revenue tokens to be later used to repay the same amount of debt.
      * @dev                 MUST trade all available claimTokens to targetTokens
      * @dev                 priviliged internal function
@@ -158,7 +158,7 @@ library SpigotedLineLib {
 
     /**
      * @notice -  Transfers ownership of the entire Spigot and its revenuw streams from its then Owner to either
-     *             the Borrower (if a Line of Credit has been been fully repaid) or 
+     *             the Borrower (if a Line of Credit has been been fully repaid) or
      *             to the Arbiter (if the Line of Credit is liquidatable).
      * @dev    - callable by anyone
      * @return - whether or not Spigot was released

@@ -33,7 +33,7 @@ library CreditLib {
 
     event RepayInterest(bytes32 indexed id, uint256 indexed amount);
     /**
-     * Emits that a Borrower has repaid an amount of interest 
+     * Emits that a Borrower has repaid an amount of interest
      *   (N.B. results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function
      */
 

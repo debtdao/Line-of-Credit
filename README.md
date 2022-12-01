@@ -47,3 +47,24 @@ Failing tests:
 Encountered 1 failing test in contracts/tests/SpigotedLine.t.sol:SpigotedLineTest
 [FAIL. Reason: TradeFailed() Counterexample: calldata=0xd9be461e0000000000000000000000000000000000000000000000000000000000000001004189374bc6a7ef9db22d0e5604189374bc6a7ef9db22d0e5604189374bc6a8, args=[1, 115792089237316195423570985008687907853269984665640564039457584007913129640]] test_can_trade(uint256,uint256) (runs: 205, μ: 243309, ~: 283578)
 ```
+
+## Deployment
+
+### Local
+
+```
+source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast
+```
+
+### Goerli
+
+```
+source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast
+```
+
+If verification fails:
+
+```
+source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --resume
+```
+
