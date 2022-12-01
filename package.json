@@ -6,11 +6,13 @@
   "repository": "git@github.com:debtdao/Line-of-Credit.git",
   "author": "DebtDAO",
   "scripts": {
+    "prepare": "husky install",
     "prettier": "prettier --write **.sol",
     "prettier:list": "prettier --list-different **.sol",
     "prettier:check": "prettier --check **.sol"
   },
   "devDependencies": {
+    "husky": "^8.0.2",
     "prettier": "^2.8.0",
     "prettier-plugin-solidity": "^1.0.0"
   }

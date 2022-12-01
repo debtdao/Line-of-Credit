@@ -17,7 +17,10 @@ contract LineFactory is ILineFactory {
     address public immutable oracle;
     address public immutable swapTarget;
 
-    constructor(address moduleFactory, address arbiter_, address oracle_, address swapTarget_) {
+    constructor(address moduleFactory, 
+    address arbiter_, 
+    address oracle_, 
+    address swapTarget_) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
