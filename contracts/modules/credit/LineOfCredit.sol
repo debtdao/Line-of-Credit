@@ -408,6 +408,26 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return true;
     }
 
+    // TODO: test me
+    /// see ILineOfCredit.revokeConsent
+    function revokeConsent(
+        uint128 drate,
+        uint128 frate,
+        uint256 amount,
+        address token,
+        address lender
+    ) external returns (bool) {
+
+        bytes memory reconstructedArgs = abi.encode(drate,frate,amount, token, lender);
+        bytes memory reconstructedMsgData = abi.encodePacked(
+            // abi.encodeWithSignature("addCredit(uint128,uint128,uint256,address,address)"),
+            ILineOfCredit.addCredit.selector,
+            reconstructedArgs
+        );
+
+        _revokeConsent(reconstructedMsgData);
+    }
+
     //////////////////////
     //  Internal  funcs //
     //////////////////////

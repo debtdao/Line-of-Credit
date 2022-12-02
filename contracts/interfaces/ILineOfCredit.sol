@@ -222,6 +222,14 @@ interface ILineOfCredit {
   */
   function updateOutstandingDebt() external returns(uint256, uint256);
 
+  // TODO: add natspec comments
+  function revokeConsent(    
+    uint128 drate,
+    uint128 frate,
+    uint256 amount,
+    address token,
+    address lender
+    ) external returns (bool);
   
   // State getters
 

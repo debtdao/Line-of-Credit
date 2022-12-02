@@ -15,12 +15,15 @@ abstract contract MutualConsent {
     mapping(bytes32 => bool) public mutualConsents;
 
     error Unauthorized();
+    error InvalidConsent();
 
     /* ============ Events ============ */
 
     event MutualConsentRegistered(
         bytes32 _consentHash
     );
+    event MutualConsentRevoked(bytes32 _toRevoke);
+
 
     /* ============ Modifiers ============ */
 
@@ -57,6 +60,13 @@ abstract contract MutualConsent {
         delete mutualConsents[expectedHash];
 
         return true;
+    }
+
+    function _revokeConsent(bytes memory _reconstrucedMsgData) internal {
+        bytes32 hashToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
+        if (!mutualConsents[hashToDelete]) { revert InvalidConsent(); } // TODO: test me
+        delete mutualConsents[hashToDelete];
+        emit MutualConsentRevoked(hashToDelete);
     }
 
 
