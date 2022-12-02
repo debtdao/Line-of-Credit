@@ -44,8 +44,7 @@ library LineLib {
         // both branches revert if call failed
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
-        } else { // ETH
-            // payable(receiver).transfer(amount);
+        } else { // ETHß
             _safeTransferFunds(receiver, amount, "Sending Eth failed");
         }
         return true;
@@ -69,7 +68,8 @@ library LineLib {
         if(token != Denominations.ETH) { // ERC20
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
-            if(msg.value < amount) { revert TransferFailed(); }
+            if( msg.value < amount) { revert TransferFailed(); }
+            if( msg.value > amount) { _safeTransferFunds(msg.sender, msg.value - amount, "Failed to send refund"); }
         }
         return true;
     }
