@@ -152,7 +152,8 @@ library CreditLib {
           deposit: amount,
           principal: 0,
           interestAccrued: 0,
-          interestRepaid: 0
+          interestRepaid: 0,
+          isOpen: true
       });
 
       emit AddCredit(lender, token, amount, id);

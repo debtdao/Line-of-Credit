@@ -381,6 +381,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
+        if (count == 0) { _updateStatus(LineLib.STATUS.REPAID); }
+
         return true;
     }
 
@@ -484,15 +486,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
 
         // return the Lender's funds that are being repaid
-        if (credit.deposit + credit.interestRepaid > 0) {
-            LineLib.sendOutTokenOrETH(
-                credit.token,
-                credit.lender,
-                credit.deposit + credit.interestRepaid
-            );
-        }
+   
 
-        delete credits[id]; // gas refunds
+        Credit storage credit = credits[id];
+        credit.isOpen = false;
 
         // remove from active list
         ids.removePosition(id);

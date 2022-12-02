@@ -14,6 +14,7 @@ interface ILineOfCredit {
     uint8 decimals;           // Decimals of Credit Token for calcs
     address token;            // The token being lent out (Credit Token)
     address lender;           // The person to repay
+    bool isOpen;              // Status of position
   }
   // General Events
   event UpdateStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
