@@ -32,6 +32,8 @@ library SpigotLib {
         address token,
         bytes calldata data
     ) public returns (uint256 claimed) {
+        if (self.settings[revenueContract].transferOwnerFunction == bytes4(0)) { revert InvalidRevenueContract(); }
+
         uint256 existingBalance = LineLib.getBalance(token);
         if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
@@ -371,4 +373,6 @@ library SpigotLib {
     error CallerAccessDenied();
 
     error BadSetting();
+
+    error InvalidRevenueContract();
 }
