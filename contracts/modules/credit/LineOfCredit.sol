@@ -216,6 +216,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       @param id - the position id for credit position
     */
     function _accrue(Credit memory credit, bytes32 id) internal returns(Credit memory) {
+      if (!credit.isOpen) return 0;
       return CreditLib.accrue(credit, id, address(interestRate));
     }
 
@@ -299,6 +300,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
+        require(credit.isOpen);
 
         // Borrower deposits the outstanding balance not already repaid
         uint256 totalOwed = credit.principal + credit.interestAccrued;
@@ -321,6 +323,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         bytes32 id = ids[0];
         Credit memory credit = credits[id];
+        require(credit.isOpen);
         credit = _accrue(credit, id);
 
         require(amount <= credit.principal + credit.interestAccrued);
@@ -345,6 +348,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         returns (bool)
     {
         Credit memory credit = _accrue(credits[id], id);
+
+        require(credit.isOpen);
 
         if(amount > credit.deposit - credit.principal) { revert NoLiquidity(); }
 
@@ -444,7 +449,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         id = CreditLib.computeId(address(this), lender, token);
         // MUST not double add the credit line. otherwise we can not _close()
-        if(credits[id].lender != address(0)) { revert PositionExists(); }
+        if(credits[id].isOpen) { revert PositionExists(); }
 
         credits[id] = CreditLib.create(id, amount, lender, token, address(oracle));
 
@@ -469,6 +474,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         returns (Credit memory)
     { 
         credit = CreditLib.repay(credit, id, amount);
+        
 
         // if credit line fully repaid then remove it from the repayment queue
         if (credit.principal == 0) ids.stepQ();
@@ -484,6 +490,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (bool) {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
+        require(credit.isOpen && credit.principal == 0);
 
         // return the Lender's funds that are being repaid
    

@@ -180,6 +180,7 @@ library CreditLib {
           emit RepayInterest(id, amount);
           return credit;
       } else {
+          require(credit.isOpen);
           uint256 interest = credit.interestAccrued;
           uint256 principalPayment = amount - interest;
 
