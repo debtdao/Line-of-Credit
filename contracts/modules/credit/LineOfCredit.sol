@@ -216,7 +216,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       @param id - the position id for credit position
     */
     function _accrue(Credit memory credit, bytes32 id) internal returns(Credit memory) {
-      if (!credit.isOpen) return 0;
+      if (!credit.isOpen)  {
+        credit.interestAccrued = 0;
+        return credit;
+    }
       return CreditLib.accrue(credit, id, address(interestRate));
     }
 
