@@ -12,17 +12,18 @@ abstract contract MutualConsent {
     /* ============ State Variables ============ */
 
     // Mapping of upgradable units and if consent has been initialized by other party
-    mapping(bytes32 => bool) public mutualConsents;
+    mapping(bytes32 => address) public mutualConsents; // TODO: maybe combine into a struct?
 
     error Unauthorized();
     error InvalidConsent();
+    error NotUserConsent();
 
     /* ============ Events ============ */
 
     event MutualConsentRegistered(
         bytes32 _consentHash
     );
-    event MutualConsentRevoked(bytes32 _toRevoke);
+    event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
 
 
     /* ============ Modifiers ============ */
@@ -47,10 +48,10 @@ abstract contract MutualConsent {
         // which uniquely identifies the function, arguments, and sender.
         bytes32 expectedHash = keccak256(abi.encodePacked(msg.data, nonCaller));
 
-        if (!mutualConsents[expectedHash]) {
+        if (mutualConsents[expectedHash] == address(0)) {
             bytes32 newHash = keccak256(abi.encodePacked(msg.data, msg.sender));
 
-            mutualConsents[newHash] = true;
+            mutualConsents[newHash] = msg.sender;
 
             emit MutualConsentRegistered(newHash);
 
@@ -62,11 +63,16 @@ abstract contract MutualConsent {
         return true;
     }
 
+    // TODO: test every mutual consent function
     function _revokeConsent(bytes memory _reconstrucedMsgData) internal {
         bytes32 hashToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
-        if (!mutualConsents[hashToDelete]) { revert InvalidConsent(); } // TODO: test me
+
+        if (mutualConsents[hashToDelete] == address(0) ) { revert InvalidConsent(); } // TODO: test me
+        if (mutualConsents[hashToDelete] != msg.sender) { revert NotUserConsent(); } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision 
+
         delete mutualConsents[hashToDelete];
-        emit MutualConsentRevoked(hashToDelete);
+
+        emit MutualConsentRevoked(msg.sender, hashToDelete);
     }
 
 

@@ -300,36 +300,7 @@ contract LineTest is Test, Events{
         assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial mint balance minus 1e18");
     }
 
-    function test_can_revoke_consent() public {
 
-        address token = address(supportedToken1);
-        uint256 amount = 1 ether;
-
-        vm.startPrank(borrower);
-        
-        // add consent as borrower
-        line.addCredit(dRate, fRate, amount, token, lender);
-        
-        // fail to revoke non-existent consent
-        vm.expectRevert(MutualConsent.InvalidConsent.selector);
-        line.revokeConsent(dRate, fRate, amount, token, makeAddr("incorrectLender"));
-
-        // succeed revoking consent
-        bytes32 expectedHash =_simulateMutualConstentHash(dRate, fRate, amount, token, lender, borrower);
-        vm.expectEmit(true,false,false,true, address(line));
-        emit MutualConsentRevoked(expectedHash); // no way of knowing the hash
-        line.revokeConsent(dRate, fRate, amount, token, lender);
-
-        vm.stopPrank();
-
-        // lender addCredit should create a new id
-        vm.startPrank(lender);
-        expectedHash =_simulateMutualConstentHash(dRate, fRate, amount, token, lender, lender);
-        vm.expectEmit(true,false,false,true,address(line));
-        emit MutualConsentRegistered(expectedHash); // we dont know the hash id
-        line.addCredit(dRate, fRate, amount, token, lender);
-        vm.stopPrank();
-    }
 
     function test_can_add_credit_position_ETH() public {
         assertEq(address(line).balance, 0, "Line balance should be 0");
@@ -888,20 +859,5 @@ contract LineTest is Test, Events{
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
 
-    function _simulateMutualConstentHash(        
-        uint128 drate,
-        uint128 frate,
-        uint256 amount,
-        address token,
-        address lender,
-        address msgSender
-    ) internal returns (bytes32) {
-        bytes memory reconstructedArgs = abi.encode(drate,frate,amount, token, lender);
-        bytes memory reconstructedMsgData = abi.encodePacked(
-            // abi.encodeWithSignature("addCredit(uint128,uint128,uint256,address,address)"),
-            ILineOfCredit.addCredit.selector,
-            reconstructedArgs
-        );
-        return keccak256(abi.encodePacked(reconstructedMsgData, msgSender));
-    }
+
 }

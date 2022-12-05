@@ -83,6 +83,7 @@ interface ILineOfCredit {
   error NotInsolvent(address module);
   error NotLiquidatable();
   error AlreadyInitialized();
+  error UnsupportedMutualConsentFunction();
 
 
   // Fully public functions
@@ -213,6 +214,7 @@ interface ILineOfCredit {
     */
   function accrueInterest() external returns(bool);
   function healthcheck() external returns(LineLib.STATUS);
+  
   /**
     * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
     * @dev    - Denominated in USD, 8 decimals.
@@ -223,13 +225,10 @@ interface ILineOfCredit {
   function updateOutstandingDebt() external returns(uint256, uint256);
 
   // TODO: add natspec comments
+  // TODO: dev note about data/bytes length being limited, ie addCredit is longest
   function revokeConsent(    
-    uint128 drate,
-    uint128 frate,
-    uint256 amount,
-    address token,
-    address lender
-    ) external returns (bool);
+    bytes calldata mutualConsentMsgData
+  ) external;
   
   // State getters
 
