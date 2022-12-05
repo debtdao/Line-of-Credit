@@ -120,6 +120,14 @@ contract LineTest is Test, Events{
       return tokens;
     }
 
+    function test_isOpen_false_on_create() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        (,,,,,,, bool d) = line.credits(id);
+        console.log(d);
+        assertEq(d, true);
+    }
+
     function test_positions_move_in_queue_of_2() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
@@ -440,6 +448,8 @@ contract LineTest is Test, Events{
         hoax(borrower);
         line.depositAndClose();
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Tokens should be sent back to lender");
+        (,,,,,,, bool d) = line.credits(id);
+        assertEq(d, false);
         (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, 0, "Line outstanding credit should be 0");
     }
@@ -654,20 +664,20 @@ contract LineTest is Test, Events{
     function test_increase_credit_limit_with_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint d,,,,,,) = line.credits(id);
+        (uint d,,,,,,,) = line.credits(id);
         
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
         hoax(lender);
         line.increaseCredit(id, 1 ether);
-        (uint d2,,,,,,) = line.credits(id);
+        (uint d2,,,,,,,) = line.credits(id);
         assertEq(d2 - d, 1 ether);
     }
 
     function test_cannot_increase_credit_limit_without_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint d,,,,,,) = line.credits(id);
+        (uint d,,,,,,,) = line.credits(id);
         
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
@@ -842,14 +852,14 @@ contract LineTest is Test, Events{
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (,,uint interestAccruedBefore,,,,) = line.credits(id);
+        (,,uint interestAccruedBefore,,,,,) = line.credits(id);
 
         vm.warp(ttl+10 days);
         // accrue interest can be called after deadline
         line.accrueInterest();
 
         // check that accrued interest is saved to line credits
-        (,,uint interestAccruedAfter,,,,) = line.credits(id);
+        (,,uint interestAccruedAfter,,,,,) = line.credits(id);
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
 }
