@@ -9,7 +9,6 @@ import {ILineFactory} from "../interfaces/ILineFactory.sol";
 import {ISecuredLine} from "../interfaces/ISecuredLine.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
-
 import {IEscrow} from "../interfaces/IEscrow.sol";
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
@@ -17,22 +16,34 @@ import {Escrow} from "../modules/escrow/Escrow.sol";
 import {LineLib} from "../utils/LineLib.sol";
 import {MutualConsent} from "../utils/MutualConsent.sol";
 
+import {SimpleOracle} from "../mock/SimpleOracle.sol";
+
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
     event MutualConsentRegistered(bytes32 _consentHash);
     event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
 }
 
+/*
+    Mutual Consent Fns:
+    LineOfCredit addCredit
+    LineOFCredit setRates
+    LineOFCredit increaseCredit
+    SpigotedLine addSpigot
+
+*/
+
 contract MutualConsentTest is Test, Events {
     SecuredLine line;
     Spigot spigot;
     Escrow escrow;
+    SimpleOracle oracle;
     LineFactory lineFactory;
     ModuleFactory moduleFactory;
 
     RevenueToken supportedToken1;
+    RevenueToken supportedToken2;
 
-    address oracle;
     address arbiter;
     address borrower;
     address swapTarget;
@@ -49,18 +60,28 @@ contract MutualConsentTest is Test, Events {
     uint128 dRate = 100;
     uint128 fRate = 1;
 
+    uint256 amount = 1 ether;
+    address token;
+
     constructor() {
-        oracle = address(0xdebf);
         arbiter = address(0xf1c0);
         lender = address(0xfde0);
         borrower = address(0xbA05);
         swapTarget = address(0xb0b0);
 
+        supportedToken1 = new RevenueToken();
+        supportedToken2 = new RevenueToken();
+        token = address(supportedToken1);
+        oracle = new SimpleOracle(
+            address(supportedToken1),
+            address(supportedToken2)
+        );
+
         moduleFactory = new ModuleFactory();
         lineFactory = new LineFactory(
             address(moduleFactory),
             arbiter,
-            oracle,
+            address(oracle),
             swapTarget
         );
 
@@ -73,28 +94,32 @@ contract MutualConsentTest is Test, Events {
 
         escrow_address = address(line.escrow());
         escrow = Escrow(payable(escrow_address));
-
-        supportedToken1 = new RevenueToken();
     }
 
-    function test_revoking_addCredit_invalid_consent_fails() public {
-        address token = address(supportedToken1);
-        uint256 amount = 1 ether;
-
+    function setUp() public {
         // add consent as borrower
         vm.startPrank(borrower);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
 
+        _mintAndApprove();
+    }
+
+    /*/////////////////////////////////////////////////////
+                            addCredit
+    /////////////////////////////////////////////////////*/
+
+    function test_addCredit_revoking_invalid_consent_fails() public {
         // derive the expected consent hash
-        bytes memory invalidMsgData = _generateMutualConsentMessageData(
-            ILineOfCredit.addCredit.selector,
-            dRate,
-            fRate,
-            amount,
-            token,
-            makeAddr("randomLender")
-        );
+        bytes
+            memory invalidMsgData = _generateAddCreditMutualConsentMessageData(
+                ILineOfCredit.addCredit.selector,
+                dRate,
+                fRate,
+                amount,
+                token,
+                makeAddr("randomLender")
+            );
         emit log_named_bytes("invalid msg data:", invalidMsgData);
         emit log_named_uint("bytes length", invalidMsgData.length);
         bytes32 nonExistentHash = _simulateMutualConstentHash(
@@ -108,47 +133,125 @@ contract MutualConsentTest is Test, Events {
         line.revokeConsent(invalidMsgData);
 
         vm.stopPrank();
-
-        // should fail revoking consent as different user (with correct data)
-        // vm.startPrank(lender);
-        // vm.expectRevert(MutualConsent.NotUserConsent.selector);
-        // line.revokeConsent(
-        //     ILineOfCredit.addCredit.selector,
-        //     dRate,
-        //     fRate,
-        //     amount,
-        //     token,
-        //     lender
-        // );
-        // vm.stopPrank();
     }
 
-    function test_can_revoke_mutualConsent_for_addCredit_as_borrower() public {
-        /*
+    function test_addCredit_should_fail_revoking_consent_as_malicious_user()
+        public
+    {
+        // should fail revoking consent as different user (with correct data)
+
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
+
+        vm.startPrank(lender);
+        vm.expectRevert(MutualConsent.InvalidConsent.selector);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+    }
+
+    function test_addCredit_can_revoke_mutualConsent_for_addCredit_as_borrower()
+        public
+    {
+        vm.startPrank(borrower);
+
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
 
         // succeed revoking consent
-        vm.expectEmit(true,false,false,true, address(line));
-        emit MutualConsentRevoked(expectedHash); 
-        line.revokeConsent(ILineOfCredit.addCredit.selector, dRate, fRate, amount, token, lender);
+        vm.expectEmit(true, true, false, true, address(line));
+        emit MutualConsentRevoked(borrower, expectedHash);
+        line.revokeConsent(msgData);
         vm.stopPrank();
-
-
 
         // lender addCredit should create a new id
         vm.startPrank(lender);
-        expectedHash =_simulateMutualConstentHash(ILineOfCredit.addCredit.selector, dRate, fRate, amount, token, lender, lender);
-        vm.expectEmit(true,false,false,true,address(line));
+        expectedHash = _simulateMutualConstentHash(msgData, lender);
+        vm.expectEmit(true, false, false, true, address(line));
         emit MutualConsentRegistered(expectedHash); // we dont know the hash id
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
-        */
+    }
+
+    function test_addCredit_revoking_consent_with_invalid_msg_data_fails()
+        public
+    {
+        vm.startPrank(borrower);
+
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+
+        bytes memory invalidMsgData = abi.encodePacked(msgData, uint256(5));
+
+        vm.expectRevert(
+            MutualConsent.UnsupportedMutualConsentFunction.selector
+        );
+        line.revokeConsent(invalidMsgData);
+        vm.stopPrank();
+    }
+
+    /*/////////////////////////////////////////////////////
+                            setRate
+    /////////////////////////////////////////////////////*/
+
+    function test_setRates_can_revoke_consent() public {
+        // first complete adding credit
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        // bytes32 id = line.ids(0);
+
+        // emit log_named_bytes32("line id: ", id);
+
+        // vm.startPrank(borrower);
+        // line.setRates(id, uint128(1 ether), uint128(1 ether));
+        // (uint128 drate, uint128 frate, ) = line.interestRate().rates(id);
+        // assertEq(drate, uint128(1 ether));
+        // assertEq(frate, uint128(1 ether));
+        // vm.stopPrank();
     }
 
     /*/////////////////////////////////////////////////////
                             UTILS
     /////////////////////////////////////////////////////*/
 
-    function _generateMutualConsentMessageData(
+    function _mintAndApprove() internal {
+        deal(lender, mintAmount);
+
+        supportedToken1.mint(borrower, mintAmount);
+        supportedToken1.mint(lender, mintAmount);
+
+        vm.startPrank(borrower);
+        supportedToken1.approve(address(line), MAX_INT);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        supportedToken1.approve(address(line), MAX_INT);
+        vm.stopPrank();
+    }
+
+    function _generateAddCreditMutualConsentMessageData(
         bytes4 fnSelector,
         uint128 drate,
         uint128 frate,

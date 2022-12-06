@@ -11,36 +11,68 @@ pragma solidity 0.8.9;
 abstract contract MutualConsent {
     /* ============ State Variables ============ */
 
+    uint256 constant MAX_DATA_LENGTH = 164;
+
     // Mapping of upgradable units and if consent has been initialized by other party
-    mapping(bytes32 => address) public mutualConsents; // TODO: maybe combine into a struct?
+    mapping(bytes32 => address) public mutualConsents;
 
     error Unauthorized();
     error InvalidConsent();
     error NotUserConsent();
 
+    // causes revert when the msg.data passed in has more data (ie arguments) than the largest known fn signature
+    error UnsupportedMutualConsentFunction();
+
     /* ============ Events ============ */
 
-    event MutualConsentRegistered(
-        bytes32 _consentHash
-    );
+    event MutualConsentRegistered(bytes32 _consentHash);
     event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
-
 
     /* ============ Modifiers ============ */
 
     /**
-    * @notice - allows a function to be called if only two specific stakeholders signoff on the tx data
-    *         - signers can be anyone. only two signers per contract or dynamic signers per tx.
-    */
+     * @notice - allows a function to be called if only two specific stakeholders signoff on the tx data
+     *         - signers can be anyone. only two signers per contract or dynamic signers per tx.
+     */
     modifier mutualConsent(address _signerOne, address _signerTwo) {
-      if(_mutualConsent(_signerOne, _signerTwo))  {
-        // Run whatever code needed 2/2 consent
-        _;
-      }
+        if (_mutualConsent(_signerOne, _signerTwo)) {
+            // Run whatever code needed 2/2 consent
+            _;
+        }
     }
 
-    function _mutualConsent(address _signerOne, address _signerTwo) internal returns(bool) {
-        if(msg.sender != _signerOne && msg.sender != _signerTwo) { revert Unauthorized(); }
+    // TODO: test every mutual consent function
+    // TODO: add natspec for
+    // TODO: add note for MAX_DATA_LENGTH
+    function revokeConsent(bytes memory _reconstrucedMsgData) public {
+        if (_reconstrucedMsgData.length > MAX_DATA_LENGTH) {
+            revert UnsupportedMutualConsentFunction();
+        } // TODO: test me
+        bytes32 hashToDelete = keccak256(
+            abi.encodePacked(_reconstrucedMsgData, msg.sender)
+        );
+
+        if (mutualConsents[hashToDelete] == address(0)) {
+            revert InvalidConsent();
+        }
+        if (mutualConsents[hashToDelete] != msg.sender) {
+            revert NotUserConsent();
+        } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision
+
+        delete mutualConsents[hashToDelete];
+
+        emit MutualConsentRevoked(msg.sender, hashToDelete);
+    }
+
+    /* ============ Internal Functions ============ */
+
+    function _mutualConsent(address _signerOne, address _signerTwo)
+        internal
+        returns (bool)
+    {
+        if (msg.sender != _signerOne && msg.sender != _signerTwo) {
+            revert Unauthorized();
+        }
 
         address nonCaller = _getNonCaller(_signerOne, _signerTwo);
 
@@ -63,22 +95,11 @@ abstract contract MutualConsent {
         return true;
     }
 
-    // TODO: test every mutual consent function
-    function _revokeConsent(bytes memory _reconstrucedMsgData) internal {
-        bytes32 hashToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
-
-        if (mutualConsents[hashToDelete] == address(0) ) { revert InvalidConsent(); } // TODO: test me
-        if (mutualConsents[hashToDelete] != msg.sender) { revert NotUserConsent(); } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision 
-
-        delete mutualConsents[hashToDelete];
-
-        emit MutualConsentRevoked(msg.sender, hashToDelete);
-    }
-
-
-    /* ============ Internal Functions ============ */
-
-    function _getNonCaller(address _signerOne, address _signerTwo) internal view returns(address) {
+    function _getNonCaller(address _signerOne, address _signerTwo)
+        internal
+        view
+        returns (address)
+    {
         return msg.sender == _signerOne ? _signerTwo : _signerOne;
     }
 }

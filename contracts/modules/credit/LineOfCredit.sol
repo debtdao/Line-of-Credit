@@ -420,15 +420,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return true;
     }
 
-    /// see ILineOfCredit.revokeConsent
-    function revokeConsent(bytes calldata mutualConsentMsgData) external {
-        if (mutualConsentMsgData.length > 164) {
-            revert UnsupportedMutualConsentFunction();
-        } // TODO: test me
-
-        _revokeConsent(mutualConsentMsgData);
-    }
-
     //////////////////////
     //  Internal  funcs //
     //////////////////////
