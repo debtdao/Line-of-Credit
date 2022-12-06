@@ -182,7 +182,7 @@ contract MutualConsentTest is Test, Events {
         vm.startPrank(lender);
         expectedHash = _simulateMutualConstentHash(msgData, lender);
         vm.expectEmit(true, false, false, true, address(line));
-        emit MutualConsentRegistered(expectedHash); // we dont know the hash id
+        emit MutualConsentRegistered(expectedHash);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
     }
@@ -220,16 +220,33 @@ contract MutualConsentTest is Test, Events {
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
 
-        // bytes32 id = line.ids(0);
+        bytes32 id = line.ids(0);
 
-        // emit log_named_bytes32("line id: ", id);
+        emit log_named_bytes32("line id: ", id);
 
-        // vm.startPrank(borrower);
-        // line.setRates(id, uint128(1 ether), uint128(1 ether));
-        // (uint128 drate, uint128 frate, ) = line.interestRate().rates(id);
-        // assertEq(drate, uint128(1 ether));
-        // assertEq(frate, uint128(1 ether));
-        // vm.stopPrank();
+        uint128 newFrate = uint128(1 ether);
+        uint128 newDrate = uint128(1 ether);
+
+        bytes memory msgData = _generateSetRatesMutualConsentMessageData(
+            ILineOfCredit.setRates.selector,
+            id,
+            newFrate,
+            newDrate
+        );
+        vm.startPrank(borrower);
+        line.setRates(id, newFrate, newDrate);
+
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
+        vm.expectEmit(true, true, false, true, address(line));
+        emit MutualConsentRevoked(borrower, expectedHash);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+
+        /*
+        (uint128 drate, uint128 frate, ) = line.interestRate().rates(id);
+        assertEq(drate, uint128(1 ether));
+        assertEq(frate, uint128(1 ether));
+        */
     }
 
     /*/////////////////////////////////////////////////////
@@ -266,6 +283,16 @@ contract MutualConsentTest is Test, Events {
             token,
             lender
         );
+        msgData = abi.encodePacked(fnSelector, reconstructedArgs);
+    }
+
+    function _generateSetRatesMutualConsentMessageData(
+        bytes4 fnSelector,
+        bytes32 id,
+        uint128 drate,
+        uint128 frate
+    ) internal returns (bytes memory msgData) {
+        bytes memory reconstructedArgs = abi.encode(id, drate, frate);
         msgData = abi.encodePacked(fnSelector, reconstructedArgs);
     }
 
