@@ -7,9 +7,11 @@ import { RevenueToken } from "../mock/RevenueToken.sol";
 import { SimpleRevenueContract } from '../mock/SimpleRevenueContract.sol';
 import { Denominations } from "chainlink/Denominations.sol";
 
+
 import { ISpigot } from '../interfaces/ISpigot.sol';
 
 contract SpigotTest is Test {
+   
     // spigot contracts/configurations to test against
     RevenueToken private token;
     address private revenueContract;
@@ -141,9 +143,13 @@ contract SpigotTest is Test {
     */
     function assertSpigotSplits(address _token, uint256 totalRevenue) internal {
         (uint256 maxRevenue, uint256 overflow) = getMaxRevenue(totalRevenue);
-        uint256 ownerTokens = maxRevenue * settings.ownerSplit / 100;
-        uint256 operatorTokens = maxRevenue * (100 - settings.ownerSplit)/ 100;
+        uint256 ownerTokens = (maxRevenue * settings.ownerSplit).div(100);
+        uint256 operatorTokens = (maxRevenue * (100 - settings.ownerSplit)).div(100);
+        uint256 spigotBalance = RevenueToken(_token).balanceOf(address(spigot));
+        console.log(ownerTokens);
+        console.log(operatorTokens);
         
+        console.log(spigotBalance);
 
 
         assertEq(
@@ -290,7 +296,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimOperatorTokens_AsOperator(uint256 totalRevenue, uint8 _split) public {
-        if(totalRevenue <= 1|| totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 50|| totalRevenue > MAX_REVENUE) return;
         if (_split > 99 || _split < 0) return;
 
         _initSpigot(address(token), _split, claimPushPaymentFunc, transferOwnerFunc, whitelist);
@@ -299,6 +305,7 @@ contract SpigotTest is Test {
         // console.log(totalRevenue);
         // console.log(spigot.getOperatorTokens(address(token)));
         // console.log(spigot.getOwnerTokens(address(token)));
+        
         // send revenue and claim it
         token.mint(address(spigot), totalRevenue);
         bytes memory claimData;
@@ -309,7 +316,7 @@ contract SpigotTest is Test {
         uint256 claimed = spigot.claimOperatorTokens(address(token));
         (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
 
-        assertEq(maxRevenue * (100 - settings.ownerSplit) / 100, claimed, "Invalid escrow claimed");
+        assertEq(totalRevenue * (100 - settings.ownerSplit) / 100, claimed, "Invalid escrow claimed");
         assertEq(token.balanceOf(operator), claimed, "Claimed escrow not sent to owner");
     }
 
