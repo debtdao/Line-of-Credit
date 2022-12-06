@@ -24,13 +24,6 @@ interface Events {
     event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
 }
 
-/*
-    Mutual Consent Fns:
-   -  LineOFCredit increaseCredit
-   -  SpigotedLine addSpigot
-
-*/
-
 contract MutualConsentTest is Test, Events {
     SecuredLine line;
     Spigot spigot;
@@ -368,6 +361,33 @@ contract MutualConsentTest is Test, Events {
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
         vm.expectEmit(true, true, false, true, address(line));
         emit MutualConsentRevoked(borrower, expectedHash);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+    }
+
+    function test_increaseCredit_cannot_revoke_consent_as_malicious_user()
+        public
+    {
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        bytes32 id = line.ids(0);
+
+        uint256 amount = 1 ether;
+
+        bytes memory msgData = _generateIncreaseRatesMutualConsentMessageData(
+            ILineOfCredit.increaseCredit.selector,
+            id,
+            amount
+        );
+
+        vm.startPrank(borrower);
+        line.increaseCredit(id, amount);
+        vm.stopPrank();
+
+        vm.startPrank(makeAddr("maliciousUser"));
+        vm.expectRevert(MutualConsent.InvalidConsent.selector);
         line.revokeConsent(msgData);
         vm.stopPrank();
     }

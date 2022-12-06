@@ -45,9 +45,16 @@ abstract contract MutualConsent {
         }
     }
 
-    // TODO: test every mutual consent function
-    // TODO: add natspec for
-    // TODO: add note for MAX_DATA_LENGTH
+    /**
+     *  @notice - allows a caller to revoke a previously created consent
+     *  @dev    - MAX_DATA_LENGTH_BYTES is set at 164 bytes, which is the length of the msg.data
+     *          - for the addCredit function. Anything over that is not valid and might be used in
+     *          - an attempt to create a hash collision
+     *  @param  _reconstrucedMsgData The reconstructed msg.data for the function call for which the
+     *          original consent was created - comprised of the fn selector (bytes4) and abi.encoded
+     *          function arguments.
+     *
+     */
     function revokeConsent(bytes memory _reconstrucedMsgData) public {
         if (
             _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES ||
