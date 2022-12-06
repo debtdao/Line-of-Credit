@@ -26,10 +26,8 @@ interface Events {
 
 /*
     Mutual Consent Fns:
-    LineOfCredit addCredit
-    LineOFCredit setRates
-    LineOFCredit increaseCredit
-    SpigotedLine addSpigot
+   -  LineOFCredit increaseCredit
+   -  SpigotedLine addSpigot
 
 */
 
@@ -178,6 +176,8 @@ contract MutualConsentTest is Test, Events {
         line.revokeConsent(msgData);
         vm.stopPrank();
 
+        assertEq(line.mutualConsents(expectedHash), address(0));
+
         // lender addCredit should create a new id
         vm.startPrank(lender);
         expectedHash = _simulateMutualConstentHash(msgData, lender);
@@ -307,7 +307,6 @@ contract MutualConsentTest is Test, Events {
 
         bytes memory msgData = bytes("");
 
-        vm.expectRevert();
         vm.expectRevert(
             MutualConsent.UnsupportedMutualConsentFunction.selector
         );
@@ -341,6 +340,34 @@ contract MutualConsentTest is Test, Events {
         // attempt to revoke consent (should fail)
         vm.startPrank(makeAddr("maliciousUser"));
         vm.expectRevert(MutualConsent.InvalidConsent.selector);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+    }
+
+    /*/////////////////////////////////////////////////////
+                        increaseCredit
+    /////////////////////////////////////////////////////*/
+
+    function test_increaseCredit_can_revoke_consent_as_caller() public {
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+        bytes32 id = line.ids(0);
+        emit log_named_bytes32("line id: ", id);
+
+        uint256 amount = 1 ether;
+
+        bytes memory msgData = _generateIncreaseRatesMutualConsentMessageData(
+            ILineOfCredit.increaseCredit.selector,
+            id,
+            amount
+        );
+
+        vm.startPrank(borrower);
+        line.increaseCredit(id, amount);
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
+        vm.expectEmit(true, true, false, true, address(line));
+        emit MutualConsentRevoked(borrower, expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
     }
@@ -389,6 +416,15 @@ contract MutualConsentTest is Test, Events {
         uint128 frate
     ) internal returns (bytes memory msgData) {
         bytes memory reconstructedArgs = abi.encode(id, drate, frate);
+        msgData = abi.encodePacked(fnSelector, reconstructedArgs);
+    }
+
+    function _generateIncreaseRatesMutualConsentMessageData(
+        bytes4 fnSelector,
+        bytes32 id,
+        uint256 amount
+    ) internal returns (bytes memory msgData) {
+        bytes memory reconstructedArgs = abi.encode(id, amount);
         msgData = abi.encodePacked(fnSelector, reconstructedArgs);
     }
 
