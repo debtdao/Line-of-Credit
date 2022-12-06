@@ -233,20 +233,116 @@ contract MutualConsentTest is Test, Events {
             newFrate,
             newDrate
         );
+        // set the rates as the borrower, thus registering mutual consent, and then revoke it
         vm.startPrank(borrower);
         line.setRates(id, newFrate, newDrate);
-
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
         vm.expectEmit(true, true, false, true, address(line));
         emit MutualConsentRevoked(borrower, expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
 
+        // now set rates and register mutual consent as lender
+        vm.startPrank(lender);
+        expectedHash = _simulateMutualConstentHash(msgData, lender);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRegistered(expectedHash);
+        line.setRates(id, newFrate, newDrate);
+        vm.stopPrank();
+
         /*
-        (uint128 drate, uint128 frate, ) = line.interestRate().rates(id);
-        assertEq(drate, uint128(1 ether));
-        assertEq(frate, uint128(1 ether));
+        (uint128 currentDrate, uint128 currentFrate, ) = line
+            .interestRate()
+            .rates(id);
+        assertEq(currentDrate, newDrate);
+        assertEq(currentFrate, newFrate);
         */
+    }
+
+    function test_setRates_fail_to_revoke_consent_as_other_signer() public {
+        // first complete adding credit
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        bytes32 id = line.ids(0);
+
+        emit log_named_bytes32("line id: ", id);
+
+        uint128 newFrate = uint128(1 ether);
+        uint128 newDrate = uint128(1 ether);
+
+        vm.startPrank(borrower);
+        line.setRates(id, newFrate, newDrate);
+        vm.stopPrank();
+
+        bytes memory msgData = _generateSetRatesMutualConsentMessageData(
+            ILineOfCredit.setRates.selector,
+            id,
+            newFrate,
+            newDrate
+        );
+
+        // attempt to revoke consent (should fail)
+        vm.startPrank(lender);
+        vm.expectRevert(MutualConsent.InvalidConsent.selector);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+    }
+
+    function test_setRates_revoke_consent_with_zero_bytes_fails() public {
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        bytes32 id = line.ids(0);
+
+        emit log_named_bytes32("line id: ", id);
+
+        uint128 newFrate = uint128(1 ether);
+        uint128 newDrate = uint128(1 ether);
+
+        vm.startPrank(borrower);
+        line.setRates(id, newFrate, newDrate);
+
+        bytes memory msgData = bytes("");
+
+        vm.expectRevert();
+        vm.expectRevert(
+            MutualConsent.UnsupportedMutualConsentFunction.selector
+        );
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+    }
+
+    function test_setRates_revoke_consent_as_malicious_user() public {
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        bytes32 id = line.ids(0);
+
+        emit log_named_bytes32("line id: ", id);
+
+        uint128 newFrate = uint128(1 ether);
+        uint128 newDrate = uint128(1 ether);
+
+        vm.startPrank(borrower);
+        line.setRates(id, newFrate, newDrate);
+        vm.stopPrank();
+
+        bytes memory msgData = _generateSetRatesMutualConsentMessageData(
+            ILineOfCredit.setRates.selector,
+            id,
+            newFrate,
+            newDrate
+        );
+
+        // attempt to revoke consent (should fail)
+        vm.startPrank(makeAddr("maliciousUser"));
+        vm.expectRevert(MutualConsent.InvalidConsent.selector);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
     }
 
     /*/////////////////////////////////////////////////////

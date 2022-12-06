@@ -11,7 +11,11 @@ pragma solidity 0.8.9;
 abstract contract MutualConsent {
     /* ============ State Variables ============ */
 
-    uint256 constant MAX_DATA_LENGTH = 164;
+    // equivalent to longest msg.data bytes, ie addCredit
+    uint256 constant MAX_DATA_LENGTH_BYTES = 164;
+
+    // equivalent to any fn with no args, ie just a fn selector
+    uint256 constant MIN_DATA_LENGTH_BYTES = 4;
 
     // Mapping of upgradable units and if consent has been initialized by other party
     mapping(bytes32 => address) public mutualConsents;
@@ -45,7 +49,10 @@ abstract contract MutualConsent {
     // TODO: add natspec for
     // TODO: add note for MAX_DATA_LENGTH
     function revokeConsent(bytes memory _reconstrucedMsgData) public {
-        if (_reconstrucedMsgData.length > MAX_DATA_LENGTH) {
+        if (
+            _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES ||
+            _reconstrucedMsgData.length < MIN_DATA_LENGTH_BYTES
+        ) {
             revert UnsupportedMutualConsentFunction();
         }
 
