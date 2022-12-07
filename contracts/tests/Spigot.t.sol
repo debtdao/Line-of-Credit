@@ -143,8 +143,8 @@ contract SpigotTest is Test {
     */
     function assertSpigotSplits(address _token, uint256 totalRevenue) internal {
         (uint256 maxRevenue, uint256 overflow) = getMaxRevenue(totalRevenue);
-        uint256 ownerTokens = (maxRevenue * settings.ownerSplit).div(100);
-        uint256 operatorTokens = (maxRevenue * (100 - settings.ownerSplit)).div(100);
+        uint256 ownerTokens = maxRevenue * settings.ownerSplit / 100;
+        uint256 operatorTokens = (maxRevenue * (100 - settings.ownerSplit) / 100);
         uint256 spigotBalance = RevenueToken(_token).balanceOf(address(spigot));
         console.log(ownerTokens);
         console.log(operatorTokens);
@@ -316,7 +316,7 @@ contract SpigotTest is Test {
         uint256 claimed = spigot.claimOperatorTokens(address(token));
         (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
 
-        assertEq(totalRevenue * (100 - settings.ownerSplit) / 100, claimed, "Invalid escrow claimed");
+        assertEq((totalRevenue * (100 - settings.ownerSplit) / 100), claimed, "Invalid escrow claimed");
         assertEq(token.balanceOf(operator), claimed, "Claimed escrow not sent to owner");
     }
 
