@@ -494,7 +494,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         credit = CreditLib.repay(credit, id, amount);
 
         // if credit line fully repaid then remove it from the repayment queue
-        if (credit.principal == 0) ids.stepQ();
+        if (credit.principal == 0 && ids[0] == id) ids.stepQ();
 
         return credit;
     }
