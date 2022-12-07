@@ -499,7 +499,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
    
 
         Credit storage credit = credits[id];
-        credit.isOpen = false;
+        
+        delete credits[id];
+        
 
         // remove from active list
         ids.removePosition(id);
