@@ -259,7 +259,7 @@ contract SecuredLineTest is Test {
     function test_cannot_liquidate_if_no_debt_when_deadline_passes() public {
         hoax(arbiter);
         vm.warp(ttl+1);
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector); 
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
         line.liquidate(1 ether, address(supportedToken2));
     }
 
@@ -286,7 +286,7 @@ contract SecuredLineTest is Test {
     }
 
     function test_must_be_in_debt_to_liquidate() public {
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
         line.liquidate(1 ether, address(supportedToken2));
     }
 
@@ -364,7 +364,7 @@ contract SecuredLineTest is Test {
 
 // declareInsolvent
     function test_must_be_in_debt_to_go_insolvent() public {
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
         line.declareInsolvent();
     }
 

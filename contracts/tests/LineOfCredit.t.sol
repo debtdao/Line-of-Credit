@@ -1148,4 +1148,5 @@ contract LineTest is Test, Events {
         (, , uint256 interestAccruedAfter, , , , ) = line.credits(id);
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
+
 }
