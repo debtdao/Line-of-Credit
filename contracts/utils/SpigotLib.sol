@@ -93,7 +93,7 @@ library SpigotLib {
         // update escrowed balance
         self.ownerTokens[token] = self.ownerTokens[token] + ownerTokenAmount;
         
-        // send non-escrowed tokens to Treasury if non-zero
+        // update operator amount
         if(claimed > ownerTokenAmount) {
             self.operatorTokens[token] = self.operatorTokens[token] + (claimed - ownerTokenAmount);
         }
