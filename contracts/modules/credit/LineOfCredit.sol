@@ -495,14 +495,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
         require(credit.isOpen && credit.principal == 0);
 
-        // return the Lender's funds that are being repaid
-   
-
-        Credit storage credit = credits[id];
-        
         delete credits[id];
         
-
         // remove from active list
         ids.removePosition(id);
         unchecked { --count; }
