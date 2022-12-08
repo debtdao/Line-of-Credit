@@ -352,7 +352,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         Credit memory credit = _accrue(credits[id], id);
 
-        require(credit.isOpen);
+        if (!credit.isOpen) { revert IsClosed(); }
 
         if(amount > credit.deposit - credit.principal) { revert NoLiquidity(); }
 
@@ -495,8 +495,19 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
         require(credit.isOpen && credit.principal == 0);
 
-        delete credits[id];
-        
+        // return the Lender's funds that are being repaid
+   
+
+        if (credit.deposit + credit.interestRepaid > 0) {
+            LineLib.sendOutTokenOrETH(
+                credit.token,
+                credit.lender,
+                credit.deposit + credit.interestRepaid
+            );
+        }
+
+        delete credits[id]; // gas refunds
+
         // remove from active list
         ids.removePosition(id);
         unchecked { --count; }
