@@ -156,6 +156,8 @@ contract LineTest is Test, Events {
         assertEq(line.ids(0), id);
     }
 
+    // TODO: test all elements being null
+
     function test_positions_move_in_queue_of_4_random_active_line() public {
         address[] memory tokens = setupQueueTest(2);
         address token3 = tokens[0];
@@ -220,11 +222,15 @@ contract LineTest is Test, Events {
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id); // id switches with id4, not just pushed one step back in queue
         hoax(borrower);
+
+        // here id2's position will be closed, then swapped with the next valid line, ie id4 at ids[1]
         line.depositAndClose();
 
+        // The queue doesn't "shift", the null first element is swapped with the next available valid id
         assertEq(line.ids(0), id4);
-        assertEq(line.ids(1), id3);
-        assertEq(line.ids(2), id);
+        assertEq(line.ids(1), bytes32(0));
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id);
     }
 
     // check that only borrowing from the last possible id will still sort queue properly
