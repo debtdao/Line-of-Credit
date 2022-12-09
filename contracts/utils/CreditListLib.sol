@@ -8,6 +8,10 @@ import { CreditLib } from "./CreditLib.sol";
   * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
 library CreditListLib {
+
+  event QueueCleared();
+  event MovedToFrontOfQueue(bytes32 id); // TODO: might not need/want this
+  
     /**
      * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array 
      since there's no reason for them to be stored multiple times.
@@ -67,12 +71,14 @@ library CreditListLib {
 
         // we never check the first id, because we already know it's null
         for (uint i = 1; i < len; ) {
-            if (ids[i] != bytes32("")) {
+            if (ids[i] != bytes32(0)) {
             (ids[0], ids[i]) = (ids[i], ids[0]); // swap the ids
+            emit MovedToFrontOfQueue(ids[0]);
             return true;
             }
             unchecked { ++i; }
         }
+        emit QueueCleared();
         return false;
     }
 

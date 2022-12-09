@@ -539,10 +539,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         delete credits[id]; // gas refunds
 
-        // remove from active list
-        // TODO: stepQ goes here
-        // if (ids[0] == id) ids.newStepQ(); // replace this id with the next valid one
-        
         // nullify the element for `id`
         ids.removePosition(id);
 

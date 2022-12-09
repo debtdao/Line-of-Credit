@@ -66,6 +66,9 @@ interface ILineOfCredit {
   
   event Default(bytes32 indexed id);
 
+  // TODO: remove debug events
+  event log_named_bytes32(string key, bytes32 val);
+
   // Access Errors
   error NotActive();
   error NotBorrowing();
