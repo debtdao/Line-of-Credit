@@ -291,6 +291,7 @@ contract LineTest is Test, Events {
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id);
 
+        
         vm.prank(borrower);
         line.borrow(id, 1 ether);
 
@@ -307,12 +308,24 @@ contract LineTest is Test, Events {
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id2);
 
-        vm.prank(borrower);
-        line.depositAndClose();
+        
+        vm.startPrank(borrower);
+        line.depositAndClose(); // will pay off and close ids[0], and swap next available into the first slot
 
         assertEq(line.ids(0), id);
-        assertEq(line.ids(1), id3);
-        assertEq(line.ids(2), id2);
+        assertEq(line.ids(1), bytes32(0)); // we've swapped out ids[0] and ids[1], so the old ids[0] would be null after repayment, then the swap happens
+        assertEq(line.ids(2), id3);
+        assertEq(line.ids(3), id2);
+
+        // close the next available line
+        line.depositAndClose();
+
+        assertEq(line.ids(0), id3);
+        assertEq(line.ids(1), bytes32(0)); 
+        assertEq(line.ids(2), bytes32(0));// we've swapped out ids[0] and ids[2], so the old ids[0] would be null after repayment, then the swap happens
+        assertEq(line.ids(3), id2);
+
+        vm.stopPrank();
     }
 
     // init

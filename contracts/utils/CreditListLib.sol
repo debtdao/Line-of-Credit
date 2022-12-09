@@ -48,6 +48,7 @@ library CreditListLib {
         ids[1] = last;
       } else {
         // move all existing ids up in the queue
+        // TODO: need to find the next valid position
         for(uint i = 1; i < len; ++i) {
           ids[i - 1] = ids[i]; // could also clean arr here like in _SortIntoQ
           
@@ -56,6 +57,37 @@ library CreditListLib {
         ids[len - 1] = last;
       }
       
+      return true;
+    }
+
+    /// @dev  - Must perform check for ids[0] being valid before calling
+    function replaceFirstElementInQ(bytes32[] storage ids) external returns (bool) {
+        uint256 len = ids.length;
+        if (len <= 1) return true;
+
+        // we never check the first id, because we already know it's null
+        for (uint i = 1; i < len; ) {
+            if (ids[i] != bytes32("")) {
+            (ids[0], ids[i]) = (ids[i], ids[0]); // swap the ids
+            return true;
+            }
+            unchecked { ++i; }
+        }
+        return false;
+    }
+
+
+    // TODO: add natspec comments
+    // TODO: test this
+    function escapeStepQ(bytes32[] storage ids, uint256[] memory principalAmounts) external returns(bool) {
+      uint256 len = ids.length;
+      if(ids[0] != bytes32(0)) return false;
+      for (uint i; i < len;) {
+        if (principalAmounts[i] == 0) continue;
+        ids[0] = ids[i];
+        delete ids[i];
+        unchecked { ++i; }
+      }
       return true;
     }
 }
