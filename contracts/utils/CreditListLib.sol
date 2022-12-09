@@ -35,40 +35,45 @@ library CreditListLib {
       return true;
     }
 
-    /**
-     * @notice - removes the individual credit line id from the head of the repayment queue and puts it at end of queue
-     *         - moves 2nd in queue to first position in queue
-     * @param ids - all current credit lines on the Line of Credit facility
-     * @return newPositions - remaining credit lines after moving first to last in array
-     */
-    function stepQ(bytes32[] storage ids) external returns(bool) {
-      uint256 len = ids.length ;
-      if(len <= 1) return true; // already ordered
+    // /**
+    //  * @notice - removes the individual credit line id from the head of the repayment queue and puts it at end of queue
+    //  *         - moves 2nd in queue to first position in queue
+    //  * @param ids - all current credit lines on the Line of Credit facility
+    //  * @return newPositions - remaining credit lines after moving first to last in array
+    //  */
+    // function stepQ(bytes32[] storage ids) external returns(bool) {
+    //   uint256 len = ids.length ;
+    //   if(len <= 1) return true; // already ordered
 
-      bytes32 last = ids[0];
+    //   bytes32 last = ids[0];
       
-      if(len == 2) {
-        ids[0] = ids[1];
-        ids[1] = last;
-      } else {
-        // move all existing ids up in the queue
-        // TODO: need to find the next valid position
-        for(uint i = 1; i < len; ++i) {
-          ids[i - 1] = ids[i]; // could also clean arr here like in _SortIntoQ
+    //   if(len == 2) {
+    //     ids[0] = ids[1];
+    //     ids[1] = last;
+    //   } else {
+    //     // move all existing ids up in the queue
+    //     // TODO: need to find the next valid position
+    //     for(uint i = 1; i < len; ++i) {
+    //       ids[i - 1] = ids[i]; // could also clean arr here like in _SortIntoQ
           
-        }
-        // cycle first id back to end of queue
-        ids[len - 1] = last;
-      }
+    //     }
+    //     // cycle first id back to end of queue
+    //     ids[len - 1] = last;
+    //   }
       
-      return true;
-    }
+    //   return true;
+    // }
 
-    /// @dev  - Must perform check for ids[0] being valid before calling
-    function replaceFirstElementInQ(bytes32[] storage ids) external returns (bool) {
+    /**
+     * @notice - swap the first element in the queue, provided it is null, with the next available valid(non-null) id
+     * @dev    - Must perform check for ids[0] being valid before calling
+     * @param ids - all current credit lines on the Line of Credit facility
+     * @return swapped - returns true if the swap has occurred
+     */
+    function stepQ(bytes32[] storage ids) external returns (bool) {
         uint256 len = ids.length;
-        if (len <= 1) return true;
-
+        if (len <= 1) return false;
+        if (len == 2 && ids[1] != bytes32(0)) { (ids[0], ids[1]) = (ids[1], ids[0]); } // skip the loop if we don't need
         // we never check the first id, because we already know it's null
         for (uint i = 1; i < len; ) {
             if (ids[i] != bytes32(0)) {

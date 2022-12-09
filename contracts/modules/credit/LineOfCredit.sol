@@ -425,14 +425,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     // TODO: only works if first element is null
     function rescueQueue() external {
         if (ids[0] != bytes32(0)) { revert RescueNotRequired(); }
-        uint256 len = ids.length;
-        uint256[] memory principalAmounts = new uint256[](len);
-        for (uint i; i < len;) {
-            principalAmounts[i] = credits[ids[i]].principal;
-            unchecked { ++i; }
-        }
-
-        CreditListLib.escapeStepQ(ids, principalAmounts);
+        ids.stepQ();
     }
 
     //////////////////////
@@ -547,7 +540,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         }
 
         // if ids[0] is null, replace it with next valid line's id
-        if (ids[0] == bytes32(0)) ids.replaceFirstElementInQ();
+        if (ids[0] == bytes32(0)) ids.stepQ();
 
 
         // If all credit lines are closed the the overall Line of Credit facility is declared 'repaid'.

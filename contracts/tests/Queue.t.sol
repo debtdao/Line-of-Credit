@@ -132,13 +132,11 @@ contract QueueTest is Test, Events {
         line.close(id);
         _formatLoggedArrOfIds("after closing id");
 
-        line.close(id4);
-        _formatLoggedArrOfIds("after closing id4");
-        
-        // should close remaining id in position ids[0]
-        // TODO: what happens when zero available valid ids
         line.depositAndClose();
-        _formatLoggedArrOfIds("after depositAndClose");
+        _formatLoggedArrOfIds("after closing front of queue");
+        
+        line.close(id4);
+         _formatLoggedArrOfIds("after closing id4");
 
     }
 

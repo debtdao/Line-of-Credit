@@ -195,15 +195,16 @@ contract LineLibTest is Test {
     }
 
 
+// TODO: add check for length 
     function test_can_properly_step_queue(uint256 length) public {
-        uint l = 10;
-        ids = new bytes32[](l);
+      vm.assume(length != 0 && length < 10);
+        ids = new bytes32[](length);
         // ensure array is within reasonable bounds
-        vm.assume(length != 0 && length < ids.length);
+        
         if(length == 1) {
             ids[0] = bytes32(0);
-            ids.stepQ();
-            assertEq(ids[0], ids[0]);
+            assertFalse(ids.stepQ());
+            assertEq(ids[0], bytes32(0));
             return;
         }
 
@@ -222,12 +223,13 @@ contract LineLibTest is Test {
         }
         ids.stepQ();
         
-        assertEq(ids.length, l);
-        
-        for(uint256 i = 0; i < l; i++) {
-          if(i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
-          else assertEq(ids[i], ids[i - 1]);      // all others move one index down
-        }
+
+         // TODO: find the index and compare it against the one that was swapped 
+
+        // for(uint256 i = 0; i < l; i++) {
+        //   if(i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
+        //   else assertEq(ids[i], ids[i - 1]);      // all others move one index down
+        // }
     }
 
     
