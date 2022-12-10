@@ -126,7 +126,7 @@ contract MutualConsentTest is Test, Events {
         vm.stopPrank();
     }
 
-    function test_addCredit_should_fail_revoking_consent_as_malicious_user()
+    function test_addCredit_cant_revoke_consent_as_malicious_user()
         public
     {
         // should fail revoking consent as different user (with correct data)
@@ -171,7 +171,7 @@ contract MutualConsentTest is Test, Events {
 
         assertEq(line.mutualConsents(expectedHash), address(0));
 
-        // lender addCredit should create a new id
+        // lender addCredit should create new consent instead of confirming borrowers
         vm.startPrank(lender);
         expectedHash = _simulateMutualConstentHash(msgData, lender);
         vm.expectEmit(true, false, false, true, address(line));
@@ -184,15 +184,6 @@ contract MutualConsentTest is Test, Events {
         public
     {
         vm.startPrank(borrower);
-
-        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
-            ILineOfCredit.addCredit.selector,
-            dRate,
-            fRate,
-            amount,
-            token,
-            lender
-        );
 
         bytes memory invalidMsgData = abi.encodePacked(msgData, uint256(5));
 
