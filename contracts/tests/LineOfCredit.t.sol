@@ -562,7 +562,7 @@ contract LineTest is Test, Events{
     function test_cannot_borrow_from_nonexistant_position() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        vm.expectRevert(ILineOfCredit.IsClosed.selector); 
+        vm.expectRevert(ILineOfCredit.PositionIsClosed.selector); 
         hoax(borrower);
         line.borrow(bytes32(uint(12743134)), 1 ether);
     }
@@ -608,7 +608,7 @@ contract LineTest is Test, Events{
         _addCredit(address(supportedToken2), 1 ether);
         hoax(borrower);
         line.depositAndClose();
-        vm.expectRevert(ILineOfCredit.IsClosed.selector);
+        vm.expectRevert(ILineOfCredit.PositionIsClosed.selector);
         hoax(borrower);
         line.borrow(id, 1 ether);
     }
