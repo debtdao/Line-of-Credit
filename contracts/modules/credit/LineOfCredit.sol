@@ -216,10 +216,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       @param id - the position id for credit position
     */
     function _accrue(Credit memory credit, bytes32 id) internal returns(Credit memory) {
-      if (!credit.isOpen)  {
-        credit.interestAccrued = 0;
+      if (!credit.isOpen) {
         return credit;
-    }
+      }
       return CreditLib.accrue(credit, id, address(interestRate));
     }
 
@@ -352,7 +351,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         Credit memory credit = _accrue(credits[id], id);
 
-        if (!credit.isOpen) { revert IsClosed(); }
+        if (!credit.isOpen) { revert PositionIsClosed(); }
 
         if(amount > credit.deposit - credit.principal) { revert NoLiquidity(); }
 
@@ -387,9 +386,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // accrues interest and transfers to Lender
         credits[id] = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+        // save before deleting position and sending out. Can remove if we add reentrancy guards
+        (address token, address lender) = (credit.token, credit.lender);
 
-        if (count == 0) { _updateStatus(LineLib.STATUS.REPAID); }
+        // if lender is pulling all funds then delete positions
+        if(credit.deposit == 0) delete credits[id];
+
+        LineLib.sendOutTokenOrETH(token, lender, amount);
 
         return true;
     }
@@ -493,7 +496,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (bool) {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
-        require(credit.isOpen && credit.principal == 0);
+        if(!credit.isOpen) { revert PositionIsClosed(); }
+        if(credit.principal != 0) { revert CloseFailedWithPrincipal(); }
 
         Credit storage credit = credits[id];
         credit.isOpen = false;
