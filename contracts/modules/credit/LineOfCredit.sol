@@ -495,18 +495,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
         require(credit.isOpen && credit.principal == 0);
 
-        // return the Lender's funds that are being repaid
-   
-
-        if (credit.deposit + credit.interestRepaid > 0) {
-            LineLib.sendOutTokenOrETH(
-                credit.token,
-                credit.lender,
-                credit.deposit + credit.interestRepaid
-            );
-        }
-
-        delete credits[id]; // gas refunds
+        
+        credits[id].isOpen = false;
 
         // remove from active list
         ids.removePosition(id);
