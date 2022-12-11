@@ -389,8 +389,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         // save before deleting position and sending out. Can remove if we add reentrancy guards
         (address token, address lender) = (credit.token, credit.lender);
 
-        // if lender is pulling all funds then delete positions
-        if(credit.deposit == 0) delete credits[id];
+        // if lender is pulling all funds AND no debt owed to them then delete positions
+        if (credit.deposit == 0 && credit.interestAccrued == 0) delete credits[id];
 
         LineLib.sendOutTokenOrETH(token, lender, amount);
 
