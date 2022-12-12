@@ -309,8 +309,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         LineLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
 
         // Borrower clears the debt then closes and deletes the credit line
-        _close(_repay(credit, id, totalOwed), id);
-
+        
+        credits[id] = _close(_repay(credit, id, totalOwed), id);
         return true;
     }
 
@@ -384,14 +384,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(msg.sender != credit.lender) { revert CallerAccessDenied(); }
 
         // accrues interest and transfers to Lender
-        credits[id] = CreditLib.withdraw(_accrue(credit, id), id, amount);
+        credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
         // save before deleting position and sending out. Can remove if we add reentrancy guards
         (address token, address lender) = (credit.token, credit.lender);
 
         // if lender is pulling all funds AND no debt owed to them then delete positions
-        if (credit.deposit == 0 && credit.interestAccrued == 0) delete credits[id];
-
+        if (credit.deposit == 0 && credit.interestAccrued == 0) { delete credits[id]; }
+        // save to storage if position still exists
+        else {credits[id] = credit;}
+    
         LineLib.sendOutTokenOrETH(token, lender, amount);
 
         return true;
@@ -400,8 +402,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     /// see ILineOfCredit.close
     function close(bytes32 id) external payable override returns (bool) {
         Credit memory credit = credits[id];
-        address b = borrower; // gas savings
-        if(msg.sender != credit.lender && msg.sender != b) {
+        if(msg.sender != borrower) {
           revert CallerAccessDenied();
         }
 
@@ -411,12 +412,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         if(facilityFee > 0) {
           // only allow repaying interest since they are skipping repayment queue.
           // If principal still owed, _close() MUST fail
-          LineLib.receiveTokenOrETH(credit.token, b, facilityFee);
+          LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
 
           credit = _repay(credit, id, facilityFee);
         }
 
-        _close(credit, id); // deleted; no need to save to storage
+        credits[id] = _close(credit, id);
 
         return true;
     }
@@ -494,12 +495,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - privileged internal function. MUST check params and logic flow before calling
      * @return credit - position struct in memory with updated values
      */
-    function _close(Credit memory credit, bytes32 id) internal virtual returns (bool) {
-        if(credit.principal > 0) { revert CloseFailedWithPrincipal(); }
+    function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
         if(!credit.isOpen) { revert PositionIsClosed(); }
         if(credit.principal != 0) { revert CloseFailedWithPrincipal(); }
 
-        Credit storage credit = credits[id];
         credit.isOpen = false;
 
         // remove from active list
@@ -511,7 +510,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         emit CloseCreditPosition(id);
 
-        return true;
+        return credit;
     }
 
     /**
