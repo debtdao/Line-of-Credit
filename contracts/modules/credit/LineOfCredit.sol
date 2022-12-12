@@ -422,7 +422,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         return true;
     }
 
-    // TODO: only works if first element is null
+        /**
+     * @notice - This is a redundancy measure that unlocks the queue should it get stuck with a null (zero) element
+     *         - at the zero index
+     * @dev - Only works if the first element in the queue is null
+     */
     function rescueQueue() external {
         if (ids[0] != bytes32(0)) { revert RescueNotRequired(); }
         ids.stepQ();

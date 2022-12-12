@@ -73,6 +73,7 @@ contract QueueTest is Test, Events {
         // create `len` number of lines
         _createCreditLines(NUM_LINES);
 
+        // assign labels to the ids for console output
         _assignQueueLabels();
 
         _formatLoggedArrOfIds("before closing lines");
@@ -85,7 +86,7 @@ contract QueueTest is Test, Events {
             emit log_string("==============");
             emit log_string(" ");
             if (_randomUint256(i) % 100 > 60) {
-                emit log_named_string("closing: ", idLabels[line.ids(i)]);
+                emit log_named_string("closing", idLabels[line.ids(i)]);
                 _formatLoggedArrOfIds("before closing");
                 line.close(line.ids(i));
                 _formatLoggedArrOfIds("after closing");
@@ -111,7 +112,7 @@ contract QueueTest is Test, Events {
             emit log_string("==============");
             emit log_string(" ");
 
-            // we need to manually accrue the interested to calculate the amount owed
+            // we need to manually accrue the interested to calculate the amount owed before repaying
             line.accrueInterest();
             (uint256 deposit, uint256 principal, uint256 interestAccrued, , , , ) = line
                 .credits(line.ids(0));

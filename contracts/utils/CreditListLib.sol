@@ -10,7 +10,7 @@ import { CreditLib } from "./CreditLib.sol";
 library CreditListLib {
 
   event QueueCleared();
-  event MovedToFrontOfQueue(bytes32 id); // TODO: might not need/want this
+  event MovedToFrontOfQueue(bytes32 indexed id, uint256 previousPosition); 
   
     /**
      * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array 
@@ -35,38 +35,9 @@ library CreditListLib {
       return true;
     }
 
-    // /**
-    //  * @notice - removes the individual credit line id from the head of the repayment queue and puts it at end of queue
-    //  *         - moves 2nd in queue to first position in queue
-    //  * @param ids - all current credit lines on the Line of Credit facility
-    //  * @return newPositions - remaining credit lines after moving first to last in array
-    //  */
-    // function stepQ(bytes32[] storage ids) external returns(bool) {
-    //   uint256 len = ids.length ;
-    //   if(len <= 1) return true; // already ordered
-
-    //   bytes32 last = ids[0];
-      
-    //   if(len == 2) {
-    //     ids[0] = ids[1];
-    //     ids[1] = last;
-    //   } else {
-    //     // move all existing ids up in the queue
-    //     // TODO: need to find the next valid position
-    //     for(uint i = 1; i < len; ++i) {
-    //       ids[i - 1] = ids[i]; // could also clean arr here like in _SortIntoQ
-          
-    //     }
-    //     // cycle first id back to end of queue
-    //     ids[len - 1] = last;
-    //   }
-      
-    //   return true;
-    // }
-
     /**
      * @notice - swap the first element in the queue, provided it is null, with the next available valid(non-null) id
-     * @dev    - Must perform check for ids[0] being valid before calling
+     * @dev    - Must perform check for ids[0] being valid (non-zero) before calling
      * @param ids - all current credit lines on the Line of Credit facility
      * @return swapped - returns true if the swap has occurred
      */
@@ -77,9 +48,9 @@ library CreditListLib {
         // we never check the first id, because we already know it's null
         for (uint i = 1; i < len; ) {
             if (ids[i] != bytes32(0)) {
-            (ids[0], ids[i]) = (ids[i], ids[0]); // swap the ids
-            emit MovedToFrontOfQueue(ids[0]);
-            return true;
+              (ids[0], ids[i]) = (ids[i], ids[0]); // swap the ids
+              emit MovedToFrontOfQueue(ids[0], i);
+              return true; // if we make the swap, return early
             }
             unchecked { ++i; }
         }
@@ -87,18 +58,4 @@ library CreditListLib {
         return false;
     }
 
-
-    // TODO: add natspec comments
-    // TODO: test this
-    function escapeStepQ(bytes32[] storage ids, uint256[] memory principalAmounts) external returns(bool) {
-      uint256 len = ids.length;
-      if(ids[0] != bytes32(0)) return false;
-      for (uint i; i < len;) {
-        if (principalAmounts[i] == 0) continue;
-        ids[0] = ids[i];
-        delete ids[i];
-        unchecked { ++i; }
-      }
-      return true;
-    }
 }
