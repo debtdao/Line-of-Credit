@@ -180,6 +180,47 @@ contract MutualConsentTest is Test, Events {
         vm.stopPrank();
     }
 
+    function test_addCredit_revoking_consent_must_delete_consenst_hash() external {
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
+
+        vm.startPrank(borrower);
+        line.revokeConsent(msgData);
+
+        assertEq(line.mutualConsents(expectedHash), address(0));
+    }
+
+    function test_addCredit_calling_function_after_revocation_fails() external {
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+
+
+        vm.startPrank(borrower);
+        line.revokeConsent(msgData);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        vm.expectEmit(true,false,false,true, address(line));
+        bytes32 expectedHash = _simulateMutualConstentHash(msgData, lender);
+        emit MutualConsentRegistered(expectedHash);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+    }
+
     function test_addCredit_revoking_consent_with_invalid_msg_data_fails()
         public
     {
