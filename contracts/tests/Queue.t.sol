@@ -26,7 +26,9 @@ interface Events {
 }
 
 contract QueueTest is Test, Events {
-     SimpleOracle oracle;
+    using CreditListLib for bytes32[];
+
+    SimpleOracle oracle;
     address borrower;
     address arbiter;
     address lender;
@@ -42,7 +44,9 @@ contract QueueTest is Test, Events {
     uint128 dRate = 100;
     uint128 fRate = 1;
 
-    mapping (bytes32 => string) idLabels;
+    mapping(bytes32 => string) idLabels;
+
+    bytes32[] ids;
 
     function setUp() public {
         borrower = address(10);
@@ -63,7 +67,77 @@ contract QueueTest is Test, Events {
         _mintAndApprove();
     }
 
+    function test_random_queue_lengths() public {
+        uint256 NUM_LINES = 20;
 
+        // create `len` number of lines
+        _createCreditLines(NUM_LINES);
+
+        _assignQueueLabels();
+
+        _formatLoggedArrOfIds("before closing lines");
+        vm.startPrank(borrower);
+
+        // preemptive close or borrow from a line
+        line.borrow(line.ids(0), 1 ether);
+        for (uint256 i = 1; i < NUM_LINES; ++i ) {
+            emit log_string(" ");
+            emit log_string("==============");
+            emit log_string(" ");
+            if (_randomUint256(i) % 100 > 60) {
+                emit log_named_string("closing: ", idLabels[line.ids(i)]);
+                _formatLoggedArrOfIds("before closing");
+                line.close(line.ids(i));
+                _formatLoggedArrOfIds("after closing");
+                continue;
+            } 
+            emit log_named_string("borrowing from", idLabels[line.ids(i)]);
+            _formatLoggedArrOfIds("before borrowing");
+            line.borrow(line.ids(i), 1 ether);
+            (uint256 deposit,,,,,,) = line.credits(line.ids(i));
+            _formatLoggedArrOfIds("after borrowing");   
+        }
+        vm.stopPrank();
+
+        emit log_string(" ");
+        emit log_string("///////////////////////////");
+        emit log_string("//////// REPAYMENT ////////");
+        emit log_string("///////////////////////////");
+        emit log_string(" ");
+
+        vm.startPrank(borrower);
+        uint i;
+        while(line.ids(0) != bytes32(0)) {
+            emit log_string("==============");
+            emit log_string(" ");
+
+            // we need to manually accrue the interested to calculate the amount owed
+            line.accrueInterest();
+            (uint256 deposit, uint256 principal, uint256 interestAccrued, , , , ) = line
+                .credits(line.ids(0));
+            uint256 owed = interestAccrued + principal;
+            
+            emit log_named_uint("repaying", owed);
+            _formatLoggedArrOfIds("before repaying");
+            line.depositAndRepay(owed);
+            line.close(line.ids(0));
+            _formatLoggedArrOfIds("after repaying");
+
+            emit log_string(" ");
+            emit log_string("==============");
+            ++i;
+            vm.warp(1 days);
+        }
+        vm.stopPrank();
+        (uint256 count, ) = line.counts();
+        assertEq(count, 0);
+
+        LineLib.STATUS status = line.status();
+        assertEq(uint8(status), uint8(LineLib.STATUS.REPAID));
+
+
+    }
+ 
     function test_all_positions_in_queue_of_4_are_closed() public {
         address[] memory tokens = setupQueueTest(2);
         address token3 = tokens[0];
@@ -134,10 +208,9 @@ contract QueueTest is Test, Events {
 
         line.depositAndClose();
         _formatLoggedArrOfIds("after closing front of queue");
-        
-        line.close(id4);
-         _formatLoggedArrOfIds("after closing id4");
 
+        line.close(id4);
+        _formatLoggedArrOfIds("after closing id4");
     }
 
     function test_positions_move_in_queue_of_4_random_active_line() public {
@@ -279,7 +352,6 @@ contract QueueTest is Test, Events {
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id);
 
-        
         vm.prank(borrower);
         line.borrow(id, 1 ether);
 
@@ -296,7 +368,6 @@ contract QueueTest is Test, Events {
         assertEq(line.ids(2), id3);
         assertEq(line.ids(3), id2);
 
-        
         vm.startPrank(borrower);
         line.depositAndClose(); // will pay off and close ids[0], and swap next available into the first slot
 
@@ -309,15 +380,45 @@ contract QueueTest is Test, Events {
         line.depositAndClose();
 
         assertEq(line.ids(0), id3);
-        assertEq(line.ids(1), bytes32(0)); 
-        assertEq(line.ids(2), bytes32(0));// we've swapped out ids[0] and ids[2], so the old ids[0] would be null after repayment, then the swap happens
+        assertEq(line.ids(1), bytes32(0));
+        assertEq(line.ids(2), bytes32(0)); // we've swapped out ids[0] and ids[2], so the old ids[0] would be null after repayment, then the swap happens
         assertEq(line.ids(3), id2);
 
         vm.stopPrank();
     }
 
+    function test_can_properly_step_queue(uint256 length) public {
+        vm.assume(length != 0 && length < 20);
+        ids = new bytes32[](length);
+        // ensure array is within reasonable bounds
 
+        if (length == 1) {
+            ids[0] = bytes32(0);
+            assertFalse(ids.stepQ());
+            assertEq(ids[0], bytes32(0));
+            return;
+        }
 
+        if (length == 2) {
+            ids[0] = bytes32(0);
+            ids[1] = bytes32(uint256(1));
+
+            ids.stepQ();
+            assertEq(ids[0], bytes32(uint256(1)));
+            assertEq(ids[1], bytes32(0));
+            return;
+        }
+
+        for (uint256 i = 0; i < length; i++) {
+            ids[i] == bytes32(i);
+        }
+        assertEq(ids[0], bytes32(0));
+        bytes32 newZeroIndex = ids[1];
+        ids.stepQ();
+
+        assertEq(ids[0], newZeroIndex);
+        assertEq(ids[1], bytes32(0));
+    }
 
     /*//////////////////////////////////
                 U T I L S
@@ -357,7 +458,7 @@ contract QueueTest is Test, Events {
         vm.stopPrank();
     }
 
-        function setupQueueTest(uint256 amount)
+    function setupQueueTest(uint256 amount)
         internal
         returns (address[] memory)
     {
@@ -383,24 +484,110 @@ contract QueueTest is Test, Events {
         return tokens;
     }
 
-    function _assignQueueLabels() internal {
-        
-        string[15] memory labels = [' id','id2','id3','id4','id5','id6','id7','id8','id9','id10','id11','id12','id13', "id14", "id15"];
-        idLabels[bytes32(0)] = " * ";
+    function _createCreditLines(uint256 numLines) internal {
+        for (uint256 i; i < numLines; ++i) {
+            address randomLender = _randomAddress();
+            uint256 amount = 2 ether + i**6 wei;
 
-        (,uint256 numPositions) = line.counts();
-        for (uint i; i < numPositions; ++i) {
+            supportedToken1.mint(randomLender, amount);
+            supportedToken1.mint(borrower, amount);
+
+            vm.startPrank(borrower);
+            supportedToken1.approve(address(line), type(uint256).max);
+            line.addCredit(
+                dRate,
+                fRate,
+                amount,
+                address(supportedToken1),
+                randomLender
+            );
+
+            vm.stopPrank();
+
+            vm.startPrank(randomLender);
+            supportedToken1.approve(address(line), type(uint256).max);
+            bytes32 id = line.addCredit(
+                dRate,
+                fRate,
+                amount,
+                address(supportedToken1),
+                randomLender
+            );
+            vm.stopPrank();
+        }
+    }
+
+    function _assignQueueLabels() internal {
+        string[20] memory labels = [
+            "  id",
+            " id2",
+            " id3",
+            " id4",
+            " id5",
+            " id6",
+            " id7",
+            " id8",
+            " id9",
+            "id10",
+            "id11",
+            "id12",
+            "id13",
+            "id14",
+            "id15",
+            "id16",
+            "id17",
+            "id18",
+            "id19",
+            "id20"
+        ];
+        idLabels[bytes32(0)] = "  * ";
+
+        (, uint256 numPositions) = line.counts();
+        for (uint256 i; i < numPositions; ++i) {
             idLabels[line.ids(i)] = labels[i];
         }
     }
 
     function _formatLoggedArrOfIds(string memory msg) internal {
         string memory arr = "[ ";
-        (,uint256 numPositions) = line.counts();
-        for (uint i; i < numPositions; ++i) {
+        (, uint256 numPositions) = line.counts();
+        for (uint256 i; i < numPositions; ++i) {
             arr = string(abi.encodePacked(arr, idLabels[line.ids(i)], " "));
         }
         arr = string(abi.encodePacked(arr, "]", " <=== ", msg));
         console.log(arr);
+    }
+
+    function _randomUint256() internal view returns (uint256) {
+        return
+            uint256(
+                keccak256(
+                    abi.encode(
+                        gasleft(),
+                        msg.sig,
+                        block.difficulty,
+                        block.timestamp
+                    )
+                )
+            );
+    }
+
+    function _randomUint256(uint256 seed) internal view returns (uint256) {
+        return
+            uint256(
+                keccak256(
+                    abi.encode(
+                        gasleft(),
+                        msg.sig,
+                        block.difficulty,
+                        block.timestamp,
+                        seed
+                    )
+                )
+            );
+    }
+
+    function _randomAddress() internal view returns (address payable) {
+        return payable(address(uint160(_randomUint256())));
     }
 }
