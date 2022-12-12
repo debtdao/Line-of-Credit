@@ -48,6 +48,8 @@ contract QueueTest is Test, Events {
 
     bytes32[] ids;
 
+    uint256[] closedIds;
+
     function setUp() public {
         borrower = address(10);
         arbiter = address(this);
@@ -67,7 +69,7 @@ contract QueueTest is Test, Events {
         _mintAndApprove();
     }
 
-    function test_random_queue_lengths() public {
+    function test_stepQ_works_with_all_positions_drawn_down_on() public {
         uint256 NUM_LINES = 20;
 
         // create `len` number of lines
@@ -138,6 +140,48 @@ contract QueueTest is Test, Events {
 
 
     }
+
+    function test_sortIntoQ_works_for_ids_array() public {
+        uint256 NUM_LINES = 20;
+
+        // create `len` number of lines
+        _createCreditLines(NUM_LINES);
+
+        // assign labels to the ids for console output
+        _assignQueueLabels();
+
+        _formatLoggedArrOfIds("before closing lines");
+
+        vm.startPrank(borrower);
+        for (uint256 i = 1; i < NUM_LINES; ++i) {
+            if (_randomUint256(i) % 100 < 40) continue;
+
+            closedIds.push(i);
+            line.close(line.ids(i));
+        }
+        vm.stopPrank();
+
+        _formatLoggedArrOfIds("after closing lines");
+
+        vm.startPrank(borrower);
+        for (uint256 i = 1; i < NUM_LINES; ++i) {
+            if (_randomUint256(i) % 100 > 70) continue;
+            if ( line.ids(i) == bytes32(0)) continue;
+            emit log_string(" ");
+            emit log_string("==============");
+            emit log_string(" ");
+            emit log_named_string("borrowing from", idLabels[line.ids(i)]);
+            uint256 newSlot = _getNextAvailableSlot(NUM_LINES);
+            bytes32 id = line.ids(i);
+            _formatLoggedArrOfIds("before borrowing");
+            line.borrow(line.ids(i), 1 ether);
+            _formatLoggedArrOfIds("after borrowing");
+            assertEq(id, line.ids(newSlot));
+        }
+        vm.stopPrank();
+    }
+
+
  
     function test_all_positions_in_queue_of_4_are_closed() public {
         address[] memory tokens = setupQueueTest(2);
@@ -557,6 +601,20 @@ contract QueueTest is Test, Events {
         }
         arr = string(abi.encodePacked(arr, "]", " <=== ", msg));
         console.log(arr);
+    }
+
+    function _getNextAvailableSlot( uint256 end) internal returns(uint256) {
+        for (uint i; i < end; ++i) {
+            (, uint256 principal, , , , , ) = line.credits(line.ids(i));
+            if (
+                line.ids(i) == bytes32(0) || // deleted element. In the middle of the q because it was closed.
+                principal > 0 //`id` should be placed before `p`
+            ) {
+                continue;
+            }
+            else return i;
+        } 
+        return 0;
     }
 
     function _randomUint256() internal view returns (uint256) {
