@@ -503,10 +503,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ) internal returns (Credit memory) {
         credit = CreditLib.repay(credit, id, amount);
 
-        // we want to make sure that the first entry in the array is always 
-        // if credit line fully repaid then remove it from the repayment queue
-        // if (credit.principal == 0 && ids[0] == id) ids.stepQ();
-
         return credit;
     }
 
@@ -514,6 +510,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @notice - checks that a credit line is fully repaid and removes it
      * @dev deletes credit storage. Store any data u might need later in call before _close()
      * @dev - privileged internal function. MUST check params and logic flow before calling
+     * @dev - when the line being closed is at the 0-index in the ids array, the null index is replaced using `.stepQ`
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id)

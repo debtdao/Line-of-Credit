@@ -44,7 +44,12 @@ library CreditListLib {
     function stepQ(bytes32[] storage ids) external returns (bool) {
         uint256 len = ids.length;
         if (len <= 1) return false;
-        if (len == 2 && ids[1] != bytes32(0)) { (ids[0], ids[1]) = (ids[1], ids[0]); } // skip the loop if we don't need
+        if (len == 2 && ids[1] != bytes32(0)) { 
+          (ids[0], ids[1]) = (ids[1], ids[0]); 
+          emit MovedToFrontOfQueue(ids[0], 1);
+          return true;
+        } // skip the loop if we don't need
+
         // we never check the first id, because we already know it's null
         for (uint i = 1; i < len; ) {
             if (ids[i] != bytes32(0)) {
