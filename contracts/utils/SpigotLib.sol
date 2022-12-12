@@ -114,9 +114,9 @@ library SpigotLib {
 
         if(claimed == 0) { revert ClaimFailed(); }
 
+        self.ownerTokens[token] = 0; // reset before send to prevent reentrancy
+        
         LineLib.sendOutTokenOrETH(token, self.owner, claimed);
-
-        self.ownerTokens[token] = 0; // keep 1 in escrow for recurring call gas optimizations?
 
         emit ClaimOwnerTokens(token, claimed, self.owner);
 
@@ -127,16 +127,16 @@ library SpigotLib {
         if(msg.sender != self.operator) { revert CallerAccessDenied(); }
 
         claimed  = self.operatorTokens[token];
+
         if(claimed == 0) { revert ClaimFailed(); }
 
-        LineLib.sendOutTokenOrETH(token, self.operator, claimed);
+        self.operatorTokens[token] = 0; // reset before send to prevent reentrancy
 
-        self.operatorTokens[token] = 0;
+        LineLib.sendOutTokenOrETH(token, self.operator, claimed);
         
         emit ClaimOperatorTokens(token, claimed, self.operator);
 
         return claimed;
-
     }
 
     /** see Spigot.addSpigot */

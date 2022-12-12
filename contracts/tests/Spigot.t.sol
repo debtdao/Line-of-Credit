@@ -176,7 +176,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_pushPaymentToken(uint256 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 100 || totalRevenue > MAX_REVENUE) return;
 
         // send revenue token directly to spigot (push)
         token.mint(address(spigot), totalRevenue);
@@ -189,7 +189,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_pullPaymentToken(uint256 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 100 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(address(token), 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
         
         token.mint(revenueContract, totalRevenue); // send revenue
@@ -205,7 +205,7 @@ contract SpigotTest is Test {
      @param totalRevenue - uint96 because that is max ETH in this testing address when dapptools initializes
      */
     function test_claimRevenue_pushPaymentETH(uint96 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 100 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(Denominations.ETH, 100, claimPushPaymentFunc, transferOwnerFunc, whitelist);
 
         vm.deal((address(spigot)), totalRevenue);
@@ -219,7 +219,7 @@ contract SpigotTest is Test {
     }
 
     function test_claimRevenue_pullPaymentETH(uint96 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 100 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(Denominations.ETH, 100, claimPullPaymentFunc, transferOwnerFunc, whitelist);
 
         vm.deal(revenueContract, totalRevenue);
@@ -270,7 +270,7 @@ contract SpigotTest is Test {
     // Claim escrow 
 
     function test_claimOwnerTokens_AsOwner(uint256 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+        if(totalRevenue <= 100 || totalRevenue > MAX_REVENUE) return;
         // send revenue and claim it
         token.mint(address(spigot), totalRevenue);
         bytes memory claimData;
