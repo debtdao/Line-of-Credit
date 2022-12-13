@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "chainlink/interfaces/FeedRegistryInterface.sol";
-import { Denominations } from "chainlink/Denominations.sol";
+import {Denominations} from "chainlink/Denominations.sol";
 import "../../interfaces/IOracle.sol";
 
 /**
@@ -11,7 +11,8 @@ import "../../interfaces/IOracle.sol";
  *          - only makes request for USD prices and returns results in standard 8 decimals for Chainlink USD feeds
  */
 contract Oracle is IOracle {
-    FeedRegistryInterface internal registry; 
+    FeedRegistryInterface internal registry;
+
     constructor(address _registry) {
         registry = FeedRegistryInterface(_registry);
     }
@@ -21,15 +22,13 @@ contract Oracle is IOracle {
      */
     function getLatestAnswer(address token) external returns (int) {
         (
-            /* uint80 roundID */, 
-            int price,
-            /* uint80 startedAt */,
-            /* uint80 timeStamp */,
-            /* uint80 answeredInRound */
+            ,
+            /* uint80 roundID */ int price /* uint80 startedAt */ /* uint80 timeStamp */ /* uint80 answeredInRound */,
+            ,
+            ,
+
         ) = registry.latestRoundData(token, Denominations.USD);
-        
+
         return price;
     }
-
-    
 }

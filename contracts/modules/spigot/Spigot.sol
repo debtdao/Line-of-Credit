@@ -1,8 +1,8 @@
 pragma solidity 0.8.9;
 
-import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
-import { LineLib } from  "../../utils/LineLib.sol";
-import { SpigotState, SpigotLib } from  "../../utils/SpigotLib.sol";
+import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
+import {LineLib} from "../../utils/LineLib.sol";
+import {SpigotState, SpigotLib} from "../../utils/SpigotLib.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 
@@ -17,7 +17,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
     using SpigotLib for SpigotState;
 
     // Stakeholder variables
-    
+
     SpigotState private state;
 
     /**
@@ -27,13 +27,9 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param _operator - An active address for non-Owner that can execute whitelisted functions to manage and maintain product operations
                           on revenue generating contracts controlled by the Spigot.
      */
-    constructor (
-        address _owner,
-        address _operator
-    ) {
+    constructor(address _owner, address _operator) {
         state.owner = _owner;
         state.operator = _operator;
-      
     }
 
     function owner() external view returns (address) {
@@ -43,8 +39,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function operator() external view returns (address) {
         return state.operator;
     }
-
- 
 
     // ##########################
     // #####   Claimoooor   #####
@@ -63,13 +57,13 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param data - Transaction data, including function signature, to properly claim revenue on revenueContract
      * @return claimed -  The amount of revenue tokens claimed from revenueContract and split between `owner` and `treasury`
     */
-    function claimRevenue(address revenueContract, address token, bytes calldata data)
-        external nonReentrant
-        returns (uint256 claimed)
-    {
+    function claimRevenue(
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external nonReentrant returns (uint256 claimed) {
         return state.claimRevenue(revenueContract, token, data);
     }
-
 
     /**
      * @notice - Allows Spigot Owner to claim escrowed revenue tokens
@@ -78,22 +72,13 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @return claimed -  The amount of tokens claimed by the `owner`
 
     */
-    function claimOwnerTokens(address token)
-        external
-        nonReentrant
-        returns (uint256 claimed) 
-    {
+    function claimOwnerTokens(address token) external nonReentrant returns (uint256 claimed) {
         return state.claimOwnerTokens(token);
     }
 
-    function claimOperatorTokens(address token)
-        external
-        nonReentrant
-        returns (uint256 claimed)
-    {
+    function claimOperatorTokens(address token) external nonReentrant returns (uint256 claimed) {
         return state.claimOperatorTokens(token);
     }
-
 
     // ##########################
     // ##### *ring* *ring*  #####
@@ -106,14 +91,12 @@ contract Spigot is ISpigot, ReentrancyGuard {
      *           while still allowing Spigot Owner to receive its revenue stream
      * @dev - cannot call revenueContracts claim or transferOwner functions
      * @dev - callable by `operator`
-     * @param revenueContract - contract to call. Must have existing settings added by Owner 
+     * @param revenueContract - contract to call. Must have existing settings added by Owner
      * @param data - tx data, including function signature, to call contract with
      */
     function operate(address revenueContract, bytes calldata data) external returns (bool) {
         return state.operate(revenueContract, data);
     }
-
-
 
     // ##########################
     // #####  Maintainooor  #####
@@ -124,7 +107,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - revenueContract cannot be address(this)
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to claim tokens from
-     * @param setting - Spigot settings for smart contract   
+     * @param setting - Spigot settings for smart contract
      */
     function addSpigot(address revenueContract, Setting memory setting) external returns (bool) {
         return state.addSpigot(revenueContract, setting);
@@ -138,20 +121,14 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - callable by `owner`
      * @param revenueContract - smart contract to transfer ownership of
      */
-    function removeSpigot(address revenueContract)
-        external
-        returns (bool)
-    {
-       return state.removeSpigot(revenueContract);
+    function removeSpigot(address revenueContract) external returns (bool) {
+        return state.removeSpigot(revenueContract);
     }
 
     // Changes the revenue split between the Treasury and the Owner based upon the status of the Line of Credit
     // or otherwise if the Owner and Borrower wish to change the split.
-    function updateOwnerSplit(address revenueContract, uint8 ownerSplit)
-        external
-        returns(bool)
-    {
-      return state.updateOwnerSplit(revenueContract, ownerSplit);
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool) {
+        return state.updateOwnerSplit(revenueContract, ownerSplit);
     }
 
     /**
@@ -174,7 +151,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function updateOperator(address newOperator) external returns (bool) {
         return state.updateOperator(newOperator);
     }
-    
+
     /**
 
      * @notice - Update Treasury role of Spigot contract.
@@ -182,7 +159,6 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev - callable by `treasury`
      * @param newTreasury - Address to divert funds to
      */
-
 
     /**
 
@@ -193,7 +169,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param func - smart contract function signature to whitelist
      * @param allowed - true/false whether to allow this function to be called by Operator
      */
-     function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
         return state.updateWhitelistedFunction(func, allowed);
     }
 
@@ -204,7 +180,7 @@ contract Spigot is ISpigot, ReentrancyGuard {
     /**
      * @notice - Retrieve amount of revenue tokens escrowed waiting for claim
      * @param token Revenue token that is being garnished from spigots
-    */
+     */
     function getOwnerTokens(address token) external view returns (uint256) {
         return state.ownerTokens[token];
     }
@@ -219,19 +195,15 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param func Function to check on whitelist 
     */
 
-    function isWhitelisted(bytes4 func) external view returns(bool) {
-      return state.isWhitelisted(func);
+    function isWhitelisted(bytes4 func) external view returns (bool) {
+        return state.isWhitelisted(func);
     }
 
-    function getSetting(address revenueContract)
-        external view
-        returns(uint8, bytes4, bytes4)
-    {
+    function getSetting(address revenueContract) external view returns (uint8, bytes4, bytes4) {
         return state.getSetting(revenueContract);
     }
 
     receive() external payable {
         return;
     }
-
 }

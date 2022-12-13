@@ -57,15 +57,12 @@ abstract contract MutualConsent {
      */
     function revokeConsent(bytes calldata _reconstrucedMsgData) external {
         if (
-            _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES ||
-            _reconstrucedMsgData.length < MIN_DATA_LENGTH_BYTES
+            _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES || _reconstrucedMsgData.length < MIN_DATA_LENGTH_BYTES
         ) {
             revert UnsupportedMutualConsentFunction();
         }
 
-        bytes32 hashToDelete = keccak256(
-            abi.encodePacked(_reconstrucedMsgData, msg.sender)
-        );
+        bytes32 hashToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
 
         address consentor = mutualConsents[hashToDelete];
 
@@ -83,10 +80,7 @@ abstract contract MutualConsent {
 
     /* ============ Internal Functions ============ */
 
-    function _mutualConsent(address _signerOne, address _signerTwo)
-        internal
-        returns (bool)
-    {
+    function _mutualConsent(address _signerOne, address _signerTwo) internal returns (bool) {
         if (msg.sender != _signerOne && msg.sender != _signerTwo) {
             revert Unauthorized();
         }
@@ -112,11 +106,7 @@ abstract contract MutualConsent {
         return true;
     }
 
-    function _getNonCaller(address _signerOne, address _signerTwo)
-        internal
-        view
-        returns (address)
-    {
+    function _getNonCaller(address _signerOne, address _signerTwo) internal view returns (address) {
         return msg.sender == _signerOne ? _signerTwo : _signerOne;
     }
 }

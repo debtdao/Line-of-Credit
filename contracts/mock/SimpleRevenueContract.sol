@@ -14,13 +14,7 @@ contract SimpleRevenueContract {
     function claimPullPayment() external returns (bool) {
         require(msg.sender == owner, "Revenue: Only owner can claim");
         if (address(revenueToken) != Denominations.ETH) {
-            require(
-                revenueToken.transfer(
-                    owner,
-                    revenueToken.balanceOf(address(this))
-                ),
-                "Revenue: bad transfer"
-            );
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
         }
@@ -29,13 +23,7 @@ contract SimpleRevenueContract {
 
     function sendPushPayment() external returns (bool) {
         if (address(revenueToken) != Denominations.ETH) {
-            require(
-                revenueToken.transfer(
-                    owner,
-                    revenueToken.balanceOf(address(this))
-                ),
-                "Revenue: bad transfer"
-            );
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
         }
