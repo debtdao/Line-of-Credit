@@ -696,7 +696,7 @@ contract SpigotedLineTest is Test {
 
     function test_cant_sweep_empty_tokens() public {
       vm.expectRevert(abi.encodeWithSelector(
-        SpigotedLineLib.UsedExcessTokens.selector,
+        SpigotedLineLib.ReservesOverdrawn.selector,
         address(creditToken),
         0
       ));

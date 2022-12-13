@@ -24,7 +24,7 @@ library SpigotedLineLib {
 
     error NotInsolvent(address module);
 
-    error UsedExcessTokens(address token, uint256 amountAvailable);
+    error ReservesOverdrawn(address token, uint256 amountAvailable);
 
 
     event TradeSpigotRevenue(
@@ -102,7 +102,7 @@ library SpigotedLineLib {
 
           // used more tokens than we had in revenue reserves.
           // prevent borrower from pulling idle lender funds to repay other lenders
-          if(diff > unused) revert UsedExcessTokens(claimToken,  unused); 
+          if(diff > unused) revert ReservesOverdrawn(claimToken,  unused); 
           // reduce reserves by consumed amount
           else return (
             tokensBought,
@@ -215,11 +215,10 @@ library SpigotedLineLib {
    * @return - whether or not spigot was released
   */
     function sweep(address to, address token, uint256 amount, LineLib.STATUS status, address borrower, address arbiter) external returns (bool) {
-        if(amount == 0) { revert UsedExcessTokens(token, 0); }
+        if(amount == 0) { revert ReservesOverdrawn(token, 0); }
 
         if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {
             return LineLib.sendOutTokenOrETH(token, to, amount);
-
         }
 
         if (
