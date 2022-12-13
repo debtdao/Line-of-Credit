@@ -470,7 +470,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @dev - when the line being closed is at the 0-index in the ids array, the null index is replaced using `.stepQ`
      * @return credit - position struct in memory with updated values
      */
-    function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
+    function _close(Credit memory credit, 
+    bytes32 id) internal virtual returns (Credit memory) {
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }
