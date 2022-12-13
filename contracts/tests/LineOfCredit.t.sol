@@ -18,6 +18,10 @@ import {SimpleOracle} from "../mock/SimpleOracle.sol";
 
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
+    event MutualConsentRegistered(
+        bytes32 _consentHash
+    );
+    event MutualConsentRevoked(bytes32 _toRevoke);
     event SetRates(
         bytes32 indexed id,
         uint128 indexed dRate,
@@ -366,6 +370,8 @@ contract LineTest is Test, Events {
             "Contract should have initial mint balance minus 1e18"
         );
     }
+
+
 
     function test_can_add_credit_position_ETH() public {
         assertEq(address(line).balance, 0, "Line balance should be 0");
@@ -1148,4 +1154,6 @@ contract LineTest is Test, Events {
         (, , uint256 interestAccruedAfter, , , , ) = line.credits(id);
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
+
+
 }
