@@ -226,6 +226,15 @@ contract MutualConsentTest is Test, Events {
     {
         vm.startPrank(borrower);
 
+        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
+            ILineOfCredit.addCredit.selector,
+            dRate,
+            fRate,
+            amount,
+            token,
+            lender
+        );
+
         bytes memory invalidMsgData = abi.encodePacked(msgData, uint256(5));
 
         vm.expectRevert(

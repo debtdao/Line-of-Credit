@@ -63,22 +63,23 @@ abstract contract MutualConsent {
             revert UnsupportedMutualConsentFunction();
         }
 
-        address sender = msg.sender;
 
         bytes32 hashToDelete = keccak256(
-            abi.encodePacked(_reconstrucedMsgData, sender)
+            abi.encodePacked(_reconstrucedMsgData, msg.sender)
         );
 
-        if (mutualConsents[hashToDelete] == address(0)) {
+        address consentor = mutualConsents[hashToDelete];
+
+        if (consentor == address(0)) {
             revert InvalidConsent();
         }
-        if (mutualConsents[hashToDelete] != sender) {
+        if (consentor != msg.sender) {
             revert NotUserConsent();
         } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision
 
         delete mutualConsents[hashToDelete];
 
-        emit MutualConsentRevoked(sender, hashToDelete);
+        emit MutualConsentRevoked(msg.sender, hashToDelete);
     }
 
     /* ============ Internal Functions ============ */
