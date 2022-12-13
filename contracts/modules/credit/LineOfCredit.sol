@@ -301,7 +301,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ///////////////
 
     /// see ILineOfCredit.depositAndClose
-    function depositAndClose()
+    function depositAndClose(bytes32 id)
         external
         payable
         override
@@ -310,7 +310,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         onlyBorrower
         returns (bool)
     {
-        bytes32 id = ids[0];
+        
         Credit memory credit = _accrue(credits[id], id);
         require(credit.isOpen);
 
@@ -323,6 +323,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         credits[id] = _close(_repay(credit, id, totalOwed), id);
         return true;
     }
+
 
     /// see ILineOfCredit.depositAndRepay
     function depositAndRepay(uint256 amount)
@@ -346,6 +347,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         return true;
     }
+    
 
     ////////////////////
     // FUND TRANSFERS //
@@ -414,26 +416,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.close
-    function close(bytes32 id) external payable override nonReentrant returns (bool) {
-        Credit memory credit = credits[id];
-        if(msg.sender != borrower) {
-          revert CallerAccessDenied();
-        }
-
-        // ensure all money owed is accounted for. Accrue facility fee since prinicpal was paid off
-        credit = _accrue(credit, id);
-        uint256 facilityFee = credit.interestAccrued;
-        if(facilityFee > 0) {
-            // only allow repaying interest since they are skipping repayment queue.
-            // If principal still owed, _close() MUST fail
-            LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-            credit = _repay(credit, id, facilityFee);
-        }
-
-        credits[id] = _close(credit, id);
-
-        return true;
-    }
 
     /**
      * @notice - This is a redundancy measure that unlocks the queue should it get stuck with a null (zero) element

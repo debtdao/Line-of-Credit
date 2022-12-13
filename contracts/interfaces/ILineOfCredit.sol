@@ -175,7 +175,7 @@ interface ILineOfCredit {
      * @dev          - callable by borrower
      * @return - if function executed successfully
      */
-    function depositAndClose() external payable returns (bool);
+    function depositAndClose(bytes32 id) external payable returns (bool);
 
     /**
      * @notice - Removes and deletes a position, preventing any more borrowing or interest.
@@ -185,7 +185,6 @@ interface ILineOfCredit {
      * @param id -the position id to be closed
      * @return - if function executed successfully
      */
-    function close(bytes32 id) external payable returns (bool);
 
     // Lender functions
 
