@@ -55,14 +55,13 @@ abstract contract MutualConsent {
      *          function arguments.
      *
      */
-    function revokeConsent(bytes calldata _reconstrucedMsgData) public {
+    function revokeConsent(bytes calldata _reconstrucedMsgData) external {
         if (
             _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES ||
             _reconstrucedMsgData.length < MIN_DATA_LENGTH_BYTES
         ) {
             revert UnsupportedMutualConsentFunction();
         }
-
 
         bytes32 hashToDelete = keccak256(
             abi.encodePacked(_reconstrucedMsgData, msg.sender)
