@@ -74,7 +74,7 @@ library LineLib {
         if(token != Denominations.ETH) { // ERC20
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
-            if( msg.value < amount) { revert TransferFailed(); }
+            if( msg.value < amount) { revert TransferFailed(); } 
 
             // refund if overpaid TODO: test me
             if( msg.value > amount) { 
