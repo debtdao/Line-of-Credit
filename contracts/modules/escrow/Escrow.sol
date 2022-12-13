@@ -3,6 +3,8 @@ pragma solidity 0.8.9;
 import { Denominations } from "chainlink/Denominations.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
+import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
@@ -16,7 +18,7 @@ import {EscrowState, EscrowLib} from "../../utils/EscrowLib.sol";
   * @author - James Senegalli
   * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
  */
-contract Escrow is IEscrow {
+contract Escrow is IEscrow, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EscrowLib for EscrowState;
 
@@ -84,7 +86,7 @@ contract Escrow is IEscrow {
      * @return - the updated cratio
      */
     function addCollateral(uint256 amount, address token)
-        external payable
+        external payable nonReentrant
         returns (uint256)
     {
         return state.addCollateral(oracle, amount, token);
@@ -114,7 +116,7 @@ contract Escrow is IEscrow {
         uint256 amount,
         address token,
         address to
-    ) external returns (uint256) {
+    ) external nonReentrant returns (uint256) {
         return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
     }
 
@@ -150,7 +152,7 @@ contract Escrow is IEscrow {
         uint256 amount,
         address token,
         address to
-    ) external returns (bool) {
+    ) external nonReentrant returns (bool) {
         return state.liquidate(amount, token, to);
     }
 }
