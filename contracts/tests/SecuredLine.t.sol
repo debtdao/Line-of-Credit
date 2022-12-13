@@ -297,10 +297,15 @@ contract SecuredLineTest is Test {
         line.liquidate(1 ether, address(supportedToken2));
     }
 
-    // test should succeed to liquidate when there is debt and positions exist
-    // test should succeed to liquidate when collateral ratio is below min cratio
     // test should fail to liquidate when no debt / no positions at deadline
-    // test should fail to liquidate if above cratio before deadline
+    function test_cannot_liquidate_when_no_debt_or_positions_after_deadline() public {
+        vm.warp(ttl + 1);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
+        line.liquidate(1 ether, address(supportedToken2));
+    }
+
+  
+
     // test should liquidate if above cratio after deadline
     // should not be liquidatable if all positions closed (needs mo's PR)
     // 
@@ -309,14 +314,8 @@ contract SecuredLineTest is Test {
     // CONDITIONS:
     // dont pay debt by deadline
     // under minimum collateral value ( changing the oracle price )
-
-    function test_must_be_in_debt_to_liquidate() public {
-        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
-        line.liquidate(1 ether, address(supportedToken2));
-    }
-
     
-
+    // test should fail to liquidate if above cratio before deadline
     function test_cannot_liquidate_escrow_if_cratio_above_min() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
@@ -333,7 +332,7 @@ contract SecuredLineTest is Test {
         assertTrue(line.healthcheck() != LineLib.STATUS.LIQUIDATABLE);
     }
 
-
+       // test should succeed to liquidate when collateral ratio is below min cratio
     function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
         _addCredit(address(supportedToken1), 1 ether);
         uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
