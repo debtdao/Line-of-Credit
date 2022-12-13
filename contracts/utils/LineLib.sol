@@ -3,7 +3,7 @@ import { IInterestRateCredit } from "../interfaces/IInterestRateCredit.sol";
 import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
 import { IOracle } from "../interfaces/IOracle.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { Denominations } from "chainlink/Denominations.sol";
 
 /**
@@ -16,7 +16,12 @@ library LineLib {
 
     error EthSentWithERC20();
     error TransferFailed();
+    error SendingEthFailed();
+    error RefundEthFailed();
+
     error BadToken();
+
+    event RefundIssued(address indexed recipient, uint256 value);
 
     enum STATUS {
         UNINITIALIZED,
@@ -46,13 +51,16 @@ library LineLib {
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH
-            payable(receiver).transfer(amount);
+            bool success = _safeTransferFunds(receiver, amount);
+            if (!success) { revert SendingEthFailed(); } 
         }
         return true;
     }
 
     /**
      * @notice - Receive ETH or ERC20 token at this contract from an external contract
+     * @dev    - If the sender overpays, the difference will be refunded to the sender
+     * @dev    - If the sender is unable to receive the refund, it will be diverted to the calling contract
      * @param token - address of token to receive. Denominations.ETH for raw ETH
      * @param sender - address that is sendingtokens/ETH
      * @param amount - amount of tokens to send
@@ -70,7 +78,15 @@ library LineLib {
             if (msg.value > 0) { revert EthSentWithERC20(); }
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
-            if(msg.value < amount) { revert TransferFailed(); }
+            if( msg.value < amount) { revert TransferFailed(); } 
+
+            if( msg.value > amount) { 
+                uint256 refund = msg.value - amount;
+
+               if ( _safeTransferFunds(msg.sender, refund)) {
+                    emit RefundIssued(msg.sender, refund);
+               }
+            }
         }
         return true;
     }
@@ -84,6 +100,20 @@ library LineLib {
         return token != Denominations.ETH ?
             IERC20(token).balanceOf(address(this)) :
             address(this).balance;
+    }
+
+
+    /**
+     * @notice  - Helper function to safely transfer Eth using native call
+     * @dev     - Errors should be handled in the calling function
+     * @param recipient - address of the recipient
+     * @param value - value to be sent (in wei)
+    */
+    function _safeTransferFunds(
+        address recipient,
+        uint256 value
+    ) internal returns (bool success){
+        (success, ) = payable(recipient).call{value: value}("");
     }
 
 }

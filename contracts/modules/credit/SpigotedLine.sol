@@ -1,7 +1,6 @@
 pragma solidity ^0.8.9;
 
 import { Denominations } from "chainlink/Denominations.sol";
-import { ReentrancyGuard } from "openzeppelin/security/ReentrancyGuard.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
@@ -19,7 +18,7 @@ import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
             - allows Borrower or Lender to repay debt using collateralized revenue streams
   * @dev    -  Inherits LineOfCredit functionality
  */
-contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
+contract SpigotedLine is ISpigotedLine, LineOfCredit {
     using SafeERC20 for IERC20;
 
     /// see Spigot

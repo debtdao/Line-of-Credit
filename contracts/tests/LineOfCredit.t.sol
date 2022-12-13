@@ -219,6 +219,46 @@ contract LineTest is Test, Events {
         );
     }
 
+    // TODO take out with native ETH removal
+    function test_can_add_credit_position_and_refund_excess_eth() public {
+        assertEq(
+            supportedToken1.balanceOf(address(line)),
+            0,
+            "Line balance should be 0"
+        );
+        assertEq(
+            supportedToken1.balanceOf(lender),
+            mintAmount,
+            "Contract should have initial mint balance"
+        );
+        
+        // borrower
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
+        vm.stopPrank();
+
+        // overpay as lender
+        vm.prank(lender);
+        emit log_named_uint("lender before: ", lender.balance / 10**18);
+        uint256 lenderBalanceBefore = lender.balance;
+        line.addCredit{value: 7 ether}(dRate, fRate, 1 ether, Denominations.ETH, lender);
+        emit log_named_uint("lender after: ", lender.balance / 10**18);
+        uint256 lenderBalanceAfter = lender.balance;
+        vm.stopPrank();
+
+        // check that the refund takes place
+        assertEq(lenderBalanceAfter, lenderBalanceBefore - 1 ether, "Excess should have been refunded");
+
+        bytes32 id = line.ids(0);
+
+        assert(id != bytes32(0));
+        assertEq(
+            address(line).balance,
+            1 ether,
+            "Line balance should be 1e18"
+        );
+    }
+
 
 
     function test_can_add_credit_position_ETH() public {
@@ -632,13 +672,8 @@ contract LineTest is Test, Events {
     // TODO before close, isOpen is true, after close, isOpen is false. Lender is not 0
      function test_position_data_still_exists_after_position_is_closed() public {
 
-        assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
-        assertEq(supportedToken1.balanceOf(borrower), mintAmount, "Borrower should have initial mint balance");
-        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
-        
-     
         _addCredit(address(supportedToken1), 1 ether);
-        
+
         bytes32 id = line.ids(0);
         
         assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
@@ -653,8 +688,6 @@ contract LineTest is Test, Events {
         console.log(o2);
         assertEq(o2, false, "position is not closed");
         assertEq(l2 != address(0),true, "lender is null");
-
-
      }
 
     // All interest andd debt is paid off on close

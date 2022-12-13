@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 import {Denominations} from "chainlink/Denominations.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
 
 import {LineLib} from "../../utils/LineLib.sol";
 import {CreditLib} from "../../utils/CreditLib.sol";
@@ -13,7 +14,7 @@ import {InterestRateCredit} from "../interest-rate/InterestRateCredit.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
-contract LineOfCredit is ILineOfCredit, MutualConsent {
+contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     using CreditListLib for bytes32[];
@@ -242,6 +243,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         external
         payable
         override
+        nonReentrant
         whileActive
         mutualConsent(lender, borrower)
         returns (bytes32)
@@ -272,12 +274,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
     /// see ILineOfCredit.increaseCredit
     function increaseCredit(bytes32 id, uint256 amount)
-        external
-        payable
-        override
-        whileActive
-        mutualConsentById(id)
-        returns (bool)
+      external
+      payable
+      override
+      nonReentrant
+      whileActive
+      mutualConsentById(id)
+      returns (bool)
     {
         Credit memory credit = credits[id];
         credit = _accrue(credit, id);
@@ -302,6 +305,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         external
         payable
         override
+        nonReentrant
         whileBorrowing
         onlyBorrower
         returns (bool)
@@ -325,6 +329,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         external
         payable
         override
+        nonReentrant
         whileBorrowing
         returns (bool)
     {
@@ -350,6 +355,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function borrow(bytes32 id, uint256 amount)
         external
         override
+        nonReentrant
         whileActive
         onlyBorrower
         returns (bool)
@@ -382,6 +388,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     function withdraw(bytes32 id, uint256 amount)
         external
         override
+        nonReentrant
         returns (bool)
     {
         Credit memory credit = credits[id];
@@ -407,7 +414,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.close
-    function close(bytes32 id) external payable override returns (bool) {
+    function close(bytes32 id) external payable override nonReentrant returns (bool) {
         Credit memory credit = credits[id];
         if(msg.sender != borrower) {
           revert CallerAccessDenied();
