@@ -93,7 +93,6 @@ contract SpigotedLineTest is Test {
 
       startHoax(borrower);
       line.addCredit(dRate, fRate, lentAmount, creditT, lender);
-      line.addSpigot(revenueC, setting);
       vm.stopPrank();
       
       startHoax(lender);
@@ -166,7 +165,7 @@ contract SpigotedLineTest is Test {
         1
       );
 
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       // dex balances
@@ -196,7 +195,7 @@ contract SpigotedLineTest is Test {
         1
       );
 
-      hoax(borrower);
+      hoax(arbiter);
       // No unused tokens so can't get approved
       vm.expectRevert(SpigotedLineLib.TradeFailed.selector);
       line.claimAndTrade(address(revenueToken), tradeData);
@@ -236,7 +235,6 @@ contract SpigotedLineTest is Test {
         15 ether
       );
 
-      hoax(borrower);
 
       // wierd setup bc  only way to tell if we didnt trade from outside is events/calls
       // but claimEscrow is called in both branches so can only test for DEX interacvtions
@@ -244,6 +242,7 @@ contract SpigotedLineTest is Test {
       // we say we expect a trade event (A)
       // then say we expect our expectation to fail (B) 
       // when tokens aren't traded (C)
+      hoax(arbiter);
       vm.expectRevert("Log != expected log");  // (B)
       try line.claimAndTrade(creditT, tradeData) /* (C) */returns(uint256) {
         // say that we expect the tokens to be traded
@@ -277,13 +276,14 @@ contract SpigotedLineTest is Test {
       );
 
       // No unused tokens so can't get approved
-      vm.startPrank(borrower);
+      hoax(arbiter);
       vm.expectRevert(SpigotedLineLib.TradeFailed.selector);
       line.claimAndTrade(address(revenueToken), tradeData);
+
       (,uint p,,,,,) = line.credits(line.ids(0));
-      
       assertEq(p, lentAmount); // nothing repaid
 
+      hoax(borrower);
       vm.expectRevert();
       line.useAndRepay(1);
       vm.stopPrank();
@@ -307,7 +307,7 @@ contract SpigotedLineTest is Test {
       );
 
     // make unused tokens available
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       assertEq(line.unused(address(revenueToken)), 1);
@@ -333,7 +333,7 @@ contract SpigotedLineTest is Test {
       );
 
       // make unused tokens available
-      vm.startPrank(borrower);
+      vm.startPrank(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       assertEq(line.unused(address(revenueToken)), 1);
@@ -372,7 +372,7 @@ contract SpigotedLineTest is Test {
       );
 
       // make unused tokens available
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       assertEq(line.unused(address(creditToken)), lentAmount / 2);
@@ -404,7 +404,7 @@ contract SpigotedLineTest is Test {
       );
 
       // make unused tokens available
-      vm.startPrank(borrower);
+      vm.startPrank(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       assertEq(line.unused(address(creditToken)), lentAmount / 2);
@@ -448,7 +448,7 @@ contract SpigotedLineTest is Test {
 
       uint claimable = spigot.getOwnerTokens(address(revenueToken));
 
-      vm.prank(borrower);
+      vm.prank(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       // TODO this got merged in, maybe removable
@@ -476,7 +476,7 @@ contract SpigotedLineTest is Test {
       );
 
       vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
     }
 
@@ -516,7 +516,7 @@ contract SpigotedLineTest is Test {
 
       uint claimable = spigot.getOwnerTokens(Denominations.ETH);
 
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(Denominations.ETH, tradeData);
 
       assertEq(line.unused(creditT), lentAmount);
@@ -538,7 +538,7 @@ contract SpigotedLineTest is Test {
       );
 
       uint claimable = spigot.getOwnerTokens(address(revenueToken));
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
       assertEq(line.unused(Denominations.ETH), lentAmount);
     }
@@ -569,7 +569,7 @@ contract SpigotedLineTest is Test {
       uint claimable = spigot.getOwnerTokens(address(revenueToken));
 
 
-      vm.prank(borrower);
+      vm.prank(arbiter);
       console.log(buyAmount);
       console.log(sellAmount);
       line.claimAndRepay(address(revenueToken), tradeData);
@@ -680,7 +680,7 @@ contract SpigotedLineTest is Test {
         claimed - 1,
         lentAmount
       );
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
       vm.stopPrank();
 
@@ -710,7 +710,7 @@ contract SpigotedLineTest is Test {
         lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
       );
       
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndRepay(address(revenueToken), tradeData);
       bytes32 id = line.ids(0);
       hoax(borrower);
@@ -735,7 +735,7 @@ contract SpigotedLineTest is Test {
         lentAmount + 1 ether // give excess tokens so we can sweep with out UsedExcess error
       );
 
-      vm.prank(borrower);
+      vm.prank(arbiter);
       line.claimAndRepay(address(revenueToken), tradeData);
       
       bytes32 id = line.ids(0);
@@ -770,8 +770,8 @@ contract SpigotedLineTest is Test {
         MAX_REVENUE / 100,
         lentAmount // give excess tokens so we can sweep with out UsedExcess error
       );
-      hoax(borrower);
 
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       vm.warp(ttl+1);
@@ -788,7 +788,7 @@ contract SpigotedLineTest is Test {
 
       uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amount 
 
-      hoax(borrower);
+      hoax(arbiter);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -817,7 +817,7 @@ contract SpigotedLineTest is Test {
 
       _borrow(line.ids(0), lentAmount);
 
-      hoax(borrower);
+      hoax(arbiter);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -838,7 +838,7 @@ contract SpigotedLineTest is Test {
 
       _borrow(line.ids(0), lentAmount);
 
-      hoax(borrower);
+      hoax(arbiter);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -867,7 +867,7 @@ contract SpigotedLineTest is Test {
 
       _borrow(line.ids(0), lentAmount);
 
-      hoax(borrower);
+      hoax(arbiter);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -976,10 +976,9 @@ contract SpigotedLineTest is Test {
         transferOwnerFunction: bytes4("1234")
       });
 
+      hoax(lender);
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.addSpigot(rev, setting);
-      (,,bytes4 transferFunc) = spigot.getSetting(rev);
-      // settings not saved on spigot contract
-      assertEq(transferFunc, bytes4(0));
     }
 
     function test_can_add_spigot_with_consent() public {
@@ -990,8 +989,7 @@ contract SpigotedLineTest is Test {
         transferOwnerFunction: bytes4("1234")
       });
 
-      line.addSpigot(rev, setting);
-      hoax(borrower);
+      // hoax(arbiter);
       line.addSpigot(rev, setting);
 
       (uint8 split,bytes4 claim,bytes4 transfer) = spigot.getSetting(rev);
@@ -1004,13 +1002,13 @@ contract SpigotedLineTest is Test {
     // updateWhitelist
     function test_cant_whitelist_as_anon() public {
       hoax(address(0xdebf));
-      vm.expectRevert();
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.updateWhitelist(bytes4("0000"), true);
     }
 
     function test_cant_whitelist_as_borrower() public {
       hoax(borrower);
-      vm.expectRevert();
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.updateWhitelist(bytes4("0000"), true);
     }
 
@@ -1048,7 +1046,7 @@ contract SpigotedLineTest is Test {
         lentAmount
       );
 
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       vm.prank(lender); // prank lender
@@ -1073,13 +1071,18 @@ contract SpigotedLineTest is Test {
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.claimAndRepay(address(revenueToken), tradeData);
       
-      // arbiter can't claim and repay
-      vm.prank(arbiter);
+      // borrower can't claim and repay
+      vm.prank(borrower);
+      vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
+      line.claimAndRepay(address(revenueToken), tradeData);
+
+      // lender can't claim and repay
+      vm.prank(lender);
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
       line.claimAndRepay(address(revenueToken), tradeData);
     }
     
-    function test_lender_can_claim_and_repay() public {
+    function test_arbiter_can_claim_and_repay() public {
       _borrow(line.ids(0), lentAmount);
       
       bytes memory tradeData = abi.encodeWithSignature(
@@ -1090,7 +1093,7 @@ contract SpigotedLineTest is Test {
         lentAmount
       );
 
-      vm.prank(lender);
+      vm.prank(arbiter);
       line.claimAndRepay(address(revenueToken), tradeData);
     }
 }
