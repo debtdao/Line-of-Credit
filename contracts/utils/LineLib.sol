@@ -15,7 +15,12 @@ library LineLib {
     using SafeERC20 for IERC20;
 
     error TransferFailed();
+    error SendingEthFailed();
+    error RefundEthFailed();
+
     error BadToken();
+
+    event RefundIssued(address indexed recipient, uint256 value);
 
     enum STATUS {
         UNINITIALIZED,
@@ -44,8 +49,9 @@ library LineLib {
         // both branches revert if call failed
         if(token!= Denominations.ETH) { // ERC20
             IERC20(token).safeTransfer(receiver, amount);
-        } else { // ETHß
-            _safeTransferFunds(receiver, amount, "Sending Eth failed");
+        } else { // ETH
+            bool success = _safeTransferFunds(receiver, amount);
+            if (!success) { revert SendingEthFailed(); } // TODO: test me
         }
         return true;
     }
@@ -69,7 +75,16 @@ library LineLib {
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
             if( msg.value < amount) { revert TransferFailed(); }
-            if( msg.value > amount) { _safeTransferFunds(msg.sender, msg.value - amount, "Failed to send refund"); }
+
+            // refund if overpaid TODO: test me
+            if( msg.value > amount) { 
+                uint256 refund = msg.value - amount;
+               bool success = _safeTransferFunds(msg.sender, refund); 
+               emit RefundIssued(msg.sender, refund);
+               if (!success) {
+                    _safeTransferFunds(address(this), refund); // TODO: test claiming as revenue after self-paying
+               }
+            }
         }
         return true;
     }
@@ -87,18 +102,16 @@ library LineLib {
 
 
     /**
-     * @notice - Helper function to safely transfer Eth using native call
+     * @notice  - Helper function to safely transfer Eth using native call
+     * @dev     - Errors should be handled in the calling function
      * @param recipient - address of the recipient
      * @param value - value to be sent (in wei)
-     * @param errorMessage - the reason for the revert
     */
     function _safeTransferFunds(
         address recipient,
-        uint256 value,
-        string memory errorMessage
-    ) internal {
-        (bool success, ) = payable(recipient).call{value: value}("");
-        require(success, errorMessage);
+        uint256 value
+    ) internal returns (bool success){
+        (success, ) = payable(recipient).call{value: value}("");
     }
 
 }
