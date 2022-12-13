@@ -184,7 +184,6 @@ contract LineLibTest is Test {
         assert(ids[1] == bytes32(0)); // ensure deleted
     }
 
-
     function test_cannot_remove_non_existent_position() public {
         bytes32 id = CreditLib.computeId(line, lender, tkn);
         ids.push(id);
@@ -194,41 +193,6 @@ contract LineLibTest is Test {
         assertEq(ids[0], id);
     }
 
-
-    function test_can_properly_step_queue(uint256 length) public {
-        uint l = 10;
-        ids = new bytes32[](l);
-        // ensure array is within reasonable bounds
-        vm.assume(length != 0 && length < ids.length);
-        if(length == 1) {
-            ids[0] = bytes32(0);
-            ids.stepQ();
-            assertEq(ids[0], ids[0]);
-            return;
-        }
-
-        if(length == 2) {
-            ids[0] = bytes32(0);
-            ids[1] = bytes32(uint(1));
-
-            ids.stepQ();
-            assertEq(ids[0], bytes32(uint(1)));
-            assertEq(ids[1], bytes32(0));
-            return;
-        }
-
-        for(uint256 i = 0; i < length; i++) {
-          ids[i] == bytes32(i);
-        }
-        ids.stepQ();
-        
-        assertEq(ids.length, l);
-        
-        for(uint256 i = 0; i < l; i++) {
-          if(i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
-          else assertEq(ids[i], ids[i - 1]);      // all others move one index down
-        }
-    }
 
     
 

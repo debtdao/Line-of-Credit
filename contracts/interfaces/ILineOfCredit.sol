@@ -91,6 +91,7 @@ interface ILineOfCredit {
     error AlreadyInitialized();
     error PositionIsClosed();
     error RepayAmountExceedsDebt(uint256 totalAvailable);
+    error CantStepQ();
 
     // Fully public functions
 
@@ -224,6 +225,13 @@ interface ILineOfCredit {
     function accrueInterest() external returns (bool);
 
     function healthcheck() external returns (LineLib.STATUS);
+
+    /**
+     * @notice - Cycles through position ids andselects first position with non-null principal to the zero index
+     * @dev - Only works if the first element in the queue is null
+     * @return bool - if call suceeded or not
+     */
+    function stepQ() external returns (bool);
 
     /**
      * @notice - Returns the total debt of a Borrower across all positions for all Lenders.

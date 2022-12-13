@@ -82,7 +82,6 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     address targetToken
   )
     external
-    whileBorrowing
     returns(uint256)
   {
     if(msg.sender != arbiter) { revert CallerAccessDenied(); }

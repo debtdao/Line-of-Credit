@@ -417,15 +417,25 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         credit = _accrue(credit, id);
         uint256 facilityFee = credit.interestAccrued;
         if(facilityFee > 0) {
-          // only allow repaying interest since they are skipping repayment queue.
-          // If principal still owed, _close() MUST fail
-          LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-
-          credit = _repay(credit, id, facilityFee);
+            // only allow repaying interest since they are skipping repayment queue.
+            // If principal still owed, _close() MUST fail
+            LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
+            credit = _repay(credit, id, facilityFee);
         }
 
         credits[id] = _close(credit, id);
 
+        return true;
+    }
+
+    /**
+     * @notice - This is a redundancy measure that unlocks the queue should it get stuck with a null (zero) element
+     *         - at the zero index
+     * @dev - Only works if the first element in the queue is null
+     */
+    function stepQ() external returns(bool) {
+        if (ids[0] != bytes32(0)) { revert CantStepQ(); }
+        ids.stepQ();
         return true;
     }
 
@@ -499,9 +509,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         credit = CreditLib.repay(credit, id, amount);
         
 
-        // if credit line fully repaid then remove it from the repayment queue
-        if (credit.principal == 0) ids.stepQ();
-
         return credit;
     }
 
@@ -509,6 +516,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @notice - checks that a credit line is fully repaid and removes it
      * @dev deletes credit storage. Store any data u might need later in call before _close()
      * @dev - privileged internal function. MUST check params and logic flow before calling
+     * @dev - when the line being closed is at the 0-index in the ids array, the null index is replaced using `.stepQ`
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
@@ -517,8 +525,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         credit.isOpen = false;
 
-        // remove from active list
+        // nullify the element for `id`
         ids.removePosition(id);
+
+        // if positions was 1st in Q, cycle to next valid position
+        if (ids[0] == bytes32(0)) ids.stepQ();
+
         unchecked {
             --count;
         }
