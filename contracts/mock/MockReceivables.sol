@@ -18,3 +18,15 @@ contract MockReceivables {
 
 
 }
+
+contract MockStatefulReceivables is MockReceivables {
+
+    bool receiveEnabled = true;
+
+    function setReceiveableState(bool state) external {
+      receiveEnabled = state;
+    }
+    receive() external payable {
+      if(!receiveEnabled) revert();
+    }
+}
