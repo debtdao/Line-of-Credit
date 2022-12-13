@@ -13,12 +13,12 @@ import { LineLib } from "./LineLib.sol";
  */
 library CreditLib {
 
-    event AddCredit(
-        address indexed lender,
-        address indexed token,
-        uint256 indexed deposit,
-        bytes32 id
-    );
+  event AddCredit(
+      address indexed lender,
+      address indexed token,
+      uint256 indexed deposit,
+      bytes32 id
+  );
 
   /// @notice Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
   event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
@@ -49,6 +49,8 @@ library CreditLib {
   error NoTokenPrice();
 
   error PositionExists();
+
+  error RepayAmountExceedsDebt(uint256 totalAvailable);
 
 
   /**
@@ -152,7 +154,8 @@ library CreditLib {
           deposit: amount,
           principal: 0,
           interestAccrued: 0,
-          interestRepaid: 0
+          interestRepaid: 0,
+          isOpen: true
       });
 
       emit AddCredit(lender, token, amount, id);
@@ -173,12 +176,17 @@ library CreditLib {
     external
     returns (ILineOfCredit.Credit memory)
   { unchecked {
+      if(amount > credit.principal + credit.interestAccrued) {
+        revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
+      }
+
       if (amount <= credit.interestAccrued) {
           credit.interestAccrued -= amount;
           credit.interestRepaid += amount;
           emit RepayInterest(id, amount);
           return credit;
       } else {
+          require(credit.isOpen);
           uint256 interest = credit.interestAccrued;
           uint256 principalPayment = amount - interest;
 

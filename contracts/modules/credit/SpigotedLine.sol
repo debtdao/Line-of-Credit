@@ -98,12 +98,12 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
-        if (msg.sender != borrower && msg.sender != credit.lender) {
+        if (msg.sender != arbiter) {
             revert CallerAccessDenied();
         }
 
         uint256 newTokens = claimToken == credit.token ?
-          spigot.claimEscrow(claimToken) :  // same asset. dont trade
+          spigot.claimOwnerTokens(claimToken) :  // same asset. dont trade
           _claimAndTrade(                   // trade revenue token for debt obligation
               claimToken,
               credit.token,
@@ -115,7 +115,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // cap payment to debt value
         if (repaid > debt) repaid = debt;
-        // update unused amount based on usage
+
+        // update reserves based on usage
         if (repaid > newTokens) {
             // using bought + unused to repay line
             unusedTokens[credit.token] -= repaid - newTokens;
@@ -136,10 +137,16 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function useAndRepay(uint256 amount) external whileBorrowing returns(bool) {
       bytes32 id = ids[0];
       Credit memory credit = credits[id];
+
       if (msg.sender != borrower && msg.sender != credit.lender) {
         revert CallerAccessDenied();
       }
-      require(amount <= unusedTokens[credit.token]);
+
+      if(amount > unusedTokens[credit.token]) {
+        revert ReservesOverdrawn(unusedTokens[credit.token]);
+      }
+
+      // reduce reserves before _repay calls token to prevent reentrancy
       unusedTokens[credit.token] -= amount;
 
       credits[id] = _repay(_accrue(credit, id), id, amount);
@@ -156,11 +163,13 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         nonReentrant
         returns (uint256)
     {
-        require(msg.sender == borrower);
+        if (msg.sender != arbiter) {
+            revert CallerAccessDenied();
+        }
 
         address targetToken = credits[ids[0]].token;
         uint256 newTokens = claimToken == targetToken ?
-          spigot.claimEscrow(claimToken) : // same asset. dont trade
+          spigot.claimOwnerTokens(claimToken) : // same asset. dont trade
           _claimAndTrade(                   // trade revenue token for debt obligation
               claimToken,
               targetToken,
@@ -224,9 +233,11 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         ISpigot.Setting calldata setting
     )
         external
-        mutualConsent(arbiter, borrower)
         returns (bool)
     {
+        if (msg.sender != arbiter) {
+            revert CallerAccessDenied();
+        }
         return spigot.addSpigot(revenueContract, setting);
     }
 
@@ -235,7 +246,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         external
         returns (bool)
     {
-        require(msg.sender == arbiter);
+        if (msg.sender != arbiter) {
+            revert CallerAccessDenied();
+        }
         return spigot.updateWhitelistedFunction(func, allowed);
     }
 

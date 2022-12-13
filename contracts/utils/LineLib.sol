@@ -14,6 +14,7 @@ import { Denominations } from "chainlink/Denominations.sol";
 library LineLib {
     using SafeERC20 for IERC20;
 
+    error EthSentWithERC20();
     error TransferFailed();
     error SendingEthFailed();
     error RefundEthFailed();
@@ -74,6 +75,7 @@ library LineLib {
     {
         if(token == address(0)) { revert TransferFailed(); }
         if(token != Denominations.ETH) { // ERC20
+            if (msg.value > 0) { revert EthSentWithERC20(); }
             IERC20(token).safeTransferFrom(sender, address(this), amount);
         } else { // ETH
             if( msg.value < amount) { revert TransferFailed(); } 

@@ -32,7 +32,6 @@ interface ILineFactory {
 
     function deploySpigot(
         address owner,
-        address borrower,
         address operator
     ) external returns (address);
 

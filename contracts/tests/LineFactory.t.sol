@@ -75,7 +75,6 @@ contract LineFactoryTest is Test {
         // owner, treasury, operator
         address moduleSpigot = moduleFactory.deploySpigot(
             address(this), // owner
-            borrower,
             borrower
         );
 

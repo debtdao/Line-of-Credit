@@ -9,7 +9,6 @@ import {LineLib} from "../utils/LineLib.sol";
 import {CreditLib} from "../utils/CreditLib.sol";
 import {CreditListLib} from "../utils/CreditListLib.sol";
 import {MutualConsent} from "../utils/MutualConsent.sol";
-import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
@@ -18,6 +17,15 @@ import {SimpleOracle} from "../mock/SimpleOracle.sol";
 
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
+    event MutualConsentRegistered(
+        bytes32 _consentHash
+    );
+    event MutualConsentRevoked(bytes32 _toRevoke);
+    event SetRates(
+        bytes32 indexed id,
+        uint128 indexed dRate,
+        uint128 indexed fRate
+    );
 }
 
 contract LineTest is Test, Events {
@@ -80,10 +88,12 @@ contract LineTest is Test, Events {
     }
 
     function _addCredit(address token, uint256 amount) public {
-        vm.prank(borrower);
+        vm.startPrank(borrower);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
-        vm.prank(lender);
+        vm.startPrank(lender);
+        vm.expectEmit(false, true, true, false);
+        emit Events.SetRates(bytes32(0), dRate, fRate);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
     }
@@ -112,6 +122,14 @@ contract LineTest is Test, Events {
         }
 
         return tokens;
+    }
+
+    function test_isOpen_false_on_create() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        (,,,,,,, bool d) = line.credits(id);
+        console.log(d);
+        assertEq(d, true);
     }
 
     function test_positions_move_in_queue_of_2() public {
@@ -147,165 +165,6 @@ contract LineTest is Test, Events {
         line.depositAndClose();
 
         assertEq(line.ids(0), id);
-    }
-
-    function test_positions_move_in_queue_of_4_random_active_line() public {
-        address[] memory tokens = setupQueueTest(2);
-        address token3 = tokens[0];
-        address token4 = tokens[1];
-
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
-        line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
-        line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
-        vm.stopPrank();
-
-        vm.startPrank(lender);
-        bytes32 id = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(supportedToken1),
-            lender
-        );
-        bytes32 id2 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(supportedToken2),
-            lender
-        );
-        bytes32 id3 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(token3),
-            lender
-        );
-        bytes32 id4 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(token4),
-            lender
-        );
-        vm.stopPrank();
-
-        assertEq(line.ids(0), id);
-        assertEq(line.ids(1), id2);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id4);
-
-        hoax(borrower);
-        line.borrow(id2, 1 ether);
-
-        assertEq(line.ids(0), id2);
-        assertEq(line.ids(1), id);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id4);
-        hoax(borrower);
-
-        line.borrow(id4, 1 ether);
-
-        assertEq(line.ids(0), id2);
-        assertEq(line.ids(1), id4);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id); // id switches with id4, not just pushed one step back in queue
-        hoax(borrower);
-        line.depositAndClose();
-
-        assertEq(line.ids(0), id4);
-        assertEq(line.ids(1), id3);
-        assertEq(line.ids(2), id);
-    }
-
-    // check that only borrowing from the last possible id will still sort queue properly
-    // testing for bug in code where _i is initialized at 0 and never gets updated causing position to go to first position in repayment queue
-    function test_positions_move_in_queue_of_4_only_last() public {
-        vm.prank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        vm.prank(lender);
-        bytes32 id = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(supportedToken1),
-            lender
-        );
-        vm.prank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken2), lender);
-        vm.prank(lender);
-        bytes32 id2 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(supportedToken2),
-            lender
-        );
-
-        address[] memory tokens = setupQueueTest(2);
-        address token3 = tokens[0];
-        address token4 = tokens[1];
-
-        vm.prank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(token3), lender);
-        vm.prank(lender);
-        bytes32 id3 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(token3),
-            lender
-        );
-
-        vm.prank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(token4), lender);
-        vm.prank(lender);
-        bytes32 id4 = line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(token4),
-            lender
-        );
-
-        assertEq(line.ids(0), id);
-        assertEq(line.ids(1), id2);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id4);
-
-        vm.prank(borrower);
-
-        line.borrow(id4, 1 ether);
-
-        assertEq(line.ids(0), id4);
-        assertEq(line.ids(1), id2);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id);
-
-        vm.prank(borrower);
-        line.borrow(id, 1 ether);
-
-        assertEq(line.ids(0), id4);
-        assertEq(line.ids(1), id);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id2); // id switches with id4, not just pushed one step back in queue
-
-        vm.prank(borrower);
-        line.depositAndRepay(1 wei);
-
-        assertEq(line.ids(0), id4);
-        assertEq(line.ids(1), id);
-        assertEq(line.ids(2), id3);
-        assertEq(line.ids(3), id2);
-
-        vm.prank(borrower);
-        line.depositAndClose();
-
-        assertEq(line.ids(0), id);
-        assertEq(line.ids(1), id3);
-        assertEq(line.ids(2), id2);
     }
 
     // init
@@ -360,6 +219,7 @@ contract LineTest is Test, Events {
         );
     }
 
+    // TODO take out with native ETH removal
     function test_can_add_credit_position_and_refund_excess_eth() public {
         assertEq(
             supportedToken1.balanceOf(address(line)),
@@ -398,6 +258,8 @@ contract LineTest is Test, Events {
             "Line balance should be 1e18"
         );
     }
+
+
 
     function test_can_add_credit_position_ETH() public {
         assertEq(address(line).balance, 0, "Line balance should be 0");
@@ -636,12 +498,10 @@ contract LineTest is Test, Events {
         );
         hoax(borrower);
         line.depositAndClose();
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Tokens should be sent back to lender"
-        );
-        (uint256 p, uint256 i) = line.updateOutstandingDebt();
+        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Tokens should not be sent back to lender");
+        (,,,,,,, bool d) = line.credits(id);
+        assertEq(d, false);
+        (uint p, uint i) = line.updateOutstandingDebt();
         assertEq(p + i, 0, "Line outstanding credit should be 0");
     }
 
@@ -678,18 +538,10 @@ contract LineTest is Test, Events {
         );
     }
 
-    function test_return_lender_funds_on_deposit_and_close() public {
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line balance should be 0"
-        );
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Lender should have initial mint balance"
-        );
-
+    function test_does_not_return_lender_funds_on_deposit_and_close() public {
+        assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
+        
         _addCredit(address(supportedToken1), 1 ether);
 
         bytes32 id = line.ids(0);
@@ -703,48 +555,23 @@ contract LineTest is Test, Events {
         );
 
         // test depsoitAndClose()
-        hoax(borrower);
+        vm.startPrank(borrower);
         line.borrow(id, 1 ether);
-
-        assertEq(
-            supportedToken1.balanceOf(borrower),
-            mintAmount + 1 ether,
-            "Borrower should have initial balance + loan"
-        );
-
-        hoax(borrower);
+        
         line.depositAndClose();
 
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Lender should have initial balance after depositAndClose"
-        );
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line should not have tokens"
-        );
+        vm.stopPrank();
 
-        assertEq(
-            uint256(line.status()),
-            uint256(LineLib.STATUS.REPAID),
-            "Line not repaid"
-        );
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should not have initial balance after depositAndClose");
+        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line should have tokens");
+        
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
-    function test_return_lender_funds_on_close() public {
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line balance should be 0"
-        );
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Lender should have initial mint balance"
-        );
-
+    function test_does_not_return_lender_funds_on_close() public {
+        assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
+         
         _addCredit(address(supportedToken1), 1 ether);
 
         bytes32 id = line.ids(0);
@@ -766,32 +593,107 @@ contract LineTest is Test, Events {
 
         hoax(borrower);
         line.depositAndRepay(1 ether);
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+        
+        hoax(borrower);
+        line.close(id);
+
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance after close");
+        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line should not have tokens");
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+    }
+
+
+    function test_lender_can_still_withdraw_after_position_is_closed() public {
+        assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
+         
+        _addCredit(address(supportedToken1), 1 ether);
+
+        bytes32 id = line.ids(0);
+        assert(id != bytes32(0));
+
         assertEq(
             supportedToken1.balanceOf(lender),
             mintAmount - 1 ether,
-            "Contract should have initial balance less lent amount"
+            "Lender should have initial balance less lent amount"
         );
 
-        hoax(lender);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+        assertEq(
+            supportedToken1.balanceOf(borrower),
+            mintAmount + 1 ether,
+            "Borrower should have initial balance + loan"
+        );
+
+        hoax(borrower);
+        line.depositAndRepay(1 ether);
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance less lent amount");
+        
+        hoax(borrower);
         line.close(id);
 
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Contract should have initial balance after close"
-        );
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line should not have tokens"
-        );
-        assertEq(
-            uint256(line.status()),
-            uint256(LineLib.STATUS.REPAID),
-            "Line not repaid"
-        );
+        hoax(lender);
+        line.withdraw(id, 1 ether);
+
+        assertEq(supportedToken1.balanceOf(lender), mintAmount, "Contract should have initial balance after close");
+        assertEq(supportedToken1.balanceOf(address(line)), 0, "Line should have tokens");
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
+    function test_all_position_data_is_deleted_after_lender_withdraws_all_money() public {
+
+        _addCredit(address(supportedToken1), 1 ether);
+
+        bytes32 id = line.ids(0);
+        
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
+        
+        vm.warp(ttl-2); // TODO calculate and compare accrued IR
+        
+        hoax(borrower);
+        line.close(id);
+        
+        (uint256 d,,uint256 r,uint256 i,,,address l,) = line.credits(id);
+        uint256 amt = (supportedToken1.balanceOf(address(line)));
+
+        hoax(lender);
+        line.withdraw(id, d + i);
+
+        ( uint256 d2,, uint256 r2, uint256 i2,,, address l2,) = line.credits(id);
+
+        // lender is only var that should never be nulll/0 so is only way to check if position deleted
+        assertEq(l2, address(0), "position has not been deleted");
+        // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+    }
+
+    // TODO before close, isOpen is true, after close, isOpen is false. Lender is not 0
+     function test_position_data_still_exists_after_position_is_closed() public {
+
+        _addCredit(address(supportedToken1), 1 ether);
+
+        bytes32 id = line.ids(0);
+        
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
+        
+        vm.warp(ttl-2); // TODO calculate and compare accrued IR
+        
+        (uint256 d,,uint256 r,uint256 i,,,address l, bool o) = line.credits(id);
+        assertEq(o, true, "position is not open");
+        hoax(borrower);
+        line.close(id);
+        (uint256 d2,,uint256 r2,uint256 i2,,,address l2, bool o2) = line.credits(id);
+        console.log(o2);
+        assertEq(o2, false, "position is not closed");
+        assertEq(l2 != address(0),true, "lender is null");
+     }
+
+    // All interest andd debt is paid off on close
+
+
+    // TODO
     function test_accrues_and_repays_facility_fee_on_close() public {
         assertEq(
             supportedToken1.balanceOf(address(line)),
@@ -812,49 +714,33 @@ contract LineTest is Test, Events {
         _addCredit(address(supportedToken1), 1 ether);
 
         bytes32 id = line.ids(0);
+        
+        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
+        
+        vm.warp(ttl-2); // TODO calculate and compare accrued IR
+        
 
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount - 1 ether,
-            "Lender should have initial balance less lent amount"
-        );
+        
+        line.accrueInterest();
+        (uint256 d, uint256 p,uint256 r,uint256 i,,,address l, bool o) = line.credits(id);
+
+        assertGt(r, 0);
+        assertEq(i, 0);
+        assertEq(p, 0, "deposit has value"); // ensure facility fee
+        assertGt(d, 0);
+        assertTrue(o);
 
         hoax(borrower);
-        line.borrow(id, 1 ether);
-
-        assertEq(
-            supportedToken1.balanceOf(borrower),
-            mintAmount + 1 ether,
-            "Borrower should have initial balance plus borrowed amount"
-        );
-
-        hoax(borrower);
-        line.depositAndRepay(1 ether);
-
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount - 1 ether,
-            "Lender should have initial balance after depositAndClose"
-        );
-
-        hoax(lender);
         line.close(id);
 
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Contract should have initial balance after close"
-        );
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line should not have tokens"
-        );
-        assertEq(
-            uint256(line.status()),
-            uint256(LineLib.STATUS.REPAID),
-            "Line not repaid"
-        );
+        (uint256 d2,,uint256 r2,uint256 i2,,,address l2, bool o2) = line.credits(id);
+
+        assertEq(i2, r);
+        assertEq(r2, 0);
+        assertFalse(o2);
+        
+        // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
     function test_cannot_open_credit_position_without_consent() public {
@@ -875,7 +761,7 @@ contract LineTest is Test, Events {
     function test_cannot_borrow_from_nonexistant_position() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        vm.expectRevert(ILineOfCredit.NoLiquidity.selector);
+        vm.expectRevert(ILineOfCredit.PositionIsClosed.selector); 
         hoax(borrower);
         line.borrow(bytes32(uint256(12743134)), 1 ether);
     }
@@ -929,7 +815,7 @@ contract LineTest is Test, Events {
         _addCredit(address(supportedToken2), 1 ether);
         hoax(borrower);
         line.depositAndClose();
-        vm.expectRevert(ILineOfCredit.NoLiquidity.selector);
+        vm.expectRevert(ILineOfCredit.PositionIsClosed.selector);
         hoax(borrower);
         line.borrow(id, 1 ether);
     }
@@ -965,13 +851,13 @@ contract LineTest is Test, Events {
         line.close(id);
     }
 
-    function test_can_close_as_lender() public {
+    function test_cant_close_as_lender() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 0.1 ether);
-
-        vm.expectRevert(ILineOfCredit.CloseFailedWithPrincipal.selector);
+        
+        vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
         hoax(lender);
         line.close(id);
     }
@@ -979,21 +865,21 @@ contract LineTest is Test, Events {
     function test_increase_credit_limit_with_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint256 d, , , , , , ) = line.credits(id);
-
+        (uint d,,,,,,,) = line.credits(id);
+        
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
         hoax(lender);
         line.increaseCredit(id, 1 ether);
-        (uint256 d2, , , , , , ) = line.credits(id);
+        (uint d2,,,,,,,) = line.credits(id);
         assertEq(d2 - d, 1 ether);
     }
 
     function test_cannot_increase_credit_limit_without_consent() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
-        (uint256 d, , , , , , ) = line.credits(id);
-
+        (uint d,,,,,,,) = line.credits(id);
+        
         hoax(borrower);
         line.increaseCredit(id, 1 ether);
         hoax(address(0xdebf));
@@ -1170,14 +1056,16 @@ contract LineTest is Test, Events {
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (, , uint256 interestAccruedBefore, , , , ) = line.credits(id);
+        (,,uint interestAccruedBefore,,,,,) = line.credits(id);
 
         vm.warp(ttl + 10 days);
         // accrue interest can be called after deadline
         line.accrueInterest();
 
         // check that accrued interest is saved to line credits
-        (, , uint256 interestAccruedAfter, , , , ) = line.credits(id);
+        (,,uint interestAccruedAfter,,,,,) = line.credits(id);
         assertGt(interestAccruedAfter, interestAccruedBefore);
     }
+
+
 }
