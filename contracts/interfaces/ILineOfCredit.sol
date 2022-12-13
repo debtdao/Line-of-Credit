@@ -87,6 +87,7 @@ interface ILineOfCredit {
     error NotInsolvent(address module);
     error NotLiquidatable();
     error AlreadyInitialized();
+    error RepayAmountExceedsDebt(uint256 totalAvailable);
 
     // Fully public functions
 

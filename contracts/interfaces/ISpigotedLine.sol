@@ -8,6 +8,8 @@ interface ISpigotedLine {
     // Mainly used to log debt that is paid via Spigot directly vs other sources. Without this event it's a lot harder to parse that offchain.
     event RevenuePayment(address indexed token, uint256 indexed amount);
 
+    error ReservesOverdrawn(uint256 totalAvailable);
+
     // @notice Log many revenue tokens were traded for credit tokens.
     // @notice differs from Revenue Payment because we trade revenue at different times from repaying with revenue
     // @dev Can you use to figure out price of revenue tokens offchain since we only have an oracle for credit tokens

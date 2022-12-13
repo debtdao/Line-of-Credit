@@ -147,11 +147,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.declareInsolvent
-    function declareInsolvent() external whileBorrowing returns (bool) {
-        if (arbiter != msg.sender) {
-            revert CallerAccessDenied();
-        }
-        if (LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
+    function declareInsolvent() external returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
             revert NotLiquidatable();
         }
 
@@ -253,6 +251,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         bytes32 id = _createCredit(lender, token, amount);
 
         require(interestRate.setRate(id, drate, frate));
+
+        emit SetRates(id, drate, frate);
 
         return id;
     }
