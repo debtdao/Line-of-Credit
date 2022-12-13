@@ -51,13 +51,15 @@ library LineLib {
             IERC20(token).safeTransfer(receiver, amount);
         } else { // ETH
             bool success = _safeTransferFunds(receiver, amount);
-            if (!success) { revert SendingEthFailed(); } // TODO: test me
+            if (!success) { revert SendingEthFailed(); } 
         }
         return true;
     }
 
     /**
      * @notice - Receive ETH or ERC20 token at this contract from an external contract
+     * @dev    - If the sender overpays, the difference will be refunded to the sender
+     * @dev    - If the sender is unable to receive the refund, it will be diverted to the calling contract
      * @param token - address of token to receive. Denominations.ETH for raw ETH
      * @param sender - address that is sendingtokens/ETH
      * @param amount - amount of tokens to send
@@ -76,13 +78,15 @@ library LineLib {
         } else { // ETH
             if( msg.value < amount) { revert TransferFailed(); } 
 
-            // refund if overpaid TODO: test me
             if( msg.value > amount) { 
                 uint256 refund = msg.value - amount;
                bool success = _safeTransferFunds(msg.sender, refund); 
-               emit RefundIssued(msg.sender, refund);
+               
                if (!success) {
-                    _safeTransferFunds(address(this), refund); // TODO: test claiming as revenue after self-paying
+                    _safeTransferFunds(address(this), refund);
+                    emit RefundIssued(address(this), refund);
+               } else {
+                    emit RefundIssued(msg.sender, refund);
                }
             }
         }

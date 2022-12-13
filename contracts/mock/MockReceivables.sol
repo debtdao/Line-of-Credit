@@ -27,8 +27,11 @@ contract MockStatefulReceivables is MockReceivables {
       receiveEnabled = state;
     }
 
+    function acceptOverPayment(address token, address from, uint256 amount, uint256 extra) external payable {
+      LineLib.receiveTokenOrETH(token, from, amount + extra);
+    }
+
     receive() external payable {
-      // revert();
       if(!receiveEnabled) revert();
     }
 }
