@@ -50,7 +50,7 @@ library CreditLib {
 
   error PositionExists();
 
-  error RepayingExcessRevenue(uint256 totalAvailable);
+  error RepayAmountExceedsDebt(uint256 totalAvailable);
 
 
   /**
@@ -176,7 +176,7 @@ library CreditLib {
     returns (ILineOfCredit.Credit memory)
   { unchecked {
       if(amount > credit.principal + credit.interestAccrued) {
-        revert RepayingExcessRevenue(credit.principal + credit.interestAccrued);
+        revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
       }
 
       if (amount <= credit.interestAccrued) {

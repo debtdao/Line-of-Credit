@@ -142,7 +142,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
       }
 
       if(amount > unusedTokens[credit.token]) {
-        revert UsingExcessReserves(unusedTokens[credit.token]);
+        revert ReservesOverdrawn(unusedTokens[credit.token]);
       }
 
       credits[id] = _repay(_accrue(credit, id), id, amount);

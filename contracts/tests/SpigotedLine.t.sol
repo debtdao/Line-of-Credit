@@ -286,7 +286,7 @@ contract SpigotedLineTest is Test {
 
       vm.expectRevert(
         abi.encodeWithSelector(
-         ISpigotedLine.UsingExcessReserves.selector,
+         ISpigotedLine.ReservesOverdrawn.selector,
          0
         )
       );
@@ -1126,7 +1126,7 @@ contract SpigotedLineTest is Test {
       
       vm.expectRevert(
         abi.encodeWithSelector(
-         ILineOfCredit.RepayingExcessRevenue.selector,
+         ILineOfCredit.RepayAmountExceedsDebt.selector,
          principalBeforeRepaying
         )
       );
