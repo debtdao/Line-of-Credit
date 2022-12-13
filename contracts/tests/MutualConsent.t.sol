@@ -197,7 +197,7 @@ contract MutualConsentTest is Test, Events {
         assertEq(line.mutualConsents(expectedHash), address(0));
     }
 
-    function test_addCredit_calling_function_after_revocation_fails() external {
+    function test_addCredit_calling_function_after_revocation_registers_new_consent() external {
         bytes memory msgData = _generateAddCreditMutualConsentMessageData(
             ILineOfCredit.addCredit.selector,
             dRate,
