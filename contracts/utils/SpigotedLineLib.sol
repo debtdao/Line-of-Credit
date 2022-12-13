@@ -5,6 +5,7 @@ import { ISpigotedLine } from "../interfaces/ISpigotedLine.sol";
 import { LineLib } from "../utils/LineLib.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 
+
 import { Denominations } from "chainlink/Denominations.sol";
 
 library SpigotedLineLib {
@@ -70,7 +71,7 @@ library SpigotedLineLib {
         
         // @dev claim has to be called after we get balance
         // reverts if there are no tokens to claim
-        uint256 claimed = ISpigot(spigot).claimEscrow(claimToken);
+        uint256 claimed = ISpigot(spigot).claimOwnerTokens(claimToken);
 
         trade(
             claimed + unused,
