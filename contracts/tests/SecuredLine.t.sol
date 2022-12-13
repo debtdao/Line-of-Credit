@@ -273,6 +273,7 @@ contract SecuredLineTest is Test {
         assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.LIQUIDATABLE));
     }
 
+    
     function test_can_liquidate_if_debt_when_deadline_passes() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
@@ -284,6 +285,30 @@ contract SecuredLineTest is Test {
         vm.warp(ttl + 1);
         line.liquidate(0.9 ether, address(supportedToken2));
     }
+
+    // test should succeed to liquidate when no debt (but positions exist) and passed deadline
+    function test_can_liquidate_if_no_debt_but_positions_exist_when_deadline_passes() public {
+        hoax(borrower);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+
+        vm.warp(ttl + 1);
+        line.liquidate(1 ether, address(supportedToken2));
+    }
+
+    // test should succeed to liquidate when there is debt and positions exist
+    // test should succeed to liquidate when collateral ratio is below min cratio
+    // test should fail to liquidate when no debt / no positions at deadline
+    // test should fail to liquidate if above cratio before deadline
+    // test should liquidate if above cratio after deadline
+    // should not be liquidatable if all positions closed (needs mo's PR)
+    // 
+    // 
+
+    // CONDITIONS:
+    // dont pay debt by deadline
+    // under minimum collateral value ( changing the oracle price )
 
     function test_must_be_in_debt_to_liquidate() public {
         vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
