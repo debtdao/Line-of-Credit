@@ -140,11 +140,14 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
       if (msg.sender != borrower && msg.sender != credit.lender) {
         revert CallerAccessDenied();
       }
-      require(amount <= unusedTokens[credit.token]); // unused
-      require(amount <= credit.principal + credit.interestAccrued); // debt
-      unusedTokens[credit.token] -= amount;
+
+      if(amount > unusedTokens[credit.token]) {
+        revert UsingExcessReserves(unusedTokens[credit.token]);
+      }
 
       credits[id] = _repay(_accrue(credit, id), id, amount);
+
+      unusedTokens[credit.token] -= amount;
 
       emit RevenuePayment(credit.token, amount);
 

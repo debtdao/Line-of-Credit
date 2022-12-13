@@ -284,7 +284,12 @@ contract SpigotedLineTest is Test {
       
       assertEq(p, lentAmount); // nothing repaid
 
-      vm.expectRevert();
+      vm.expectRevert(
+        abi.encodeWithSelector(
+         ISpigotedLine.UsingExcessReserves.selector,
+         0
+        )
+      );
       line.useAndRepay(1);
       vm.stopPrank();
     }
@@ -1117,8 +1122,15 @@ contract SpigotedLineTest is Test {
       assertEq(principalBeforeRepaying, lentAmount);
 
       // 3. Use and repay debt with previously claimed and traded revenue (largeRevenueAmount = 2 ether)
-      vm.prank(lender);
-      vm.expectRevert(bytes(""));
+      vm.startPrank(lender);
+      
+      vm.expectRevert(
+        abi.encodeWithSelector(
+         ILineOfCredit.RepayingExcessRevenue.selector,
+         principalBeforeRepaying
+        )
+      );
+
       line.useAndRepay(largeRevenueAmount);
     }
 }
