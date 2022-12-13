@@ -154,7 +154,8 @@ library CreditLib {
           deposit: amount,
           principal: 0,
           interestAccrued: 0,
-          interestRepaid: 0
+          interestRepaid: 0,
+          isOpen: true
       });
 
       emit AddCredit(lender, token, amount, id);
@@ -185,6 +186,7 @@ library CreditLib {
           emit RepayInterest(id, amount);
           return credit;
       } else {
+          require(credit.isOpen);
           uint256 interest = credit.interestAccrued;
           uint256 principalPayment = amount - interest;
 

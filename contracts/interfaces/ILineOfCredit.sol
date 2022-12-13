@@ -6,15 +6,17 @@ import {IOracle} from "../interfaces/IOracle.sol";
 interface ILineOfCredit {
     // Lender data
     struct Credit {
-        //  all denominated in token, not USD
-        uint256 deposit; // The total liquidity provided by a Lender in a given token on a Line of Credit
-        uint256 principal; // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (USD)
-        uint256 interestAccrued; // Interest due by a Borrower but not yet repaid to the Line of Credit contract
-        uint256 interestRepaid; // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
-        uint8 decimals; // Decimals of Credit Token for calcs
-        address token; // The token being lent out (Credit Token)
-        address lender; // The person to repay
+      //  all denominated in token, not USD
+      uint256 deposit;          // The total liquidity provided by a Lender in a given token on a Line of Credit
+      uint256 principal;        // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (USD)
+      uint256 interestAccrued;  // Interest due by a Borrower but not yet repaid to the Line of Credit contract
+      uint256 interestRepaid;   // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
+      uint8 decimals;           // Decimals of Credit Token for calcs
+      address token;            // The token being lent out (Credit Token)
+      address lender;           // The person to repay
+      bool isOpen;              // Status of position
     }
+
     // General Events
     event UpdateStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
@@ -87,6 +89,7 @@ interface ILineOfCredit {
     error NotInsolvent(address module);
     error NotLiquidatable();
     error AlreadyInitialized();
+    error PositionIsClosed();
     error RepayAmountExceedsDebt(uint256 totalAvailable);
 
     // Fully public functions

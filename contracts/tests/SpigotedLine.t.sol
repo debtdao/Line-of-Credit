@@ -279,8 +279,8 @@ contract SpigotedLineTest is Test {
       hoax(arbiter);
       vm.expectRevert(SpigotedLineLib.TradeFailed.selector);
       line.claimAndTrade(address(revenueToken), tradeData);
-
-      (,uint p,,,,,) = line.credits(line.ids(0));
+      (,uint p,,,,,,) = line.credits(line.ids(0));
+      
       assertEq(p, lentAmount); // nothing repaid
 
       hoax(borrower);
@@ -426,7 +426,7 @@ contract SpigotedLineTest is Test {
       );
 
       line.claimAndRepay(address(revenueToken), repayData);
-      (,uint p,,,,,) = line.credits(line.ids(0));
+      (,uint p,,,,,,) = line.credits(line.ids(0));
       vm.stopPrank();
 
       assertEq(p, 0);
@@ -581,7 +581,7 @@ contract SpigotedLineTest is Test {
       
 
       // principal, interest, repaid
-      (,uint p, uint i, uint r,,,) = line.credits(line.ids(0));
+      (,uint p, uint i, uint r,,,,) = line.credits(line.ids(0));
 
       // outstanding debt = initial principal + accrued interest - tokens repaid
       uint _buyAmount = buyAmount > lentAmount + interest ? lentAmount + interest : buyAmount;
@@ -1056,7 +1056,7 @@ contract SpigotedLineTest is Test {
 
       vm.prank(lender); // prank lender
       line.useAndRepay(lentAmount);
-      (, uint256 principal,,,,,) = line.credits(line.ids(0));
+      (, uint256 principal,,,,,,) = line.credits(line.ids(0));
       assertEq(principal, 0);
     }
     
@@ -1123,10 +1123,10 @@ contract SpigotedLineTest is Test {
         largeRevenueAmount
       );
 
-      hoax(borrower);
+      hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
-      (, uint256 principalBeforeRepaying,,,,,) = line.credits(line.ids(0));
+      (, uint256 principalBeforeRepaying,,,,,,) = line.credits(line.ids(0));
       assertEq(principalBeforeRepaying, lentAmount);
 
       // 3. Use and repay debt with previously claimed and traded revenue (largeRevenueAmount = 2 ether)
