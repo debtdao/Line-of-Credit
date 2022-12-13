@@ -2,7 +2,7 @@ pragma solidity ^0.8.9;
 
 interface ISpigot {
     struct Setting {
-        uint8 ownerSplit; // x/100 % to Owner, rest to Treasury
+        uint8 ownerSplit; // x/100 % to Owner, rest to Operator
         bytes4 claimFunction; // function signature on contract to call and claim revenue
         bytes4 transferOwnerFunction; // function signature on contract to call and transfer ownership
     }
@@ -27,11 +27,9 @@ interface ISpigot {
         address revenueContract
     );
 
-    event ClaimEscrow(
-        address indexed token,
-        uint256 indexed amount,
-        address owner
-    );
+    event ClaimOwnerTokens(address indexed token, uint256 indexed amount, address owner);
+    
+    event ClaimOperatorTokens(address indexed token, uint256 indexed amount, address operator);
 
     // Stakeholder Events
 
@@ -39,7 +37,7 @@ interface ISpigot {
 
     event UpdateOperator(address indexed newOperator);
 
-    event UpdateTreasury(address indexed newTreasury);
+    
 
     // Errors
     error BadFunction();
@@ -74,13 +72,14 @@ interface ISpigot {
         external
         returns (bool);
 
-    // owner funcs
-    function claimEscrow(address token) external returns (uint256 claimed);
+    // owner funcs  
 
-    function addSpigot(address revenueContract, Setting memory setting)
-        external
-        returns (bool);
+    function claimOwnerTokens(address token) external returns (uint256 claimed);
 
+    function claimOperatorTokens(address token) external returns (uint256 claimed);
+ 
+    function addSpigot(address revenueContract, Setting memory setting) external returns (bool);
+ 
     function removeSpigot(address revenueContract) external returns (bool);
 
     // stakeholder funcs
@@ -93,8 +92,6 @@ interface ISpigot {
 
     function updateOperator(address newOperator) external returns (bool);
 
-    function updateTreasury(address newTreasury) external returns (bool);
-
     function updateWhitelistedFunction(bytes4 func, bool allowed)
         external
         returns (bool);
@@ -102,13 +99,13 @@ interface ISpigot {
     // Getters
     function owner() external view returns (address);
 
-    function treasury() external view returns (address);
-
     function operator() external view returns (address);
 
     function isWhitelisted(bytes4 func) external view returns (bool);
 
-    function getEscrowed(address token) external view returns (uint256);
+    function getOwnerTokens(address token) external view returns(uint256);
+
+    function getOperatorTokens(address token) external view returns(uint256);
 
     function getSetting(address revenueContract)
         external
