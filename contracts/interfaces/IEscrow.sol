@@ -22,31 +22,31 @@ interface IEscrow {
 
     error NotLiquidatable();
 
-    // State var getters. 
+    // State var getters.
 
-    function line() external returns(address);
+    function line() external returns (address);
 
-    function oracle() external returns(address);
+    function oracle() external returns (address);
 
-    function borrower() external returns(address);
+    function borrower() external returns (address);
 
-    function minimumCollateralRatio() external returns(uint32);
+    function minimumCollateralRatio() external returns (uint32);
 
-    // Functions 
+    // Functions
 
-    function isLiquidatable() external returns(bool);
+    function isLiquidatable() external returns (bool);
 
-    function updateLine(address line_) external returns(bool);
+    function updateLine(address line_) external returns (bool);
 
-    function getCollateralRatio() external returns(uint);
-    
-    function getCollateralValue() external returns(uint);
+    function getCollateralRatio() external returns (uint);
 
-    function enableCollateral(address token) external returns(bool);
+    function getCollateralValue() external returns (uint);
 
-    function addCollateral(uint amount, address token) external payable returns(uint);
+    function enableCollateral(address token) external returns (bool);
 
-    function releaseCollateral(uint amount, address token, address to) external returns(uint);
-    
-    function liquidate(uint amount, address token, address to) external returns(bool);
+    function addCollateral(uint amount, address token) external payable returns (uint);
+
+    function releaseCollateral(uint amount, address token, address to) external returns (uint);
+
+    function liquidate(uint amount, address token, address to) external returns (bool);
 }

@@ -1,11 +1,10 @@
 pragma solidity 0.8.9;
 
-import { Denominations } from "chainlink/Denominations.sol";
-import { IOracle } from "../interfaces/IOracle.sol";
-import { LineLib } from "../utils/LineLib.sol";
+import {Denominations} from "chainlink/Denominations.sol";
+import {IOracle} from "../interfaces/IOracle.sol";
+import {LineLib} from "../utils/LineLib.sol";
 
 contract SimpleOracle is IOracle {
-
     mapping(address => int) prices;
 
     constructor(address _supportedToken1, address _supportedToken2) {
@@ -14,7 +13,7 @@ contract SimpleOracle is IOracle {
         prices[Denominations.ETH] = 2000 * 1e8; // 2000 USD
     }
 
-    function init() external pure returns(bool) {
+    function init() external pure returns (bool) {
         return true;
     }
 
@@ -22,7 +21,7 @@ contract SimpleOracle is IOracle {
         prices[token] = newPrice;
     }
 
-    function getLatestAnswer(address token) external view returns(int256) {
+    function getLatestAnswer(address token) external view returns (int256) {
         require(prices[token] != 0, "SimpleOracle: unsupported token");
         return prices[token];
     }
@@ -34,5 +33,4 @@ contract SimpleOracle is IOracle {
     function line() external pure returns (address) {
         return address(0);
     }
-
 }

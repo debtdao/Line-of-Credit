@@ -3,7 +3,6 @@ pragma solidity 0.8.9;
 import "./RevenueToken.sol";
 
 contract RevenueToken4626 is RevenueToken {
-
     address private _asset;
     uint private _multiplier;
 
@@ -21,12 +20,12 @@ contract RevenueToken4626 is RevenueToken {
     }
 
     // mimic eip-4626
-    function asset() public view returns(address) {
+    function asset() public view returns (address) {
         return _asset;
     }
 
     // mimic eip-4626
-    function previewRedeem(uint256 amount) public view returns(uint) {
+    function previewRedeem(uint256 amount) public view returns (uint) {
         return amount * _multiplier;
     }
 }

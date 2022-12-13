@@ -1,18 +1,17 @@
 pragma solidity ^0.8.9;
 
 import {Script} from "../lib/forge-std/src/Script.sol";
-import {CreditLib } from "../contracts/utils/CreditLib.sol";
-import {CreditListLib } from "../contracts/utils/CreditListLib.sol";
-import {LineLib } from "../contracts/utils/LineLib.sol";
-import {SpigotedLineLib } from "../contracts/utils/SpigotedLineLib.sol";
+import {CreditLib} from "../contracts/utils/CreditLib.sol";
+import {CreditListLib} from "../contracts/utils/CreditListLib.sol";
+import {LineLib} from "../contracts/utils/LineLib.sol";
+import {SpigotedLineLib} from "../contracts/utils/SpigotedLineLib.sol";
 import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
 import {SimpleOracle} from "../contracts/mock/SimpleOracle.sol";
 import {SecuredLine} from "../contracts/modules/credit/SecuredLine.sol";
-import {Spigot} from  "../contracts/modules/spigot/Spigot.sol";
+import {Spigot} from "../contracts/modules/spigot/Spigot.sol";
 import {Escrow} from "../contracts/modules/escrow/Escrow.sol";
 
 import "hardhat/console.sol";
-
 
 contract DeployScript is Script {
     Escrow escrow;
@@ -32,7 +31,6 @@ contract DeployScript is Script {
     address lender;
 
     function run() external {
-        
         vm.startBroadcast();
         borrower = msg.sender;
         lender = msg.sender;
@@ -55,25 +53,25 @@ contract DeployScript is Script {
             150 days,
             0
         );
-        
+
         console.log("sender", msg.sender);
         console.log("spigot owner", spigot.owner());
         console.log("line address", address(line));
- 
+
         escrow.updateLine(address(line));
         spigot.updateOwner(address(line));
-   
+
         line.init();
 
-        escrow.enableCollateral( address(supportedToken1));
-        escrow.enableCollateral( address(supportedToken2));
+        escrow.enableCollateral(address(supportedToken1));
+        escrow.enableCollateral(address(supportedToken2));
         _mintAndApprove();
         escrow.addCollateral(1 ether, address(supportedToken2));
 
         vm.stopBroadcast();
     }
 
-     function _mintAndApprove() internal {
+    function _mintAndApprove() internal {
         supportedToken1.mint(borrower, mintAmount);
         supportedToken1.approve(address(escrow), MAX_INT);
         supportedToken1.approve(address(line), MAX_INT);
@@ -85,5 +83,5 @@ contract DeployScript is Script {
         unsupportedToken.mint(borrower, mintAmount);
         unsupportedToken.approve(address(escrow), MAX_INT);
         unsupportedToken.approve(address(line), MAX_INT);
-    }     
+    }
 }
