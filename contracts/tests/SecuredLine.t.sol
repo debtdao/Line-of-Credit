@@ -304,14 +304,32 @@ contract SecuredLineTest is Test {
         line.liquidate(1 ether, address(supportedToken2));
     }
 
-  
-
     // test should liquidate if above cratio after deadline
-    // should not be liquidatable if all positions closed (needs mo's PR)
-    // 
-    // 
+    function test_can_liquidate_after_deadline_if_above_min_cRatio() public {
+        _addCredit(address(supportedToken2), 1 ether);
+        bytes32 id = line.ids(0);
 
-    // CONDITIONS:
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        (uint p, uint i) = line.updateOutstandingDebt();
+        emit log_named_uint("principal", p);
+        emit log_named_uint("interest", i);
+        assertGt(p, 0);
+
+        uint32 cRatio = Escrow(address(line.escrow())).minimumCollateralRatio();
+        emit log_named_uint("cRatio before", cRatio);
+
+        // increase the cRatio
+        oracle.changePrice(address(supportedToken2), 990 * 1e8);
+
+        vm.warp(ttl + 1);
+        line.liquidate(1 ether, address(supportedToken2));
+    }
+
+    // should not be liquidatable if all positions closed (needs mo's PR)
+
+    // CONDITIONS for liquidation:
     // dont pay debt by deadline
     // under minimum collateral value ( changing the oracle price )
     
