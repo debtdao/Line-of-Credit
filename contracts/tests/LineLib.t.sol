@@ -116,25 +116,6 @@ contract LineLibTest is Test {
       assertEq(user.balance, 0.5 ether);
     }
 
-    function test_overpaying_sends_refund_to_calling_contract_if_refund_fails() public {
-
-      MockStatefulReceivables statefulReceivables = new MockStatefulReceivables();
-      statefulReceivables.setReceiveableState(false);
-
-      emit log_named_address("receivables", address(receivables));
-      emit log_named_address("statefulReceivables", address(statefulReceivables));
-      
-      vm.deal(address(statefulReceivables), 1 ether);
-      vm.startPrank(address(statefulReceivables));
-
-      // the refund to the requested user fails, so the refund falls back to the contract executing the refund
-      vm.expectEmit(true, true, false, true);
-      emit LineLib.RefundIssued(address(receivables), 0.5 ether);
-      receivables.accept{value: 1 ether}(Denominations.ETH, address(statefulReceivables), 0.5 ether);
-      assertEq(address(receivables).balance, 1 ether);
-    }
-
-
     function test_can_receive_ETH_via_msgValue() public {
       deal(address(this), 1 ether);
       receivables.accept{value: 1 ether}(Denominations.ETH, address(this), 1 ether);

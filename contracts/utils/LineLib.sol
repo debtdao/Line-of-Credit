@@ -80,12 +80,8 @@ library LineLib {
 
             if( msg.value > amount) { 
                 uint256 refund = msg.value - amount;
-               bool success = _safeTransferFunds(msg.sender, refund); 
-               
-               if (!success) {
-                    _safeTransferFunds(address(this), refund);
-                    emit RefundIssued(address(this), refund);
-               } else {
+
+               if ( _safeTransferFunds(msg.sender, refund)) {
                     emit RefundIssued(msg.sender, refund);
                }
             }
