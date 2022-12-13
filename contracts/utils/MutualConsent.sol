@@ -55,7 +55,7 @@ abstract contract MutualConsent {
      *          function arguments.
      *
      */
-    function revokeConsent(bytes memory _reconstrucedMsgData) public {
+    function revokeConsent(bytes calldata _reconstrucedMsgData) public {
         if (
             _reconstrucedMsgData.length > MAX_DATA_LENGTH_BYTES ||
             _reconstrucedMsgData.length < MIN_DATA_LENGTH_BYTES
