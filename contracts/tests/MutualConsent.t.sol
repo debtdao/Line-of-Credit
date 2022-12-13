@@ -148,37 +148,6 @@ contract MutualConsentTest is Test, Events {
         vm.stopPrank();
     }
 
-    function test_addCredit_can_revoke_mutualConsent_for_addCredit_as_borrower()
-        public
-    {
-        vm.startPrank(borrower);
-
-        bytes memory msgData = _generateAddCreditMutualConsentMessageData(
-            ILineOfCredit.addCredit.selector,
-            dRate,
-            fRate,
-            amount,
-            token,
-            lender
-        );
-        bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
-
-        // succeed revoking consent
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
-        line.revokeConsent(msgData);
-        vm.stopPrank();
-
-        assertEq(line.mutualConsents(expectedHash), address(0));
-
-        // lender addCredit should create new consent instead of confirming borrowers
-        vm.startPrank(lender);
-        expectedHash = _simulateMutualConstentHash(msgData, lender);
-        vm.expectEmit(true, false, false, true, address(line));
-        emit MutualConsentRegistered(expectedHash);
-        line.addCredit(dRate, fRate, amount, token, lender);
-        vm.stopPrank();
-    }
 
     function test_addCredit_revoking_consent_must_delete_consenst_hash() external {
         bytes memory msgData = _generateAddCreditMutualConsentMessageData(
@@ -192,6 +161,8 @@ contract MutualConsentTest is Test, Events {
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
 
         vm.startPrank(borrower);
+        vm.expectEmit(true, true, false, true, address(line));
+        emit MutualConsentRevoked(borrower, expectedHash);
         line.revokeConsent(msgData);
 
         assertEq(line.mutualConsents(expectedHash), address(0));
