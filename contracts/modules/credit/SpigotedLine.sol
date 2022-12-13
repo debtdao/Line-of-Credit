@@ -116,7 +116,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
 
         // cap payment to debt value
         if (repaid > debt) repaid = debt;
-        // update unused amount based on usage
+
+        // update reserves based on usage
         if (repaid > newTokens) {
             // using bought + unused to repay line
             unusedTokens[credit.token] -= repaid - newTokens;
@@ -137,12 +138,16 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit, ReentrancyGuard {
     function useAndRepay(uint256 amount) external whileBorrowing returns(bool) {
       bytes32 id = ids[0];
       Credit memory credit = credits[id];
-      
+
       if (msg.sender != borrower && msg.sender != credit.lender) {
         revert CallerAccessDenied();
       }
 
-      require(amount <= unusedTokens[credit.token]);
+      if(amount > unusedTokens[credit.token]) {
+        revert ReservesOverdrawn(unusedTokens[credit.token]);
+      }
+
+      // reduce reserves before _repay calls token to prevent reentrancy
       unusedTokens[credit.token] -= amount;
 
       credits[id] = _repay(_accrue(credit, id), id, amount);

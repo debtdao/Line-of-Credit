@@ -58,6 +58,8 @@ interface ISpigot {
 
     error BadSetting();
 
+    error InvalidRevenueContract();
+
     // ops funcs
 
     function claimRevenue(

@@ -364,7 +364,7 @@ contract SecuredLineTest is Test {
 
 // declareInsolvent
     function test_must_be_in_debt_to_go_insolvent() public {
-        vm.expectRevert(ILineOfCredit.NotBorrowing.selector);
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
         line.declareInsolvent();
     }
 

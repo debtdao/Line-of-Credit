@@ -284,7 +284,12 @@ contract SpigotedLineTest is Test {
       assertEq(p, lentAmount); // nothing repaid
 
       hoax(borrower);
-      vm.expectRevert();
+      vm.expectRevert(
+        abi.encodeWithSelector(
+         ISpigotedLine.ReservesOverdrawn.selector,
+         0
+        )
+      );
       line.useAndRepay(1);
       vm.stopPrank();
     }
@@ -691,7 +696,7 @@ contract SpigotedLineTest is Test {
 
     function test_cant_sweep_empty_tokens() public {
       vm.expectRevert(abi.encodeWithSelector(
-        SpigotedLineLib.UsedExcessTokens.selector,
+        SpigotedLineLib.ReservesOverdrawn.selector,
         address(creditToken),
         0
       ));
@@ -1095,6 +1100,46 @@ contract SpigotedLineTest is Test {
 
       vm.prank(arbiter);
       line.claimAndRepay(address(revenueToken), tradeData);
+    }
+
+    // tests that the amount used to repay the lender cannot cause an underflow
+    function test_lender_use_and_repay_underflow() public {
+      uint256 largeRevenueAmount = lentAmount * 2;
+
+      deal(address(lender), lentAmount + 1 ether);
+      deal(address(revenueToken), MAX_REVENUE);
+      address revenueC = address(0xbeef); // need new spigot for testing
+      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+
+      // 1. Borrow lentAmount = 1 ether
+      _borrow(id, lentAmount);
+
+      // 2. Claim and trade largeRevenueAmount = 2 ether (revenue)
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        Denominations.ETH,
+        1 gwei,
+        largeRevenueAmount
+      );
+
+      hoax(borrower);
+      line.claimAndTrade(address(revenueToken), tradeData);
+
+      (, uint256 principalBeforeRepaying,,,,,) = line.credits(line.ids(0));
+      assertEq(principalBeforeRepaying, lentAmount);
+
+      // 3. Use and repay debt with previously claimed and traded revenue (largeRevenueAmount = 2 ether)
+      vm.startPrank(lender);
+      
+      vm.expectRevert(
+        abi.encodeWithSelector(
+         ILineOfCredit.RepayAmountExceedsDebt.selector,
+         principalBeforeRepaying
+        )
+      );
+
+      line.useAndRepay(largeRevenueAmount);
     }
 }
 

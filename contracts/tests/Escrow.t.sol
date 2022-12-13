@@ -370,6 +370,14 @@ contract EscrowTest is Test {
         escrow.addCollateral(1000, address(token4626));
     }
 
+    function test_can_send_eth_and_token() public {
+        uint borrowerBalance = borrower.balance;
+        uint borrowerTokenBalance = supportedToken1.balanceOf(borrower);
+        uint escrowBalance = address(escrow).balance;
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
+        escrow.addCollateral{value: mintAmount}(mintAmount, address(supportedToken1));
+    }
+
 
     
 

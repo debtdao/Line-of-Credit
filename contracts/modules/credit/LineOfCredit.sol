@@ -147,11 +147,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.declareInsolvent
-    function declareInsolvent() external whileBorrowing returns (bool) {
-        if (arbiter != msg.sender) {
-            revert CallerAccessDenied();
-        }
-        if (LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
+    function declareInsolvent() external returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
             revert NotLiquidatable();
         }
 

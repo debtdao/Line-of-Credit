@@ -231,6 +231,21 @@ contract SpigotTest is Test {
         assertSpigotSplits(address(token), totalRevenue);
     }
 
+    function test_claimRevenue_fails_on_contract_with_no_settings(uint256 totalRevenue) public {
+        if (totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+
+        // send revenue token directly to spigot (push)
+        token.mint(address(spigot), totalRevenue);
+        assertEq(token.balanceOf(address(spigot)), totalRevenue);
+
+        bytes memory claimData;
+        vm.expectRevert(ISpigot.InvalidRevenueContract.selector);
+        spigot.claimRevenue(address(0), address(token), claimData);
+
+        vm.expectRevert(ISpigot.InvalidRevenueContract.selector);
+        spigot.claimRevenue(makeAddr("villain"), address(token), claimData);
+    }
+
     function test_claimRevenue_pullPaymentToken(uint256 totalRevenue) public {
         if (totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
         _initSpigot(
