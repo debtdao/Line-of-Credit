@@ -147,11 +147,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     }
 
     /// see ILineOfCredit.declareInsolvent
-    function declareInsolvent() external returns (bool) {
-        if (arbiter != msg.sender) {
-            revert CallerAccessDenied();
-        }
-        if (LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
+    function declareInsolvent() external returns(bool) {
+        if(arbiter != msg.sender) { revert CallerAccessDenied(); }
+        if(LineLib.STATUS.LIQUIDATABLE != _updateStatus(_healthcheck())) {
             revert NotLiquidatable();
         }
 
@@ -226,11 +224,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
       @param credit - the lender position that is accruing interest
       @param id - the position id for credit position
     */
-    function _accrue(Credit memory credit, bytes32 id)
-        internal
-        returns (Credit memory)
-    {
-        return CreditLib.accrue(credit, id, address(interestRate));
+    function _accrue(Credit memory credit, bytes32 id) internal returns(Credit memory) {
+      if (!credit.isOpen) {
+        return credit;
+      }
+      return CreditLib.accrue(credit, id, address(interestRate));
     }
 
     /// see ILineOfCredit.addCredit
@@ -310,14 +308,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
+        require(credit.isOpen);
 
         // Borrower deposits the outstanding balance not already repaid
         uint256 totalOwed = credit.principal + credit.interestAccrued;
         LineLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
 
         // Borrower clears the debt then closes and deletes the credit line
-        _close(_repay(credit, id, totalOwed), id);
-
+        
+        credits[id] = _close(_repay(credit, id, totalOwed), id);
         return true;
     }
 
@@ -331,6 +330,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         bytes32 id = ids[0];
         Credit memory credit = credits[id];
+        require(credit.isOpen);
         credit = _accrue(credit, id);
 
         require(amount <= credit.principal + credit.interestAccrued);
@@ -356,13 +356,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     {
         Credit memory credit = _accrue(credits[id], id);
 
-        if (amount > credit.deposit - credit.principal) {
-            revert NoLiquidity();
-        }
+        if (!credit.isOpen) { revert PositionIsClosed(); }
+
+        if(amount > credit.deposit - credit.principal) { revert NoLiquidity(); }
 
         credit.principal += amount;
 
-        credits[id] = credit; // save new debt before healthcheck
+        credits[id] = credit; // save new debt before healthcheck and token transfer
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
@@ -391,9 +391,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         }
 
         // accrues interest and transfers to Lender
-        credits[id] = CreditLib.withdraw(_accrue(credit, id), id, amount);
+        credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+        // save before deleting position and sending out. Can remove if we add reentrancy guards
+        (address token, address lender) = (credit.token, credit.lender);
+
+        // if lender is pulling all funds AND no debt owed to them then delete positions
+        if (credit.deposit == 0 && credit.interestAccrued == 0) { delete credits[id]; }
+        // save to storage if position still exists
+        else {credits[id] = credit;}
+    
+        LineLib.sendOutTokenOrETH(token, lender, amount);
 
         return true;
     }
@@ -401,23 +409,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     /// see ILineOfCredit.close
     function close(bytes32 id) external payable override returns (bool) {
         Credit memory credit = credits[id];
-        address b = borrower; // gas savings
-        if (msg.sender != credit.lender && msg.sender != b) {
-            revert CallerAccessDenied();
+        if(msg.sender != borrower) {
+          revert CallerAccessDenied();
         }
 
         // ensure all money owed is accounted for. Accrue facility fee since prinicpal was paid off
         credit = _accrue(credit, id);
         uint256 facilityFee = credit.interestAccrued;
-        if (facilityFee > 0) {
+        if(facilityFee > 0) {
             // only allow repaying interest since they are skipping repayment queue.
             // If principal still owed, _close() MUST fail
-            LineLib.receiveTokenOrETH(credit.token, b, facilityFee);
-
+            LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
             credit = _repay(credit, id, facilityFee);
         }
 
-        _close(credit, id); // deleted; no need to save to storage
+        credits[id] = _close(credit, id);
 
         return true;
     }
@@ -428,7 +434,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - Only works if the first element in the queue is null
      */
     function rescueQueue() external {
-        if (ids[0] != bytes32(0)) { revert RescueNotRequired(); }
+        if (ids[0] != bytes32(0)) { revert CantStepQ(); }
         ids.stepQ();
     }
 
@@ -466,9 +472,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
     ) internal returns (bytes32 id) {
         id = CreditLib.computeId(address(this), lender, token);
         // MUST not double add the credit line. otherwise we can not _close()
-        if (credits[id].lender != address(0)) {
-            revert PositionExists();
-        }
+        if(credits[id].isOpen) { revert PositionExists(); }
 
         credits[id] = CreditLib.create(
             id,
@@ -502,6 +506,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
         uint256 amount
     ) internal returns (Credit memory) {
         credit = CreditLib.repay(credit, id, amount);
+        
 
         return credit;
     }
@@ -513,36 +518,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
      * @dev - when the line being closed is at the 0-index in the ids array, the null index is replaced using `.stepQ`
      * @return credit - position struct in memory with updated values
      */
-    function _close(Credit memory credit, bytes32 id)
-        internal
-        virtual
-        returns (bool)
-    {
-        if (credit.principal > 0) {
-            revert CloseFailedWithPrincipal();
-        }
+    function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
+        if(!credit.isOpen) { revert PositionIsClosed(); }
+        if(credit.principal != 0) { revert CloseFailedWithPrincipal(); }
 
-        // return the Lender's funds that are being repaid
-        if (credit.deposit + credit.interestRepaid > 0) {
-            LineLib.sendOutTokenOrETH(
-                credit.token,
-                credit.lender,
-                credit.deposit + credit.interestRepaid
-            );
-        }
-
-        delete credits[id]; // gas refunds
+        credit.isOpen = false;
 
         // nullify the element for `id`
         ids.removePosition(id);
 
+        // if positions was 1st in Q, cycle to next valid position
+        if (ids[0] == bytes32(0)) ids.stepQ();
+
         unchecked {
             --count;
         }
-
-        // if ids[0] is null, replace it with next valid line's id
-        if (ids[0] == bytes32(0)) ids.stepQ();
-
 
         // If all credit lines are closed the the overall Line of Credit facility is declared 'repaid'.
         if (count == 0) {
@@ -551,7 +541,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent {
 
         emit CloseCreditPosition(id);
 
-        return true;
+        return credit;
     }
 
     /**

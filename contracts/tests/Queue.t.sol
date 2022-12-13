@@ -97,7 +97,7 @@ contract QueueTest is Test, Events {
             emit log_named_string("borrowing from", idLabels[line.ids(i)]);
             _formatLoggedArrOfIds("before borrowing");
             line.borrow(line.ids(i), 1 ether);
-            (uint256 deposit,,,,,,) = line.credits(line.ids(i));
+            (uint256 deposit,,,,,,,) = line.credits(line.ids(i));
             _formatLoggedArrOfIds("after borrowing");   
         }
         vm.stopPrank();
@@ -116,7 +116,7 @@ contract QueueTest is Test, Events {
 
             // we need to manually accrue the interested to calculate the amount owed before repaying
             line.accrueInterest();
-            (uint256 deposit, uint256 principal, uint256 interestAccrued, , , , ) = line
+            (uint256 deposit, uint256 principal, uint256 interestAccrued, , , , , ) = line
                 .credits(line.ids(0));
             uint256 owed = interestAccrued + principal;
             
@@ -605,7 +605,7 @@ contract QueueTest is Test, Events {
 
     function _getNextAvailableSlot( uint256 end) internal returns(uint256) {
         for (uint i; i < end; ++i) {
-            (, uint256 principal, , , , , ) = line.credits(line.ids(i));
+            (, uint256 principal, , , , , , ) = line.credits(line.ids(i));
             if (
                 line.ids(i) == bytes32(0) || // deleted element. In the middle of the q because it was closed.
                 principal > 0 //`id` should be placed before `p`

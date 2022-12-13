@@ -50,10 +50,9 @@ contract LineFactory is ILineFactory {
     /// see ModuleFactory.deploySpigot.
     function deploySpigot(
         address owner,
-        address borrower,
         address operator
     ) external returns (address) {
-        return factory.deploySpigot(owner, borrower, operator);
+        return factory.deploySpigot(owner, operator);
     }
 
     function deploySecuredLine(address borrower, uint256 ttl)
@@ -61,7 +60,7 @@ contract LineFactory is ILineFactory {
         returns (address line)
     {
         // deploy new modules
-        address s = factory.deploySpigot(address(this), borrower, borrower);
+        address s = factory.deploySpigot(address(this), borrower);
         address e = factory.deployEscrow(
             defaultMinCRatio,
             oracle,
@@ -95,7 +94,6 @@ contract LineFactory is ILineFactory {
         // deploy new modules
         address s = factory.deploySpigot(
             address(this),
-            coreParams.borrower,
             coreParams.borrower
         );
         address e = factory.deployEscrow(

@@ -44,7 +44,7 @@ contract SecuredLineTest is Test {
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
 
-        spigot = new Spigot(arbiter, borrower, borrower);
+        spigot = new Spigot(arbiter, borrower);
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
 
         escrow = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
@@ -132,7 +132,7 @@ contract SecuredLineTest is Test {
     }
 
     function test_line_is_uninitilized_on_deployment() public {
-        Spigot s = new Spigot(arbiter, borrower, borrower);
+        Spigot s = new Spigot(arbiter, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
         SecuredLine l = new SecuredLine(
             address(oracle),
@@ -159,7 +159,7 @@ contract SecuredLineTest is Test {
 
     function test_line_is_uninitilized_if_escrow_not_owned() public {
         address mock = address(new MockLine(0, address(3)));
-        Spigot s = new Spigot(arbiter, borrower, borrower);
+        Spigot s = new Spigot(arbiter, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
         SecuredLine l = new SecuredLine(
             address(oracle),
@@ -179,7 +179,7 @@ contract SecuredLineTest is Test {
     }
 
     function test_line_is_uninitilized_if_spigot_not_owned() public {
-        Spigot s = new Spigot(arbiter, borrower, borrower);
+        Spigot s = new Spigot(arbiter, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
         SecuredLine l = new SecuredLine(
             address(oracle),
@@ -542,7 +542,7 @@ contract SecuredLineTest is Test {
       line.depositAndClose();
       
       // create and init new line with new modules
-      Spigot s = new Spigot(arbiter, borrower, borrower);
+      Spigot s = new Spigot(arbiter, borrower);
       Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
       SecuredLine l = new SecuredLine(
         address(oracle),
@@ -588,7 +588,7 @@ contract SecuredLineTest is Test {
       line.depositAndClose();
       
       // create and init new line with new modules
-      Spigot s = new Spigot(arbiter, borrower, borrower);
+      Spigot s = new Spigot(arbiter, borrower);
       Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
       SecuredLine l = new SecuredLine(
         address(oracle),
