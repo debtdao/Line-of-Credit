@@ -278,8 +278,12 @@ contract SecuredLineTest is Test {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
-        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        bytes32 id = line.addCredit(
+            dRate, fRate, 1 ether, 
+            address(supportedToken1), lender);
         hoax(borrower);
+
+        // comment goes here
         line.borrow(id, 1 ether);
 
         vm.warp(ttl + 1);
@@ -377,14 +381,19 @@ contract SecuredLineTest is Test {
     }
 
     function test_cannot_liquidate_as_anon() public {
+
         hoax(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        line.addCredit(
+            dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(lender);
         bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         hoax(borrower);
         line.borrow(id, 1 ether);
 
         hoax(address(0xdead));
+
+        // another comment here
+        
         vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector); 
         line.liquidate(1 ether, address(supportedToken2));
     }
