@@ -301,7 +301,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ///////////////
 
     /// see ILineOfCredit.depositAndClose
-    function depositAndClose(bytes32 id)
+    function depositAndClose()
         external
         payable
         override
@@ -310,17 +310,36 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         onlyBorrower
         returns (bool)
     {
-        
+        bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
-        require(credit.isOpen);
 
         // Borrower deposits the outstanding balance not already repaid
         uint256 totalOwed = credit.principal + credit.interestAccrued;
-        LineLib.receiveTokenOrETH(credit.token, msg.sender, totalOwed);
 
         // Borrower clears the debt then closes and deletes the credit line
-        
         credits[id] = _close(_repay(credit, id, totalOwed), id);
+
+        LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
+
+        return true;
+    }
+
+    function close(bytes32 id)
+        external
+        payable
+        override
+        nonReentrant
+        onlyBorrower
+        returns (bool)
+    {
+        Credit memory credit = _accrue(credits[id], id);
+
+        uint256 facilityFee = credit.interestAccrued;
+        // clear facility fees and close position
+        credits[id] = _close(_repay(credit, id, facilityFee), id);
+        
+        LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
+
         return true;
     }
 
@@ -347,7 +366,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         return true;
     }
-    
 
     ////////////////////
     // FUND TRANSFERS //
@@ -416,6 +434,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.close
+    
 
     /**
      * @notice - This is a redundancy measure that unlocks the queue should it get stuck with a null (zero) element
