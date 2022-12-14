@@ -5,13 +5,13 @@ import "forge-std/Test.sol";
 
 import { Denominations } from "chainlink/Denominations.sol";
 
-import { MockReceivables, MockStatefulReceivables } from "../mock/MockReceivables.sol";
-import { RevenueToken } from "../mock/RevenueToken.sol";
-import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
+import { MockReceivables, MockStatefulReceivables } from "../contracts/mock/MockReceivables.sol";
+import { RevenueToken } from "../contracts/mock/RevenueToken.sol";
+import { RevenueToken4626 } from "../contracts/mock/RevenueToken4626.sol";
 
-import { LineLib } from "../utils/LineLib.sol";
-import { CreditLib } from "../utils/CreditLib.sol";
-import { CreditListLib } from "../utils/CreditListLib.sol";
+import { LineLib } from "../contracts/utils/LineLib.sol";
+import { CreditLib } from "../contracts/utils/CreditLib.sol";
+import { CreditListLib } from "../contracts/utils/CreditListLib.sol";
 
 
 contract LineLibTest is Test {

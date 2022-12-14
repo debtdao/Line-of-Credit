@@ -1,6 +1,6 @@
 [profile.default]
 src = 'contracts'
-test = 'test'
+test = 'tests'
 script = 'script'
 out = 'out'
 libs = [
@@ -63,7 +63,7 @@ build_info = false
 [profile.gorli]
 
 libraries = [
-     "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
+    "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
     "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
     "contracts/utils/LineLib.sol:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66",
     "contracts/utils/EscrowLib.sol:EscrowLib:0xfaffe74894e36C6534Cc13b73af015b5666b4EA9",

@@ -1,13 +1,12 @@
 pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
-import {Spigot} from "../modules/spigot/Spigot.sol";
-
-import {RevenueToken} from "../mock/RevenueToken.sol";
-import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 
-import {ISpigot} from "../interfaces/ISpigot.sol";
+import {Spigot} from "../contracts/modules/spigot/Spigot.sol";
+import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
+import {SimpleRevenueContract} from "../contracts/mock/SimpleRevenueContract.sol";
+import {ISpigot} from "../contracts/interfaces/ISpigot.sol";
 
 contract SpigotTest is Test {
    

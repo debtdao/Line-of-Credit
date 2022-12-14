@@ -2,18 +2,18 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
-import {RevenueToken} from "../mock/RevenueToken.sol";
-import {LineFactory} from "../modules/factories/LineFactory.sol";
-import {ModuleFactory} from "../modules/factories/ModuleFactory.sol";
-import {ILineFactory} from "../interfaces/ILineFactory.sol";
-import {ISecuredLine} from "../interfaces/ISecuredLine.sol";
-import {ISpigot} from "../interfaces/ISpigot.sol";
+import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
+import {LineFactory} from "../contracts/modules/factories/LineFactory.sol";
+import {ModuleFactory} from "../contracts/modules/factories/ModuleFactory.sol";
+import {ILineFactory} from "../contracts/interfaces/ILineFactory.sol";
+import {ISecuredLine} from "../contracts/interfaces/ISecuredLine.sol";
+import {ISpigot} from "../contracts/interfaces/ISpigot.sol";
 
-import {IEscrow} from "../interfaces/IEscrow.sol";
-import {SecuredLine} from "../modules/credit/SecuredLine.sol";
-import {Spigot} from "../modules/spigot/Spigot.sol";
-import {Escrow} from "../modules/escrow/Escrow.sol";
-import {LineLib} from "../utils/LineLib.sol";
+import {IEscrow} from "../contracts/interfaces/IEscrow.sol";
+import {SecuredLine} from "../contracts/modules/credit/SecuredLine.sol";
+import {Spigot} from "../contracts/modules/spigot/Spigot.sol";
+import {Escrow} from "../contracts/modules/escrow/Escrow.sol";
+import {LineLib} from "../contracts/utils/LineLib.sol";
 
 contract LineFactoryTest is Test {
     SecuredLine line;

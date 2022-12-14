@@ -4,19 +4,19 @@ pragma solidity ^0.8.9;
 import "forge-std/Test.sol";
 import { Denominations } from "chainlink/Denominations.sol";
 
-import { ZeroEx } from "../mock/ZeroEx.sol";
-import { SimpleOracle } from "../mock/SimpleOracle.sol";
-import { RevenueToken } from "../mock/RevenueToken.sol";
+import { ZeroEx } from "../contracts/mock/ZeroEx.sol";
+import { SimpleOracle } from "../contracts/mock/SimpleOracle.sol";
+import { RevenueToken } from "../contracts/mock/RevenueToken.sol";
 
-import { Spigot } from "../modules/spigot/Spigot.sol";
-import { SpigotedLine } from '../modules/credit/SpigotedLine.sol';
+import { Spigot } from "../contracts/modules/spigot/Spigot.sol";
+import { SpigotedLine } from '../contracts/modules/credit/SpigotedLine.sol';
 
-import { LineLib } from '../utils/LineLib.sol';
-import { SpigotedLineLib } from '../utils/SpigotedLineLib.sol';
+import { LineLib } from '../contracts/utils/LineLib.sol';
+import { SpigotedLineLib } from '../contracts/utils/SpigotedLineLib.sol';
 
-import { ISpigot } from '../interfaces/ISpigot.sol';
-import { ISpigotedLine } from '../interfaces/ISpigotedLine.sol';
-import { ILineOfCredit } from '../interfaces/ILineOfCredit.sol';
+import { ISpigot } from '../contracts/interfaces/ISpigot.sol';
+import { ISpigotedLine } from '../contracts/interfaces/ISpigotedLine.sol';
+import { ILineOfCredit } from '../contracts/interfaces/ILineOfCredit.sol';
 
 /**
  * @notice

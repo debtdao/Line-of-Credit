@@ -2,7 +2,7 @@ pragma solidity ^0.8.9;
 
 import "forge-std/Test.sol";
 
-import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
+import {InterestRateCredit} from "../contracts/modules/interest-rate/InterestRateCredit.sol";
 
 contract InterestRateCreditTest is Test {
     InterestRateCredit i;

@@ -1,17 +1,19 @@
 pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
-import { IEscrow } from "../interfaces/IEscrow.sol";
-import { LineLib } from "../utils/LineLib.sol";
-import { IEscrowedLine } from "../interfaces/IEscrowedLine.sol";
-import { ILineOfCredit } from "../interfaces/ILineOfCredit.sol";
-import { SimpleOracle } from "../mock/SimpleOracle.sol";
-import { RevenueToken } from "../mock/RevenueToken.sol";
-import { Escrow } from "../modules/escrow/Escrow.sol";
-import { MockEscrowedLine } from '../mock/MockEscrowedLine.sol';
+
 import { Denominations } from "chainlink/Denominations.sol";
-import { ZeroEx } from "../mock/ZeroEx.sol";
-import { MockLine } from "../mock/MockLine.sol";
+
+import { IEscrow } from "../contracts/interfaces/IEscrow.sol";
+import { LineLib } from "../contracts/utils/LineLib.sol";
+import { IEscrowedLine } from "../contracts/interfaces/IEscrowedLine.sol";
+import { ILineOfCredit } from "../contracts/interfaces/ILineOfCredit.sol";
+import { SimpleOracle } from "../contracts/mock/SimpleOracle.sol";
+import { RevenueToken } from "../contracts/mock/RevenueToken.sol";
+import { Escrow } from "../contracts/modules/escrow/Escrow.sol";
+import { MockEscrowedLine } from '../contracts/mock/MockEscrowedLine.sol';
+import { ZeroEx } from "../contracts/mock/ZeroEx.sol";
+import { MockLine } from "../contracts/mock/MockLine.sol";
 
 
 contract EscrowedLineTest is Test {

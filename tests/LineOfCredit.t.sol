@@ -5,15 +5,15 @@ import {Denominations} from "chainlink/Denominations.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
-import {LineLib} from "../utils/LineLib.sol";
-import {CreditLib} from "../utils/CreditLib.sol";
-import {CreditListLib} from "../utils/CreditListLib.sol";
-import {MutualConsent} from "../utils/MutualConsent.sol";
-import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
-import {IOracle} from "../interfaces/IOracle.sol";
-import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
-import {RevenueToken} from "../mock/RevenueToken.sol";
-import {SimpleOracle} from "../mock/SimpleOracle.sol";
+import {LineLib} from "../contracts/utils/LineLib.sol";
+import {CreditLib} from "../contracts/utils/CreditLib.sol";
+import {CreditListLib} from "../contracts/utils/CreditListLib.sol";
+import {MutualConsent} from "../contracts/utils/MutualConsent.sol";
+import {LineOfCredit} from "../contracts/modules/credit/LineOfCredit.sol";
+import {IOracle} from "../contracts/interfaces/IOracle.sol";
+import {ILineOfCredit} from "../contracts/interfaces/ILineOfCredit.sol";
+import {RevenueToken} from "../contracts/mock/RevenueToken.sol";
+import {SimpleOracle} from "../contracts/mock/SimpleOracle.sol";
 
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
