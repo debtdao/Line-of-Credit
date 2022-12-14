@@ -13,7 +13,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": "pretty-quick --staged --pattern \"**/*.sol\""
+      "pre-commit": "pretty-quick --staged --pattern \"**/*.sol\" && git add -A ."
     }
   },
   "devDependencies": {
