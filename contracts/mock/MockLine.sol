@@ -1,10 +1,9 @@
 pragma solidity 0.8.9;
 
-import { IEscrow } from "../interfaces/IEscrow.sol";
-import { LineLib } from "../utils/LineLib.sol";
+import {IEscrow} from "../interfaces/IEscrow.sol";
+import {LineLib} from "../utils/LineLib.sol";
 
 contract MockLine {
-
     uint debtValueUSD;
     address escrow;
     address public arbiter;
@@ -14,13 +13,12 @@ contract MockLine {
         debtValueUSD = _debt;
         // console.log("arbiter", msg.sender);
         arbiter = arbiter_;
-        status =  LineLib.STATUS.ACTIVE;
+        status = LineLib.STATUS.ACTIVE;
     }
 
     function setEscrow(address _escrow) public {
         escrow = _escrow;
     }
-
 
     function setArbiter(address _arbiter) public {
         arbiter = _arbiter;
@@ -29,7 +27,6 @@ contract MockLine {
     function setDebtValue(uint _debt) external {
         debtValueUSD = _debt;
     }
-
 
     function setStatus(LineLib.STATUS _status) external {
         status = _status;
@@ -40,12 +37,11 @@ contract MockLine {
         IEscrow(escrow).liquidate(amount, token, to);
     }
 
-    function accrueInterest() external pure returns(uint256) {
+    function accrueInterest() external pure returns (uint256) {
         return 0;
     }
 
-    function updateOutstandingDebt() external view returns(uint256,uint256) {
+    function updateOutstandingDebt() external view returns (uint256, uint256) {
         return (debtValueUSD, 0);
     }
-
 }

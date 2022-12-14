@@ -12,7 +12,7 @@ contract ModuleFactory is IModuleFactory {
     /**
      * see Spigot.constructor
      * @notice - Deploys a Spigot module that can be used in a LineOfCredit
-    */
+     */
     function deploySpigot(address owner, address operator) external returns (address module) {
         module = address(new Spigot(owner, operator));
         emit DeployedSpigot(module, owner, operator);
