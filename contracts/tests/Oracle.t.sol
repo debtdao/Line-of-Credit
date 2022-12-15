@@ -11,13 +11,15 @@ import {RevenueToken} from "../mock/RevenueToken.sol";
 
 
 /*
+collateralValue, debtValue (different decimals, same value);
+
 - [ ]  Must normalize all forkOracle prices to 8 decimals
     - [ ]  both aggregators in 8 decimals
     - [ ]  both above 8 decimals
     - [ ]  both below 8 decimals
-    - [ ]  one 8 decimal, one over 8 decimal
-    - [ ]  one under 8 decimal, one 9 decimal
-- [ ]  Price must be within 2 hours
+    - [x]  one 8 decimal, one over 8 decimal
+    - [x]  one under 8 decimal, one 9 decimal
+- [x]  Price must be within 25 hours
 - [x]  price must be > 0
 - [x]  forkOracle reverts if address is not an erc20
 */
@@ -38,9 +40,11 @@ contract OracleTest is Test, Events {
     // Mock Tokens
     RevenueToken tokenA;
     RevenueToken tokenB;
-
-    int256 constant TOKEN_A_PRICE = 500 * 10**8;
-    int256 constant TOKEN_B_PRICE = 750 * 10**8;
+    int256 constant DECIMALS_8 = 10**8;
+    int256 constant DECIMALS_6 = 10**6;
+    int256 constant DECIMALS_10 = 10**10;
+    int256 constant TOKEN_A_PRICE = 500;
+    int256 constant TOKEN_B_PRICE = 750;
 
     // Chainlink
     FeedRegistryInterface registry;
@@ -66,8 +70,9 @@ contract OracleTest is Test, Events {
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
 
-        mockRegistry.addToken(address(tokenA), TOKEN_A_PRICE);
-        mockRegistry.addToken(address(tokenB), TOKEN_B_PRICE);
+        mockRegistry.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_8);
+        mockRegistry.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8
+        );
 
     }
 
@@ -120,18 +125,35 @@ contract OracleTest is Test, Events {
 
     function test_token_price_with_fewer_than_8_decimals() external {
         int256 price = mockOracle.getLatestAnswer(address(tokenA));
-        assertEq(price, TOKEN_A_PRICE);
-
+        assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
         uint8 tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        
         assertEq(tokenAdecimals, 8);
 
+        mockRegistry.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
         mockRegistry.updateTokenDecimals(address(tokenA), 6);
 
         tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 6);
 
         int256 newPrice = mockOracle.getLatestAnswer(address(tokenA));
+        assertEq(price, newPrice);
+    }
 
+    function test_token_price_with_greater_than_8_decimals() external {
+        int256 price = mockOracle.getLatestAnswer(address(tokenB));
+        assertEq(price, TOKEN_B_PRICE * DECIMALS_8);
+        uint8 tokenBdecimals = mockRegistry.decimals(address(tokenB), address(0));
+        
+        assertEq(tokenBdecimals, 8);
+
+        mockRegistry.updateTokenPrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
+        mockRegistry.updateTokenDecimals(address(tokenB), 10);
+
+        tokenBdecimals = mockRegistry.decimals(address(tokenB), address(0));
+        assertEq(tokenBdecimals, 10);
+
+        int256 newPrice = mockOracle.getLatestAnswer(address(tokenB));
         assertEq(price, newPrice);
     }
 
