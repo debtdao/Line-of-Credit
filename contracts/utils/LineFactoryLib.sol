@@ -27,6 +27,7 @@ library LineFactoryLib {
             abi.encodeWithSignature("updateLine(address)", address(line))
         );
 
+        // ensure all modules were transferred
         if (!(success && abi.decode(returnVal, (bool)) && success2 && abi.decode(returnVal2, (bool)))) {
             revert ModuleTransferFailed(line, spigot, escrow);
         }

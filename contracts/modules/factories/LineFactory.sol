@@ -4,6 +4,7 @@ import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
+import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
@@ -14,9 +15,9 @@ contract LineFactory is ILineFactory {
 
     address public immutable arbiter;
     address public immutable oracle;
-    address public immutable swapTarget;
+    address payable public immutable swapTarget;
 
-    constructor(address moduleFactory, address arbiter_, address oracle_, address swapTarget_) {
+    constructor(address moduleFactory, address arbiter_, address oracle_, address payable swapTarget_) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
@@ -122,7 +123,10 @@ contract LineFactory is ILineFactory {
         address payable oldLine,
         address borrower,
         uint256 ttl
-    ) external returns (address newLine) {
-        // newLine = LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
+    ) external returns (address line) {
+        address s = address(ISecuredLine(oldLine).spigot());
+        address e = address(ISecuredLine(oldLine).escrow());
+        line = LineFactoryLib.deploySecuredLine(oracle, arbiter, borrower, swapTarget, s, e, ttl, defaultRevenueSplit);
+        emit DeployedSecuredLine(line, s, e, swapTarget, defaultRevenueSplit);
     }
 }
