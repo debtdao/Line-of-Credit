@@ -47,7 +47,7 @@ contract Oracle is IOracle {
             uint80
         ) {
             // no price for asset if price is stale. Asset is toxic
-            if (block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
+            if (answerTimestamp == 0 || block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
                 emit StalePrice();
                 return NULL_PRICE;
             }
@@ -60,14 +60,11 @@ contract Oracle is IOracle {
                 // if already at target decimals then return price
                 if (decimals == PRICE_DECIMALS) return _price;
                 // transform decimals to target value. disregard rounding errors
-                if (decimals < PRICE_DECIMALS) {
-                    emit TooFewPriceDecimals(decimals);
-                    return _price * int256(10 ** (PRICE_DECIMALS - decimals));
-                } else {
-                    emit TooManyPriceDecimals(decimals);
-                    return _price * int256(10 ** (decimals - PRICE_DECIMALS));
-                }
-            } catch (bytes memory) {
+                return
+                    decimals < PRICE_DECIMALS
+                        ? _price * int256(10 ** (PRICE_DECIMALS - decimals))
+                        : _price / int256(10 ** (decimals - PRICE_DECIMALS));
+            } catch (bytes memory _e) {
                 return NULL_PRICE;
             }
             // another try catch for decimals call
