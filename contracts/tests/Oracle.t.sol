@@ -99,6 +99,15 @@ contract OracleTest is Test, Events {
     }
 
     function test_token_with_stale_price() external {
+
+        mockRegistry.overrideTokenTimestamp(address(tokenA), true);
+
+        vm.expectEmit(true,false,false, true, address(mockOracle));
+        emit StalePrice(address(tokenA), block.timestamp - 28 hours);
+        int256 price = mockOracle.getLatestAnswer(address(tokenA));
+
+        assertEq(price, 0);
+
         
     }
 }

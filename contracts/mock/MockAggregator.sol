@@ -15,7 +15,7 @@ contract MockAggregator {
 
     function getLatestRound() external view returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80) {
         answer = price;
-        updatedAt = overrideTimestamp ? block.timestamp : block.timestamp - 28 hours;
+        updatedAt = overrideTimestamp ? block.timestamp - 28 hours : block.timestamp;
         return (0, answer, 0, updatedAt, 0);
     }
 
