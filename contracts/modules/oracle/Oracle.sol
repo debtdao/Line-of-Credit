@@ -61,7 +61,7 @@ contract Oracle is IOracle {
                         ? _price * int256(10 ** (PRICE_DECIMALS - decimals))
                         : _price / int256(10 ** (decimals - PRICE_DECIMALS));
             } catch (bytes memory msg_) {
-                emit NoDecimalData(token, msg_);
+                emit NoDecimalData(token, msg_); // TODO: test me
                 return NULL_PRICE;
             }
             // another try catch for decimals call

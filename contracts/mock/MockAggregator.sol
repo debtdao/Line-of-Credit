@@ -5,7 +5,9 @@ contract MockAggregator {
     address public immutable token;
 
     bool overrideTimestamp;
-    uint8 public decimals = 8;
+    bool public revertDecimals;
+
+    uint8 private _decimals = 8;
     int256 price;
 
     constructor(address token_, int256 price_) {
@@ -19,15 +21,23 @@ contract MockAggregator {
         return (0, answer, 0, updatedAt, 0);
     }
 
+    function decimals() external view returns (uint8) {
+        return _decimals;
+    }
+
     function changePrice(int256 price_) external {
         price = price_;
     }
 
     function changeDecimals(uint8 newDecimals) external {
-        decimals = newDecimals;
+        _decimals = newDecimals;
     }
 
     function setOverrideTimestamp(bool value) external {
         overrideTimestamp = value;
+    }
+
+    function setShouldRevertDecimals(bool shouldRevert) external {
+        revertDecimals = shouldRevert;
     }
 }

@@ -26,11 +26,16 @@ contract MockRegistry {
     }
 
     function decimals(address base, address quote) external view returns (uint8) {
+        if (mockAggregators[base].revertDecimals()) revert();
         return mockAggregators[base].decimals();
     }
 
     function overrideTokenTimestamp(address token, bool shouldOverride) external {
         mockAggregators[token].setOverrideTimestamp(shouldOverride);
+    }
+
+    function revertDecimals(address token, bool shouldOverride) external {
+        mockAggregators[token].setShouldRevertDecimals(shouldOverride);
     }
 
     function updateTokenPrice(address token, int256 price) external {
