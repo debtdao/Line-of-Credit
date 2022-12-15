@@ -2,6 +2,8 @@ pragma solidity 0.8.9;
 
 import "forge-std/Test.sol";
 
+import "chainlink/interfaces/FeedRegistryInterface.sol";
+import {Denominations} from "chainlink/Denominations.sol";
 import { Oracle } from "../modules/oracle/Oracle.sol";
 
 /*
@@ -13,16 +15,21 @@ import { Oracle } from "../modules/oracle/Oracle.sol";
     - [ ]  one under 8 decimal, one 9 decimal
 - [ ]  Price must be within 2 hours
 - [x]  price must be > 0
-- [ ]  oracle reverts if address is not an erc20
+- [x]  oracle reverts if address is not an erc20
 */
 
 interface Events {
-    event NoRoundData(string err);
+    event StalePrice(address indexed token);
+    event NullPrice(address indexed token);
+    event NoDecimalData(address indexed token);
+    event NoRoundData(address indexed token, string err);
 }
 contract OracleTest is Test, Events {
 
     // Tokens
     address constant linkToken = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    address constant btc = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    address constant ampl = 0xD46bA6D942050d489DBd938a2C909A5d5039A161;
 
     address constant feedRegistry = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf;
     
@@ -47,10 +54,9 @@ contract OracleTest is Test, Events {
     function test_fails_if_address_is_not_ERC20_token() external {
         vm.selectFork(mainnetFork);
         address nonToken = makeAddr("notAtoken");
-        vm.expectEmit(true,false,false,true, address(oracle));
-        emit NoRoundData("Feed Not Found");
+        // vm.expectEmit(true,true,false,true, address(oracle));
+        // emit NoRoundData(nonToken, "Feed not Found");
         int256 price = oracle.getLatestAnswer(nonToken);
-        // emit log_named_int("non token price", price);
         assertEq(price, 0);
     }
 

@@ -21,13 +21,10 @@ contract Oracle is IOracle {
     /// Assumes Chainlink updates price minimum of once every 24hrs and 1 hour buffer for network issues
     uint256 public constant MAX_PRICE_LATENCY = 25 hours;
 
-    // token address
-    event StalePrice();
-    event NullPrice();
-    event NoRoundData(string err);
-
-    event TooFewPriceDecimals(uint256 decimals);
-    event TooManyPriceDecimals(uint256 decimals);
+    event StalePrice(address indexed token);
+    event NullPrice(address indexed token);
+    event NoDecimalData(address indexed token);
+    event NoRoundData(address indexed token, string err);
 
     constructor(address _registry) {
         registry = FeedRegistryInterface(_registry);
@@ -48,11 +45,11 @@ contract Oracle is IOracle {
         ) {
             // no price for asset if price is stale. Asset is toxic
             if (answerTimestamp == 0 || block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
-                emit StalePrice();
+                emit StalePrice(token);
                 return NULL_PRICE;
             }
             if (_price <= NULL_PRICE) {
-                emit NullPrice();
+                emit NullPrice(token);
                 return NULL_PRICE;
             }
 
@@ -64,12 +61,12 @@ contract Oracle is IOracle {
                     decimals < PRICE_DECIMALS
                         ? _price * int256(10 ** (PRICE_DECIMALS - decimals))
                         : _price / int256(10 ** (decimals - PRICE_DECIMALS));
-            } catch (bytes memory _e) {
+            } catch (bytes memory) {
                 return NULL_PRICE;
             }
             // another try catch for decimals call
         } catch Error(string memory msg_) {
-            emit NoRoundData(msg_);
+            emit NoRoundData(token, msg_);
             return NULL_PRICE;
         }
     }
