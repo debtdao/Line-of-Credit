@@ -775,9 +775,6 @@ contract SpigotTest is Test {
         spigot.updateOperator(address(0xdebf));
         assertEq(spigot.operator(), address(0xdebf));
     }
-
-    
-
     
     function test_updateOwner_AsNonOwner() public {
         hoax(address(0xdebf));
