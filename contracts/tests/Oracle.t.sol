@@ -16,7 +16,10 @@ import { Oracle } from "../modules/oracle/Oracle.sol";
 - [ ]  oracle reverts if address is not an erc20
 */
 
-contract OracleTest is Test {
+interface Events {
+    event NoRoundData(string err);
+}
+contract OracleTest is Test, Events {
 
     // Tokens
     address constant linkToken = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
@@ -44,10 +47,10 @@ contract OracleTest is Test {
     function test_fails_if_address_is_not_ERC20_token() external {
         vm.selectFork(mainnetFork);
         address nonToken = makeAddr("notAtoken");
-        // vm.expectEmit(true,false,false,true, address(oracle));
-        // emit oracle.NoRoundData("Feed Not Found");
+        vm.expectEmit(true,false,false,true, address(oracle));
+        emit NoRoundData("Feed Not Found");
         int256 price = oracle.getLatestAnswer(nonToken);
-        emit log_named_int("non token price", price);
+        // emit log_named_int("non token price", price);
         assertEq(price, 0);
     }
 

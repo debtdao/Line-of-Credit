@@ -21,6 +21,7 @@ contract Oracle is IOracle {
     /// Assumes Chainlink updates price minimum of once every 24hrs and 1 hour buffer for network issues
     uint256 public constant MAX_PRICE_LATENCY = 25 hours;
 
+    // token address
     event StalePrice();
     event NullPrice();
     event NoRoundData(string err);
