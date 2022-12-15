@@ -21,10 +21,10 @@ contract Oracle is IOracle {
     /// Assumes Chainlink updates price minimum of once every 24hrs and 1 hour buffer for network issues
     uint256 public constant MAX_PRICE_LATENCY = 25 hours;
 
-    event StalePrice(address indexed token);
+    event StalePrice(address indexed token, uint256 answerTimestamp);
     event NullPrice(address indexed token);
-    event NoDecimalData(address indexed token);
-    event NoRoundData(address indexed token, string err);
+    event NoDecimalData(address indexed token, bytes errData);
+    event NoRoundData(address indexed token, bytes errData);
 
     constructor(address _registry) {
         registry = FeedRegistryInterface(_registry);
@@ -36,8 +36,7 @@ contract Oracle is IOracle {
      */
     function getLatestAnswer(address token) external returns (int256) {
         try registry.latestRoundData(token, Denominations.USD) returns (
-            uint80,
-            /* uint80 roundID */
+            uint80 /* uint80 roundID */,
             int256 _price,
             uint256 /* uint256 roundStartTime */,
             uint256 answerTimestamp /* uint80 answeredInRound */,
@@ -45,7 +44,7 @@ contract Oracle is IOracle {
         ) {
             // no price for asset if price is stale. Asset is toxic
             if (answerTimestamp == 0 || block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
-                emit StalePrice(token);
+                emit StalePrice(token, answerTimestamp);
                 return NULL_PRICE;
             }
             if (_price <= NULL_PRICE) {
@@ -61,11 +60,12 @@ contract Oracle is IOracle {
                     decimals < PRICE_DECIMALS
                         ? _price * int256(10 ** (PRICE_DECIMALS - decimals))
                         : _price / int256(10 ** (decimals - PRICE_DECIMALS));
-            } catch (bytes memory) {
+            } catch (bytes memory msg_) {
+                emit NoDecimalData(token, msg_);
                 return NULL_PRICE;
             }
             // another try catch for decimals call
-        } catch Error(string memory msg_) {
+        } catch (bytes memory msg_) {
             emit NoRoundData(token, msg_);
             return NULL_PRICE;
         }
