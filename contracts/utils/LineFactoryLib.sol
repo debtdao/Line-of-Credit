@@ -19,31 +19,11 @@ library LineFactoryLib {
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InitNewLineFailed(address line, address spigot, address escrow);
 
-    /**
-      @notice sets up new line based of config of old line. Old line does not need to have REPAID status for this call to succeed.
-      @dev borrower must call rollover() on `oldLine` with newly created line address
-      @param oldLine  - line to copy config from for new line.
-      @param borrower - borrower address on new line
-      @param ttl      - set total term length of line
-      @return newLine - address of newly deployed line with oldLine config
-     */
-    function rolloverSecuredLine(
-        address payable oldLine,
-        address borrower,
-        address oracle,
-        address arbiter,
-        uint ttl
-    ) external returns (address) {
-        address s = address(SecuredLine(oldLine).spigot());
-        address e = address(SecuredLine(oldLine).escrow());
-        address payable st = SecuredLine(oldLine).swapTarget();
-        uint8 split = SecuredLine(oldLine).defaultRevenueSplit();
-        SecuredLine line = new SecuredLine(oracle, arbiter, borrower, st, s, e, ttl, split);
-        emit DeployedSecuredLine(address(line), s, e, st, split);
-        return address(line);
-    }
-
-    function transferModulesToLine(address line, address spigot, address escrow) external {
+    function transferModulesToLine(
+        address line,
+        address spigot,
+        address escrow
+    ) external {
         (bool success, bytes memory returnVal) = spigot.call(
             abi.encodeWithSignature("updateOwner(address)", address(line))
         );
@@ -68,7 +48,7 @@ library LineFactoryLib {
         address payable swapTarget,
         address s,
         address e,
-        uint ttl,
+        uint256 ttl,
         uint8 revenueSplit
     ) external returns (address) {
         return address(new SecuredLine(oracle, arbiter, borrower, swapTarget, s, e, ttl, revenueSplit));

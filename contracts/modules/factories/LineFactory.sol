@@ -4,7 +4,7 @@ import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
-import {SecuredLine} from "../credit/SecuredLine.sol";
+import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
@@ -17,7 +17,12 @@ contract LineFactory is ILineFactory {
     address public immutable oracle;
     address public immutable swapTarget;
 
-    constructor(address moduleFactory, address arbiter_, address oracle_, address swapTarget_) {
+    constructor(
+        address moduleFactory,
+        address arbiter_,
+        address oracle_,
+        address swapTarget_
+    ) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
@@ -34,7 +39,11 @@ contract LineFactory is ILineFactory {
     }
 
     /// see ModuleFactory.deployEscrow.
-    function deployEscrow(uint32 minCRatio, address owner, address borrower) external returns (address) {
+    function deployEscrow(
+        uint32 minCRatio,
+        address owner,
+        address borrower
+    ) external returns (address) {
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
@@ -125,10 +134,21 @@ contract LineFactory is ILineFactory {
         address payable oldLine,
         address borrower,
         uint256 ttl
-    ) external returns (address newLine) {
-        if (arbiter == address(0)) {
-            revert InvalidArbiterAddress();
-        }
-        newLine = LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
+    ) external returns (address) {
+        address s = address(ISecuredLine(oldLine).spigot());
+        address e = address(ISecuredLine(oldLine).escrow());
+        uint8 split = defaultRevenueSplit;
+        address line = LineFactoryLib.deploySecuredLine(
+            oracle,
+            arbiter,
+            borrower,
+            payable(swapTarget),
+            s,
+            e,
+            ttl,
+            split
+        );
+        emit DeployedSecuredLine(address(line), s, e, swapTarget, split);
+        return address(line);
     }
 }
