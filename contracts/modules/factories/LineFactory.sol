@@ -4,7 +4,6 @@ import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
-import {SecuredLine} from "../credit/SecuredLine.sol";
 
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
@@ -89,12 +88,10 @@ contract LineFactory is ILineFactory {
         address mSpigot,
         address mEscrow
     ) external returns (address line) {
-        // TODO: test
         if (mSpigot == address(0)) {
             revert InvalidSpigotAddress();
         }
 
-        // TODO: test
         if (mEscrow == address(0)) {
             revert InvalidEscrowAddress();
         }
@@ -126,9 +123,6 @@ contract LineFactory is ILineFactory {
         address borrower,
         uint256 ttl
     ) external returns (address newLine) {
-        if (arbiter == address(0)) {
-            revert InvalidArbiterAddress();
-        }
-        newLine = LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
+        // newLine = LineFactoryLib.rolloverSecuredLine(oldLine, borrower, oracle, arbiter, ttl);
     }
 }
