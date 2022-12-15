@@ -72,14 +72,16 @@ contract OracleTest is Test, Events {
         mockRegistry2 = new MockRegistry();
         
         mockOracle1 = new Oracle(address(mockRegistry1));
-        mockOracle1 = new Oracle(address(mockRegistry1));
+        mockOracle2 = new Oracle(address(mockRegistry2));
 
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
 
         mockRegistry1.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_8);
-        mockRegistry1.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8
-        );
+        mockRegistry1.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8);
+
+        mockRegistry2.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
+        mockRegistry2.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
 
     }
 
@@ -168,15 +170,17 @@ contract OracleTest is Test, Events {
 
         uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 8);
-
+        
+        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE);
         mockRegistry1.updateTokenDecimals(address(tokenA), 0);
+
 
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 0);
 
         int price = mockOracle1.getLatestAnswer(address(tokenA));
 
-        assertEq(price, TOKEN_A_PRICE * 10**8);
+        assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
     }
 
     function test_token_with_invalid_decimals() external {
