@@ -485,6 +485,50 @@ contract SpigotedLineTest is Test {
       line.claimAndTrade(address(revenueToken), tradeData);
     }
 
+    function test_cannot_claim_and_trade_if_borrower(uint buyAmount, uint sellAmount) public {
+      // oracle prices not relevant to test
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      _borrow(line.ids(0), lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        sellAmount,
+        buyAmount
+      );
+
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+      vm.prank(borrower);
+      line.claimAndTrade(address(revenueToken), tradeData);
+    }
+
+    function test_cannot_claim_and_trade_if_lender(uint buyAmount, uint sellAmount) public {
+      // oracle prices not relevant to test
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      
+      // need to have active position so we can buy asset
+      _borrow(line.ids(0), lentAmount);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        sellAmount,
+        buyAmount
+      );
+
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+      vm.prank(lender);
+      line.claimAndTrade(address(revenueToken), tradeData);
+    }
+
     function test_cant_claim_and_repay_not_borrowing() public {
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -608,6 +652,70 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");
       
       assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
+    }
+
+    function test_cannot_claim_and_repay_if_borrower(uint buyAmount, uint sellAmount, uint timespan) public {
+      if(timespan > ttl) return;
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount >= MAX_REVENUE || sellAmount >= MAX_REVENUE) return;
+
+      _borrow(line.ids(0), lentAmount);
+      
+      // no interest charged because no blocks processed
+      uint256 interest = 0;
+
+      // vm.warp(timespan);
+      // line.accrueInterest();
+      // (,,uint interest,,,,) = line.credits(line.ids(0)) ;
+
+      // oracle prices not relevant to trading test
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        sellAmount,
+        buyAmount
+      );
+
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+      vm.prank(borrower);
+      console.log(buyAmount);
+      console.log(sellAmount);
+      line.claimAndRepay(address(revenueToken), tradeData);
+    }
+
+    function test_cannot_claim_and_repay_if_lender(uint buyAmount, uint sellAmount, uint timespan) public {
+      if(timespan > ttl) return;
+      if(buyAmount == 0 || sellAmount == 0) return;
+      if(buyAmount >= MAX_REVENUE || sellAmount >= MAX_REVENUE) return;
+
+      _borrow(line.ids(0), lentAmount);
+      
+      // no interest charged because no blocks processed
+      uint256 interest = 0;
+
+      // vm.warp(timespan);
+      // line.accrueInterest();
+      // (,,uint interest,,,,) = line.credits(line.ids(0)) ;
+
+      // oracle prices not relevant to trading test
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        sellAmount,
+        buyAmount
+      );
+
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+
+      vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+      vm.prank(lender);
+      console.log(buyAmount);
+      console.log(sellAmount);
+      line.claimAndRepay(address(revenueToken), tradeData);
     }
     
     // write tests for unused tokens
