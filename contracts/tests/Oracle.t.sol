@@ -13,12 +13,12 @@ import {RevenueToken} from "../mock/RevenueToken.sol";
 /*
 collateralValue, debtValue (different decimals, same value);
 
-- [ ]  Must normalize all forkOracle prices to 8 decimals
+- [ ]  Must normalize all oracle prices to 8 decimals
     - [ ]  both aggregators in 8 decimals
     - [ ]  both above 8 decimals
     - [ ]  both below 8 decimals
-    - [x]  one 8 decimal, one over 8 decimal
-    - [x]  one under 8 decimal, one 9 decimal
+    - [ ]  one 8 decimal, one over 8 decimal
+    - [ ]  one under 8 decimal, one 9 decimal
 - [x]  Price must be within 25 hours
 - [x]  price must be > 0
 - [x]  forkOracle reverts if address is not an erc20
@@ -48,30 +48,37 @@ contract OracleTest is Test, Events {
 
     // Chainlink
     FeedRegistryInterface registry;
-    MockRegistry mockRegistry;
+    MockRegistry mockRegistry1;
+    MockRegistry mockRegistry2;
+
     address constant feedRegistryAddress = 0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf;
     
     uint256 mainnetFork;
     Oracle forkOracle;
-    Oracle mockOracle;
+    Oracle mockOracle1;
+    Oracle mockOracle2;
 
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
     function setUp() external {
+        // Fork
         mainnetFork = vm.createFork(MAINNET_RPC_URL);
         vm.selectFork(mainnetFork);
-        mockRegistry = new MockRegistry();
-        
-        mockOracle = new Oracle(address(mockRegistry));
         forkOracle = new Oracle(feedRegistryAddress);
-
         registry = FeedRegistryInterface(feedRegistryAddress);
+
+        // Mocks
+        mockRegistry1 = new MockRegistry();
+        mockRegistry2 = new MockRegistry();
+        
+        mockOracle1 = new Oracle(address(mockRegistry1));
+        mockOracle1 = new Oracle(address(mockRegistry1));
 
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
 
-        mockRegistry.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_8);
-        mockRegistry.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8
+        mockRegistry1.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_8);
+        mockRegistry1.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8
         );
 
     }
@@ -107,82 +114,83 @@ contract OracleTest is Test, Events {
     }
 
     function test_token_with_stale_price() external {
-        mockRegistry.overrideTokenTimestamp(address(tokenA), true);
-        vm.expectEmit(true,false,false, true, address(mockOracle));
+        mockRegistry1.overrideTokenTimestamp(address(tokenA), true);
+        vm.expectEmit(true,false,false, true, address(mockOracle1));
         emit StalePrice(address(tokenA), block.timestamp - 28 hours);
-        int256 price = mockOracle.getLatestAnswer(address(tokenA));
+        int256 price = mockOracle1.getLatestAnswer(address(tokenA));
         assertEq(price, 0);
     }
 
     function test_token_with_null_price() external {
-        mockRegistry.updateTokenPrice(address(tokenB), 0);
+        mockRegistry1.updateTokenPrice(address(tokenB), 0);
 
-        vm.expectEmit(true,false,false, true, address(mockOracle));
+        vm.expectEmit(true,false,false, true, address(mockOracle1));
         emit NullPrice(address(tokenB));
-        int price = mockOracle.getLatestAnswer(address(tokenB));
+        int price = mockOracle1.getLatestAnswer(address(tokenB));
         assertEq(price, 0);
     }
 
     function test_token_price_with_fewer_than_8_decimals() external {
-        int256 price = mockOracle.getLatestAnswer(address(tokenA));
+        int256 price = mockOracle1.getLatestAnswer(address(tokenA));
         assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
-        uint8 tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         
         assertEq(tokenAdecimals, 8);
 
-        mockRegistry.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
-        mockRegistry.updateTokenDecimals(address(tokenA), 6);
+        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
+        mockRegistry1.updateTokenDecimals(address(tokenA), 6);
 
-        tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 6);
 
-        int256 newPrice = mockOracle.getLatestAnswer(address(tokenA));
+        int256 newPrice = mockOracle1.getLatestAnswer(address(tokenA));
         assertEq(price, newPrice);
     }
 
     function test_token_price_with_greater_than_8_decimals() external {
-        int256 price = mockOracle.getLatestAnswer(address(tokenB));
+        int256 price = mockOracle1.getLatestAnswer(address(tokenB));
         assertEq(price, TOKEN_B_PRICE * DECIMALS_8);
-        uint8 tokenBdecimals = mockRegistry.decimals(address(tokenB), address(0));
+        uint8 tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
         
         assertEq(tokenBdecimals, 8);
 
-        mockRegistry.updateTokenPrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
-        mockRegistry.updateTokenDecimals(address(tokenB), 10);
+        mockRegistry1.updateTokenPrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
+        mockRegistry1.updateTokenDecimals(address(tokenB), 10);
 
-        tokenBdecimals = mockRegistry.decimals(address(tokenB), address(0));
+        tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
         assertEq(tokenBdecimals, 10);
 
-        int256 newPrice = mockOracle.getLatestAnswer(address(tokenB));
+        int256 newPrice = mockOracle1.getLatestAnswer(address(tokenB));
         assertEq(price, newPrice);
     }
 
     function test_token_with_zero_decimals() external {
 
-        uint8 tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 8);
 
-        mockRegistry.updateTokenDecimals(address(tokenA), 0);
+        mockRegistry1.updateTokenDecimals(address(tokenA), 0);
 
-        tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 0);
 
-        int price = mockOracle.getLatestAnswer(address(tokenA));
+        int price = mockOracle1.getLatestAnswer(address(tokenA));
 
         assertEq(price, TOKEN_A_PRICE * 10**8);
     }
 
     function test_token_with_invalid_decimals() external {
 
-        uint8 tokenAdecimals = mockRegistry.decimals(address(tokenA), address(0));
+        uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 8);
 
-        mockRegistry.revertDecimals(address(tokenA), true);
+        mockRegistry1.revertDecimals(address(tokenA), true);
 
         bytes memory empty;
         emit NoDecimalData(address(tokenA), empty);
-        int price = mockOracle.getLatestAnswer(address(tokenA));
+        int price = mockOracle1.getLatestAnswer(address(tokenA));
 
         assertEq(price, 0);
     }
+
 }

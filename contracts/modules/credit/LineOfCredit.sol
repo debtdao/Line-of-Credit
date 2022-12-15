@@ -394,9 +394,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /**
-     * @notice - This is a redundancy measure that unlocks the queue should it get stuck with a null (zero) element
-     *         - at the zero index
-     * @dev - Only works if the first element in the queue is null
+     * @notice  - Steps the Queue be replacing the first element with the next valid credit line's ID
+     * @dev     - Only works if the first element in the queue is null
      */
     function stepQ() external returns (bool) {
         if (ids[0] != bytes32(0)) {
