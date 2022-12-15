@@ -21,6 +21,13 @@ contract Oracle is IOracle {
     /// Assumes Chainlink updates price minimum of once every 24hrs and 1 hour buffer for network issues
     uint256 public constant MAX_PRICE_LATENCY = 25 hours;
 
+    event StalePrice();
+    event NullPrice();
+    event NoRoundData(string err);
+
+    event TooFewPriceDecimals(uint256 decimals);
+    event TooManyPriceDecimals(uint256 decimals);
+
     constructor(address _registry) {
         registry = FeedRegistryInterface(_registry);
     }
@@ -29,7 +36,7 @@ contract Oracle is IOracle {
      * @param token - ERC20 token to get USD price for
      * @return price - the latest price in USD to 8 decimals
      */
-    function getLatestAnswer(address token) external view returns (int256) {
+    function getLatestAnswer(address token) external returns (int256) {
         try registry.latestRoundData(token, Denominations.USD) returns (
             uint80,
             /* uint80 roundID */
@@ -39,23 +46,32 @@ contract Oracle is IOracle {
             uint80
         ) {
             // no price for asset if price is stale. Asset is toxic
-            if (block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) return NULL_PRICE;
-            if (_price <= NULL_PRICE) return NULL_PRICE;
+            if (block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
+                emit StalePrice();
+                return NULL_PRICE;
+            }
+            if (_price <= NULL_PRICE) {
+                emit NullPrice();
+                return NULL_PRICE;
+            }
 
             try registry.decimals(token, Denominations.USD) returns (uint8 decimals) {
                 // if already at target decimals then return price
                 if (decimals == PRICE_DECIMALS) return _price;
                 // transform decimals to target value. disregard rounding errors
                 if (decimals < PRICE_DECIMALS) {
+                    emit TooFewPriceDecimals(decimals);
                     return _price * int256(10 ** (PRICE_DECIMALS - decimals));
                 } else {
+                    emit TooManyPriceDecimals(decimals);
                     return _price * int256(10 ** (decimals - PRICE_DECIMALS));
                 }
-            } catch (bytes memory _e) {
+            } catch (bytes memory) {
                 return NULL_PRICE;
             }
             // another try catch for decimals call
-        } catch (bytes memory __e) {
+        } catch Error(string memory msg_) {
+            emit NoRoundData(msg_);
             return NULL_PRICE;
         }
     }
