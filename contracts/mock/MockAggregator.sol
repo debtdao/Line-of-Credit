@@ -31,6 +31,7 @@ contract MockAggregator {
     }
 
     function changeDecimals(uint8 newDecimals) external {
+        require(newDecimals < 50, "Too many decimals");
         _decimals = newDecimals;
     }
 

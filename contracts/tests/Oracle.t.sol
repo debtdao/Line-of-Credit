@@ -142,7 +142,6 @@ contract OracleTest is Test, Events {
 
         // after changing the oracle
         mockRegistry1.updateTokenDecimals(address(tokenA), decimalsA);
-
         mockRegistry2.updateTokenDecimals(address(tokenA), decimalsB);
 
         uint256 altCollateralValue = escrow.getCollateralValue();
@@ -208,18 +207,19 @@ contract OracleTest is Test, Events {
         assertEq(price, 0);
     }
 
-    function test_token_price_with_fewer_than_8_decimals() external {
+    function test_token_price_with_fewer_than_8_decimals(uint8 newDecimals) external {
+        vm.assume(newDecimals < 50);
+
         int256 price = oracle1.getLatestAnswer(address(tokenA));
         assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
+
         uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
-        
         assertEq(tokenAdecimals, 8);
 
-        mockRegistry1.updateTokenBasePrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
-        mockRegistry1.updateTokenDecimals(address(tokenA), 6);
+        mockRegistry1.updateTokenDecimals(address(tokenA), newDecimals);
 
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
-        assertEq(tokenAdecimals, 6);
+        assertEq(tokenAdecimals, newDecimals);
 
         int256 newPrice = oracle1.getLatestAnswer(address(tokenA));
         assertEq(price, newPrice);
@@ -227,12 +227,11 @@ contract OracleTest is Test, Events {
 
     function test_token_price_with_greater_than_8_decimals() external {
         int256 price = oracle1.getLatestAnswer(address(tokenB));
-        assertEq(price, TOKEN_B_PRICE * DECIMALS_8);
+        assertEq(price, TOKEN_B_PRICE);
         uint8 tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
         
         assertEq(tokenBdecimals, 8);
 
-        mockRegistry1.updateTokenBasePrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
         mockRegistry1.updateTokenDecimals(address(tokenB), 10);
 
         tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
@@ -247,7 +246,6 @@ contract OracleTest is Test, Events {
         uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 8);
         
-        mockRegistry1.updateTokenBasePrice(address(tokenA), TOKEN_A_PRICE);
         mockRegistry1.updateTokenDecimals(address(tokenA), 0);
 
 
