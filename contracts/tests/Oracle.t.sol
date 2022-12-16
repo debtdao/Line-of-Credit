@@ -200,14 +200,13 @@ contract OracleTest is Test, Events {
 
     function test_token_with_null_price() external {
         mockRegistry1.updateTokenBasePrice(address(tokenB), 0);
-
         vm.expectEmit(true,false,false, true, address(oracle1));
         emit NullPrice(address(tokenB));
         int price = oracle1.getLatestAnswer(address(tokenB));
         assertEq(price, 0);
     }
 
-    function test_token_price_with_fewer_than_8_decimals(uint8 newDecimals) external {
+    function test_token_price_with_varying_decimals(uint8 newDecimals) external {
         vm.assume(newDecimals < 50);
 
         int256 price = oracle1.getLatestAnswer(address(tokenA));
@@ -222,22 +221,6 @@ contract OracleTest is Test, Events {
         assertEq(tokenAdecimals, newDecimals);
 
         int256 newPrice = oracle1.getLatestAnswer(address(tokenA));
-        assertEq(price, newPrice);
-    }
-
-    function test_token_price_with_greater_than_8_decimals() external {
-        int256 price = oracle1.getLatestAnswer(address(tokenB));
-        assertEq(price, TOKEN_B_PRICE);
-        uint8 tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
-        
-        assertEq(tokenBdecimals, 8);
-
-        mockRegistry1.updateTokenDecimals(address(tokenB), 10);
-
-        tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
-        assertEq(tokenBdecimals, 10);
-
-        int256 newPrice = oracle1.getLatestAnswer(address(tokenB));
         assertEq(price, newPrice);
     }
 

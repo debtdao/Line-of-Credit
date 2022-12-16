@@ -9,7 +9,6 @@ contract MockAggregator {
 
     uint8 private _decimals = 8;
     int256 private _basePrice;
-    int256 price;
 
     constructor(address token_, int256 basePrice_) {
         token = token_;
@@ -27,7 +26,7 @@ contract MockAggregator {
     }
 
     function changePrice(int256 basePrice_) external {
-        price = basePrice_;
+        _basePrice = basePrice_;
     }
 
     function changeDecimals(uint8 newDecimals) external {
