@@ -3,7 +3,7 @@ pragma solidity 0.8.9;
 
 import "forge-std/Script.sol";
 
-import {MockRegistry} from "../mock/MockRegistry.sol";
+import {MockRegistry} from "../contracts/mock/MockRegistry.sol";
 
 contract DeployLibs is Script {
     MockRegistry registry;

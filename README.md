@@ -53,7 +53,7 @@ Encountered 1 failing test in contracts/tests/SpigotedLine.t.sol:SpigotedLineTes
 ### Local
 
 ```
-source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast
+source .env && forge script contracts/scripts/DeployLocal.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast
 ```
 
 ### Goerli

@@ -3,7 +3,7 @@ pragma solidity 0.8.9;
 
 import "forge-std/Script.sol";
 
-import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
+import {SimpleRevenueContract} from "../contracts/mock/SimpleRevenueContract.sol";
 
 contract DeploySimpleRevenueContract is Script {
     SimpleRevenueContract revenue;

@@ -2,17 +2,18 @@
 pragma solidity 0.8.9;
 
 import "./DeployBase.s.sol";
-import {SimpleOracle} from "../mock/SimpleOracle.sol";
+import {SimpleOracle} from "../contracts/mock/SimpleOracle.sol";
 
 contract DeployGoerli is DeployBase {
+    // TODO: replace with MockRegistry
     SimpleOracle mockOracle; // would be feed registry on Goerli
 
-    address arbiter = address(1);
-    address swapTarget = address(2);
-    address feedRegistry = address(3);
+    address arbiter = address(1); // TODO: replace
+    address swapTarget = address(2); // TODO: replace
+    address feedRegistry = address(3); // TODO: replace
 
-    address seeroCoin = address(4);
-    address tokenB = address(5);
+    address seeroCoin = address(4); // TODO: replace
+    address tokenB = address(5); // TODO: replace
 
     constructor() {
         mockOracle = new SimpleOracle(seeroCoin, tokenB);

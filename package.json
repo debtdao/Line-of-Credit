@@ -9,7 +9,8 @@
     "prepare": "husky install",
     "prettier": "prettier --write **.sol",
     "prettier:list": "prettier --list-different **.sol",
-    "prettier:check": "prettier --check **.sol"
+    "prettier:check": "prettier --check **.sol",
+    "deploy:local": "FOUNDRY_PROFILE=local && source .env && forge script scripts/DeployLocal.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast"
   },
   "husky": {
     "hooks": {
