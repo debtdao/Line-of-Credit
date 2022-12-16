@@ -42,7 +42,7 @@ contract LineFactoryTest is Test {
             address(moduleFactory),
             arbiter,
             oracle,
-            swapTarget
+            payable(swapTarget)
         );
 
         line_address = lineFactory.deploySecuredLine(borrower, ttl);
@@ -67,7 +67,7 @@ contract LineFactoryTest is Test {
             address(moduleFactory),
             address(0),
             oracle,
-            swapTarget
+            payable(swapTarget)
         );
     }
 

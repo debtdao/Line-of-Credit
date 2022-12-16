@@ -117,7 +117,7 @@ contract LineFactory is ILineFactory {
       @param oldLine  - line to copy config from for new line.
       @param borrower - borrower address on new line
       @param ttl      - set total term length of line
-      @return newLine - address of newly deployed line with oldLine config
+      @return line - address of newly deployed line with oldLine config
      */
     function rolloverSecuredLine(
         address payable oldLine,

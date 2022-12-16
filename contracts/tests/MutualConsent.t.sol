@@ -73,7 +73,7 @@ contract MutualConsentTest is Test, Events {
             address(moduleFactory),
             arbiter,
             address(oracle),
-            swapTarget
+            payable(swapTarget)
         );
 
         line_address = lineFactory.deploySecuredLine(borrower, ttl);
