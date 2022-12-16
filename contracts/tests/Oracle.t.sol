@@ -14,12 +14,12 @@ import { Escrow } from "../modules/escrow/Escrow.sol";
 /*
 collateralValue, debtValue (different decimals, same value);
 
-- [ ]  Must normalize all oracle prices to 8 decimals
-    - [ ]  both aggregators in 8 decimals
-    - [ ]  both above 8 decimals
-    - [ ]  both below 8 decimals
-    - [ ]  one 8 decimal, one over 8 decimal
-    - [ ]  one under 8 decimal, one 9 decimal
+- [x]  Must normalize all oracle prices to 8 decimals
+    - [x]  both aggregators in 8 decimals
+    - [x]  both above 8 decimals
+    - [x]  both below 8 decimals
+    - [x]  one 8 decimal, one over 8 decimal
+    - [x]  one under 8 decimal, one 9 decimal
 - [x]  Price must be within 25 hours
 - [x]  price must be > 0
 - [x]  forkOracle reverts if address is not an erc20
@@ -123,6 +123,9 @@ contract OracleTest is Test, Events {
         _addCreditAndBorrow(address(tokenA), 1 ether);
     }
 
+    /*/////////////////////////////////////////////////////////
+    ///////////////         FUZZ TESTS          ///////////////
+    /////////////////////////////////////////////////////////*/
 
 
     function test_collateral_value_after_decimals_change(uint8 decimalsA, uint8 decimalsB) external {
