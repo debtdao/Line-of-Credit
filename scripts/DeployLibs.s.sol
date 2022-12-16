@@ -3,10 +3,10 @@ pragma solidity 0.8.9;
 
 import "forge-std/Script.sol";
 
-import {MockRegistry} from "../contracts/mock/MockRegistry.sol";
+import {LibRegistry} from "../contracts/utils/LibRegistry.sol";
 
 contract DeployLibs is Script {
-    MockRegistry registry;
+    LibRegistry registry;
 
     constructor() {}
 
@@ -14,12 +14,11 @@ contract DeployLibs is Script {
         uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
         console.log("deployer: ", deployer);
-        vm.deal(deployer, type(uint64).max);
-        vm.startBroadcast(deployerKey);
-        registry = new MockRegistry();
 
-        address creditLib = registry.creditLib();
-        console.log("creditLib", creditLib);
+        vm.startBroadcast(deployerKey);
+
+        registry = new LibRegistry();
+
         vm.stopBroadcast();
     }
 }
