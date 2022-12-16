@@ -38,7 +38,7 @@ contract MockRegistry {
         mockAggregators[token].setShouldRevertDecimals(shouldOverride);
     }
 
-    function updateTokenPrice(address token, int256 price) external {
+    function updateTokenBasePrice(address token, int256 price) external {
         mockAggregators[token].changePrice(price);
     }
 

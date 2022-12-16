@@ -101,21 +101,20 @@ contract OracleTest is Test, Events {
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
 
-        mockRegistry1.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_8);
-        mockRegistry1.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_8);
+        mockRegistry1.addToken(address(tokenA), TOKEN_A_PRICE);
+        mockRegistry1.addToken(address(tokenB), TOKEN_B_PRICE);
 
-        mockRegistry2.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
-        mockRegistry2.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
+        mockRegistry2.addToken(address(tokenA), TOKEN_A_PRICE);
+        mockRegistry2.addToken(address(tokenB), TOKEN_B_PRICE);
 
         // Line
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
 
-
-
         line = new LineOfCredit(address(oracle1), arbiter, borrower, ttl);
         assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        
         // deploy and save escrow
         escrow = new Escrow ( minCollateralRatio, address(oracle2), address(line), borrower);
         
@@ -124,52 +123,10 @@ contract OracleTest is Test, Events {
         _addCreditAndBorrow(address(tokenA), 1 ether);
     }
 
-    /*/////////////////////////////////////////////////////////
-    ///////////////         HELPERS             ///////////////
-    /////////////////////////////////////////////////////////*/
-
-     function _mintAndApprove() internal {
-        deal(lender, mintAmount);
-
-        tokenA.mint(borrower, mintAmount);
-        tokenA.mint(lender, mintAmount);
-        tokenB.mint(borrower, mintAmount);
-        tokenB.mint(lender, mintAmount);
 
 
-        vm.startPrank(borrower);
-        tokenA.approve(address(line), type(uint256).max);
-        tokenB.approve(address(line), type(uint256).max);
-        tokenA.approve(address(escrow), type(uint256).max);
-        tokenB.approve(address(escrow), type(uint256).max);
-        vm.stopPrank();
-
-        vm.startPrank(lender);
-        tokenA.approve(address(line), type(uint256).max);
-        tokenB.approve(address(line), type(uint256).max);
-        vm.stopPrank();
-    }   
-    
-    function _addCreditAndBorrow(address token, uint256 amount) internal {
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, amount, token, lender);
-        vm.stopPrank();
-        vm.startPrank(lender);
-        line.addCredit(dRate, fRate, amount, token, lender);
-        vm.stopPrank();
-
-        vm.startPrank(arbiter);
-        escrow.enableCollateral(address(tokenA));
-        vm.stopPrank();
-
-        vm.startPrank(borrower);
-        escrow.addCollateral(1 ether, address(tokenA));
-        line.borrow(line.ids(0), 1 ether);
-        vm.stopPrank();
-    }
-
-    function test_check_escrow() external {
-
+    function test_collateral_value_after_decimals_change(uint8 decimalsA, uint8 decimalsB) external {
+        vm.assume(decimalsA < 50 && decimalsB < 50);
         vm.warp(block.timestamp + 7 days);
 
         // before changing the oracle
@@ -181,12 +138,13 @@ contract OracleTest is Test, Events {
         emit log_named_uint("collateral", collateralValue);
 
         // after changing the oracle
-        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_7);
-        mockRegistry1.updateTokenDecimals(address(tokenA), 7);
+        mockRegistry1.updateTokenDecimals(address(tokenA), decimalsA);
 
+        mockRegistry2.updateTokenDecimals(address(tokenA), decimalsB);
 
         uint256 altCollateralValue = escrow.getCollateralValue();
         (uint256 altPrincipal, uint256 altInterest) = line.updateOutstandingDebt();
+        
         assertEq(collateralValue, altCollateralValue);
         assertEq(principal, altPrincipal);
         assertEq(interest, altInterest);
@@ -239,7 +197,7 @@ contract OracleTest is Test, Events {
     }
 
     function test_token_with_null_price() external {
-        mockRegistry1.updateTokenPrice(address(tokenB), 0);
+        mockRegistry1.updateTokenBasePrice(address(tokenB), 0);
 
         vm.expectEmit(true,false,false, true, address(oracle1));
         emit NullPrice(address(tokenB));
@@ -254,7 +212,7 @@ contract OracleTest is Test, Events {
         
         assertEq(tokenAdecimals, 8);
 
-        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
+        mockRegistry1.updateTokenBasePrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
         mockRegistry1.updateTokenDecimals(address(tokenA), 6);
 
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
@@ -271,7 +229,7 @@ contract OracleTest is Test, Events {
         
         assertEq(tokenBdecimals, 8);
 
-        mockRegistry1.updateTokenPrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
+        mockRegistry1.updateTokenBasePrice(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
         mockRegistry1.updateTokenDecimals(address(tokenB), 10);
 
         tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
@@ -286,7 +244,7 @@ contract OracleTest is Test, Events {
         uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 8);
         
-        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE);
+        mockRegistry1.updateTokenBasePrice(address(tokenA), TOKEN_A_PRICE);
         mockRegistry1.updateTokenDecimals(address(tokenA), 0);
 
 
@@ -310,6 +268,50 @@ contract OracleTest is Test, Events {
         int price = oracle1.getLatestAnswer(address(tokenA));
 
         assertEq(price, 0);
+    }
+
+    /*/////////////////////////////////////////////////////////
+    ///////////////         HELPERS             ///////////////
+    /////////////////////////////////////////////////////////*/
+
+     function _mintAndApprove() internal {
+        deal(lender, mintAmount);
+
+        tokenA.mint(borrower, mintAmount);
+        tokenA.mint(lender, mintAmount);
+        tokenB.mint(borrower, mintAmount);
+        tokenB.mint(lender, mintAmount);
+
+
+        vm.startPrank(borrower);
+        tokenA.approve(address(line), type(uint256).max);
+        tokenB.approve(address(line), type(uint256).max);
+        tokenA.approve(address(escrow), type(uint256).max);
+        tokenB.approve(address(escrow), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        tokenA.approve(address(line), type(uint256).max);
+        tokenB.approve(address(line), type(uint256).max);
+        vm.stopPrank();
+    }   
+    
+    function _addCreditAndBorrow(address token, uint256 amount) internal {
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+
+        vm.startPrank(arbiter);
+        escrow.enableCollateral(address(token));
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        escrow.addCollateral(1 ether, address(token));
+        line.borrow(line.ids(0), 1 ether);
+        vm.stopPrank();
     }
 
 }
