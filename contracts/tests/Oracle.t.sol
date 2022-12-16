@@ -8,7 +8,7 @@ import { Oracle } from "../modules/oracle/Oracle.sol";
 import {MockRegistry} from "../mock/MockRegistry.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
-
+import {LineLib} from "../utils/LineLib.sol";
 import { Escrow } from "../modules/escrow/Escrow.sol";
 
 /*
@@ -41,11 +41,17 @@ contract OracleTest is Test, Events {
     // Mock Tokens
     RevenueToken tokenA;
     RevenueToken tokenB;
-    int256 constant DECIMALS_8 = 10**8;
-    int256 constant DECIMALS_6 = 10**6;
-    int256 constant DECIMALS_10 = 10**10;
+
     int256 constant TOKEN_A_PRICE = 500;
     int256 constant TOKEN_B_PRICE = 750;
+
+    int256 constant DECIMALS_6 = 10**6;
+    int256 constant DECIMALS_7 = 10**7;
+    int256 constant DECIMALS_8 = 10**8;
+    int256 constant DECIMALS_9 = 10**9;
+    int256 constant DECIMALS_10 = 10**10;
+    
+
 
     // Chainlink
     FeedRegistryInterface registry;
@@ -56,8 +62,8 @@ contract OracleTest is Test, Events {
     
     uint256 mainnetFork;
     Oracle forkOracle;
-    Oracle mockOracle1;
-    Oracle mockOracle2;
+    Oracle oracle1;
+    Oracle oracle2;
 
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
@@ -89,8 +95,8 @@ contract OracleTest is Test, Events {
         mockRegistry1 = new MockRegistry();
         mockRegistry2 = new MockRegistry();
         
-        mockOracle1 = new Oracle(address(mockRegistry1));
-        mockOracle2 = new Oracle(address(mockRegistry2));
+        oracle1 = new Oracle(address(mockRegistry1));
+        oracle2 = new Oracle(address(mockRegistry2));
 
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
@@ -108,13 +114,14 @@ contract OracleTest is Test, Events {
 
 
 
-        line = new LineOfCredit(address(mockOracle1), arbiter, borrower, ttl);
+        line = new LineOfCredit(address(oracle1), arbiter, borrower, ttl);
+        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         // deploy and save escrow
-        escrow = new Escrow ( minCollateralRatio, address(mockOracle2), address(line), borrower);
+        escrow = new Escrow ( minCollateralRatio, address(oracle2), address(line), borrower);
         
         _mintAndApprove();
 
-        _addCredit();
+        _addCreditAndBorrow(address(tokenA), 1 ether);
     }
 
     /*/////////////////////////////////////////////////////////
@@ -133,6 +140,8 @@ contract OracleTest is Test, Events {
         vm.startPrank(borrower);
         tokenA.approve(address(line), type(uint256).max);
         tokenB.approve(address(line), type(uint256).max);
+        tokenA.approve(address(escrow), type(uint256).max);
+        tokenB.approve(address(escrow), type(uint256).max);
         vm.stopPrank();
 
         vm.startPrank(lender);
@@ -141,23 +150,46 @@ contract OracleTest is Test, Events {
         vm.stopPrank();
     }   
     
-    function _addCredit(address token, uint256 amount) public {
+    function _addCreditAndBorrow(address token, uint256 amount) internal {
         vm.startPrank(borrower);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
         vm.startPrank(lender);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
+
+        vm.startPrank(arbiter);
+        escrow.enableCollateral(address(tokenA));
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        escrow.addCollateral(1 ether, address(tokenA));
+        line.borrow(line.ids(0), 1 ether);
+        vm.stopPrank();
     }
 
     function test_check_escrow() external {
 
+        vm.warp(block.timestamp + 7 days);
+
+        // before changing the oracle
         (uint256 principal, uint256 interest) = line.updateOutstandingDebt();
         emit log_named_uint("principal", principal);
         emit log_named_uint("interest", interest);
 
         uint256 collateralValue = escrow.getCollateralValue();
         emit log_named_uint("collateral", collateralValue);
+
+        // after changing the oracle
+        mockRegistry1.updateTokenPrice(address(tokenA), TOKEN_A_PRICE * DECIMALS_7);
+        mockRegistry1.updateTokenDecimals(address(tokenA), 7);
+
+
+        uint256 altCollateralValue = escrow.getCollateralValue();
+        (uint256 altPrincipal, uint256 altInterest) = line.updateOutstandingDebt();
+        assertEq(collateralValue, altCollateralValue);
+        assertEq(principal, altPrincipal);
+        assertEq(interest, altInterest);
     }
 
 
@@ -194,25 +226,29 @@ contract OracleTest is Test, Events {
         assertEq(price, normalPrice / 10**10);
     }
 
+    /*/////////////////////////////////////////////////////////
+    ///////////////         MOCK TESTS          ///////////////
+    /////////////////////////////////////////////////////////*/
+
     function test_token_with_stale_price() external {
         mockRegistry1.overrideTokenTimestamp(address(tokenA), true);
-        vm.expectEmit(true,false,false, true, address(mockOracle1));
+        vm.expectEmit(true,false,false, true, address(oracle1));
         emit StalePrice(address(tokenA), block.timestamp - 28 hours);
-        int256 price = mockOracle1.getLatestAnswer(address(tokenA));
+        int256 price = oracle1.getLatestAnswer(address(tokenA));
         assertEq(price, 0);
     }
 
     function test_token_with_null_price() external {
         mockRegistry1.updateTokenPrice(address(tokenB), 0);
 
-        vm.expectEmit(true,false,false, true, address(mockOracle1));
+        vm.expectEmit(true,false,false, true, address(oracle1));
         emit NullPrice(address(tokenB));
-        int price = mockOracle1.getLatestAnswer(address(tokenB));
+        int price = oracle1.getLatestAnswer(address(tokenB));
         assertEq(price, 0);
     }
 
     function test_token_price_with_fewer_than_8_decimals() external {
-        int256 price = mockOracle1.getLatestAnswer(address(tokenA));
+        int256 price = oracle1.getLatestAnswer(address(tokenA));
         assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
         uint8 tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         
@@ -224,12 +260,12 @@ contract OracleTest is Test, Events {
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 6);
 
-        int256 newPrice = mockOracle1.getLatestAnswer(address(tokenA));
+        int256 newPrice = oracle1.getLatestAnswer(address(tokenA));
         assertEq(price, newPrice);
     }
 
     function test_token_price_with_greater_than_8_decimals() external {
-        int256 price = mockOracle1.getLatestAnswer(address(tokenB));
+        int256 price = oracle1.getLatestAnswer(address(tokenB));
         assertEq(price, TOKEN_B_PRICE * DECIMALS_8);
         uint8 tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
         
@@ -241,7 +277,7 @@ contract OracleTest is Test, Events {
         tokenBdecimals = mockRegistry1.decimals(address(tokenB), address(0));
         assertEq(tokenBdecimals, 10);
 
-        int256 newPrice = mockOracle1.getLatestAnswer(address(tokenB));
+        int256 newPrice = oracle1.getLatestAnswer(address(tokenB));
         assertEq(price, newPrice);
     }
 
@@ -257,7 +293,7 @@ contract OracleTest is Test, Events {
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 0);
 
-        int price = mockOracle1.getLatestAnswer(address(tokenA));
+        int price = oracle1.getLatestAnswer(address(tokenA));
 
         assertEq(price, TOKEN_A_PRICE * DECIMALS_8);
     }
@@ -271,7 +307,7 @@ contract OracleTest is Test, Events {
 
         bytes memory empty;
         emit NoDecimalData(address(tokenA), empty);
-        int price = mockOracle1.getLatestAnswer(address(tokenA));
+        int price = oracle1.getLatestAnswer(address(tokenA));
 
         assertEq(price, 0);
     }
