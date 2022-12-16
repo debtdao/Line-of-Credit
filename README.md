@@ -58,6 +58,28 @@ source .env && forge script contracts/scripts/DeployLocal.s.sol -vvvv --rpc-url 
 
 ### Goerli
 
+First, deploy the libs via the registry:
+
+```
+yarn deploy:goerli:libs
+```
+
+Next, copy the libraries found at `broadcast/DeployLibs.s.sol/5/run-latest.json` in the `libraries` property, and past it into the `foundry.toml` under the `[profile.goerli]`.
+
+Eg.
+
+```
+libraries = [
+    "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
+    "contracts/utils/LineLib.sol:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0xfaffe74894e36C6534Cc13b73af015b5666b4EA9",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x910116b3FB14D968eAF69292F23EA52A456F4183",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0xD40bf1DC5c9Ed959642443876d79fdE2Ff81196a",
+    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xF3562A8970e5a4DE823D32AC11b761DDb9a167a3"
+]
+```
+
 ```
 source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast
 ```

@@ -18,7 +18,6 @@ abstract contract DeployBase is Script {
         vm.stopBroadcast();
 
         // log the deployed contracts
-        console.log("Oracle:", address(oracle_));
         console.log("Module Factory:", address(moduleFactory));
         console.log("Line Factory:", address(lineFactory));
     }

@@ -11,7 +11,7 @@
     "prettier:list": "prettier --list-different **.sol",
     "prettier:check": "prettier --check **.sol",
     "deploy:local": "FOUNDRY_PROFILE=local && source .env && forge script scripts/DeployLocal.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast",
-    "deploy:goerli:libs": "source .env && forge script contracts/scripts/DeployLibs.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast",
+    "deploy:goerli:libs": "source .env && forge script contracts/scripts/DeployLibs .s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast",
     "deploy:goerli:contracts": "FOUNDRY_PROFILE=goerli && source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast"
   },
   "husky": {
