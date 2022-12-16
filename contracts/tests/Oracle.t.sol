@@ -6,9 +6,10 @@ import "chainlink/interfaces/FeedRegistryInterface.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 import { Oracle } from "../modules/oracle/Oracle.sol";
 import {MockRegistry} from "../mock/MockRegistry.sol";
-
+import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
 
+import { Escrow } from "../modules/escrow/Escrow.sol";
 
 /*
 collateralValue, debtValue (different decimals, same value);
@@ -60,6 +61,23 @@ contract OracleTest is Test, Events {
 
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
+    // Line
+    LineOfCredit line;
+    Escrow escrow;
+    address borrower;
+    address arbiter;
+    address lender;
+
+    uint256 mintAmount = 100 ether;
+    uint32 minCollateralRatio = 10000; // 100%
+    uint256 ttl = 150 days;
+    uint128 dRate = 100;
+    uint128 fRate = 1;
+
+    constructor() {
+
+    }
+
     function setUp() external {
         // Fork
         mainnetFork = vm.createFork(MAINNET_RPC_URL);
@@ -83,8 +101,69 @@ contract OracleTest is Test, Events {
         mockRegistry2.addToken(address(tokenA), TOKEN_A_PRICE * DECIMALS_6);
         mockRegistry2.addToken(address(tokenB), TOKEN_B_PRICE * DECIMALS_10);
 
+        // Line
+        borrower = address(10);
+        arbiter = address(this);
+        lender = address(20);
+
+
+
+        line = new LineOfCredit(address(mockOracle1), arbiter, borrower, ttl);
+        // deploy and save escrow
+        escrow = new Escrow ( minCollateralRatio, address(mockOracle2), address(line), borrower);
+        
+        _mintAndApprove();
+
+        _addCredit();
     }
 
+    /*/////////////////////////////////////////////////////////
+    ///////////////         HELPERS             ///////////////
+    /////////////////////////////////////////////////////////*/
+
+     function _mintAndApprove() internal {
+        deal(lender, mintAmount);
+
+        tokenA.mint(borrower, mintAmount);
+        tokenA.mint(lender, mintAmount);
+        tokenB.mint(borrower, mintAmount);
+        tokenB.mint(lender, mintAmount);
+
+
+        vm.startPrank(borrower);
+        tokenA.approve(address(line), type(uint256).max);
+        tokenB.approve(address(line), type(uint256).max);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        tokenA.approve(address(line), type(uint256).max);
+        tokenB.approve(address(line), type(uint256).max);
+        vm.stopPrank();
+    }   
+    
+    function _addCredit(address token, uint256 amount) public {
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+    }
+
+    function test_check_escrow() external {
+
+        (uint256 principal, uint256 interest) = line.updateOutstandingDebt();
+        emit log_named_uint("principal", principal);
+        emit log_named_uint("interest", interest);
+
+        uint256 collateralValue = escrow.getCollateralValue();
+        emit log_named_uint("collateral", collateralValue);
+    }
+
+
+    /*/////////////////////////////////////////////////////////
+    ///////////////         FORK TESTS          ///////////////
+    /////////////////////////////////////////////////////////*/
     function test_fetching_known_token_returns_valid_price() external {
         vm.selectFork(mainnetFork);
         int256 linkPrice = forkOracle.getLatestAnswer(linkToken);
