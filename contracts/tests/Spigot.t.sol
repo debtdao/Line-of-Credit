@@ -776,11 +776,20 @@ contract SpigotTest is Test {
         assertEq(spigot.operator(), address(0xdebf));
     }
 
-    
+    function test_updateOperator_AsOwner() public {
+        vm.prank(owner);
+        spigot.updateOperator(address(20));
+    }
 
     
     function test_updateOwner_AsNonOwner() public {
         hoax(address(0xdebf));
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+        spigot.updateOwner(owner);
+    }
+
+    function test_updateOwner_AsOperator() public {
+        hoax(operator);
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spigot.updateOwner(owner);
     }
@@ -794,12 +803,6 @@ contract SpigotTest is Test {
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spigot.updateOperator(operator);
-    }
-
-    function test_updateOperator_NullAddress() public {
-        vm.expectRevert();
-        vm.prank(operator);
-        spigot.updateOperator(address(0));
     }
 
 }
