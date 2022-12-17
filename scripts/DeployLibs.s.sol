@@ -11,7 +11,7 @@ contract DeployLibs is Script {
     constructor() {}
 
     function run() public {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        uint256 deployerKey = vm.envUint("DEPLOYER_MAINNET_PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
         console.log("deployer: ", deployer);
 
