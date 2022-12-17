@@ -1,6 +1,9 @@
 pragma solidity 0.8.9;
 
-interface ISecuredLine {
+import {IEscrowedLine} from "./IEscrowedLine.sol";
+import {ISpigotedLine} from "./ISpigotedLine.sol";
+
+interface ISecuredLine is IEscrowedLine, ISpigotedLine {
     // Rollover
     error DebtOwed();
     error BadNewLine();

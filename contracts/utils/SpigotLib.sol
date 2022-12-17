@@ -244,7 +244,7 @@ library SpigotLib {
 
     /** see Spigot.updateOperator */
     function updateOperator(SpigotState storage self, address newOperator) external returns (bool) {
-        if (msg.sender != self.operator) {
+        if (msg.sender != self.operator && msg.sender != self.owner) {
             revert CallerAccessDenied();
         }
         require(newOperator != address(0));
