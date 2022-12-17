@@ -1,6 +1,8 @@
 pragma solidity 0.8.9;
 
 import {Denominations} from "chainlink/Denominations.sol";
+
+import {ERC20} from "openzeppelin/token/ERC20/ERC20.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {LineLib} from "../utils/LineLib.sol";
 
@@ -17,9 +19,15 @@ contract SimpleOracle is IOracle {
         return true;
     }
 
+    function decimals(address token, address quote) external view returns (uint8) {
+        return ERC20(token).decimals();
+    }
+
     function changePrice(address token, int newPrice) external {
         prices[token] = newPrice;
     }
+
+    //TODO add change decimals
 
     function getLatestAnswer(address token) external view returns (int256) {
         require(prices[token] != 0, "SimpleOracle: unsupported token");
