@@ -61,7 +61,6 @@ sparse_mode = false
 build_info = false
 
 [profile.goerli]
-
 libraries = [
     "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
     "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
@@ -73,7 +72,6 @@ libraries = [
 ]
 
 [profile.mainnet]
-
 libraries = [
 ]
 
