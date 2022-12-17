@@ -1,7 +1,7 @@
 [profile.default]
 src = 'contracts'
 test = 'test'
-script = 'script'
+script = 'scripts'
 out = 'out'
 libs = [
     'lib'
@@ -60,16 +60,19 @@ bytecode_hash = 'ipfs'
 sparse_mode = false
 build_info = false
 
-[profile.gorli]
-
+[profile.goerli]
 libraries = [
-     "contracts/utils/CreditLib.sol:CreditLib:0x5497414F2daF410e02eA895e520B5B14aCB66ee4",
-    "contracts/utils/CreditListLib.sol:CreditListLib:0xEce17172Fb59303A0228cEF858B6a8eac270204E",
-    "contracts/utils/LineLib.sol:LineLib:0x3567E72FC9f9aDf06a2bcaa649b3cF6A9F657160",
-    "contracts/utils/EscrowLib.sol:EscrowLib:0xd2598980E9BCe689116f4521971191F75812b244",
-    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0xef1a2c3b3b914eEe5dca1759dE43bFE05C791cf3",
-    "contracts/utils/SpigotLib.sol:SpigotLib:0x8242C88bD53148f91d801C4A9b018cF9486fC037",
-    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xA2CBbd23bBb41d19ec25dC1050C7390B4528780B"
+    "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
+    "contracts/utils/LineLib.sol:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0xfaffe74894e36C6534Cc13b73af015b5666b4EA9",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x910116b3FB14D968eAF69292F23EA52A456F4183",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0xD40bf1DC5c9Ed959642443876d79fdE2Ff81196a",
+    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xF3562A8970e5a4DE823D32AC11b761DDb9a167a3"
+]
+
+[profile.mainnet]
+libraries = [
 ]
 
 [profile.default.rpc_storage_caching]
