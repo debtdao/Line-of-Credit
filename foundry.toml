@@ -72,6 +72,11 @@ libraries = [
     "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xF3562A8970e5a4DE823D32AC11b761DDb9a167a3"
 ]
 
+[profile.mainnet]
+
+libraries = [
+]
+
 [profile.default.rpc_storage_caching]
 chains = 'all'
 endpoints = 'all'
