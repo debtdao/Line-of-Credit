@@ -9,13 +9,13 @@ import {SpigotedLineLib} from "./SpigotedLineLib.sol";
 import {SpigotLib} from "./SpigotLib.sol";
 
 contract LibRegistry {
-    address public creditLib;
-    address public creditListLib;
-    address public escrowLib;
-    address public lineFactoryLib;
-    address public lineLib;
-    address public spigotedLineLib;
-    address public spigotLib;
+    address public immutable creditLib;
+    address public immutable creditListLib;
+    address public immutable escrowLib;
+    address public immutable lineFactoryLib;
+    address public immutable lineLib;
+    address public immutable spigotedLineLib;
+    address public immutable spigotLib;
 
     constructor() {
         creditLib = address(CreditLib);
