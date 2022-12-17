@@ -780,7 +780,6 @@ contract SpigotTest is Test {
         vm.prank(owner);
         spigot.updateOperator(address(20));
     }
-
     
     function test_updateOwner_AsNonOwner() public {
         hoax(address(0xdebf));
