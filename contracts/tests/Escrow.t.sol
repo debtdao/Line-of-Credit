@@ -9,6 +9,8 @@ import { Escrow } from "../modules/escrow/Escrow.sol";
 
 import { LineLib } from "../utils/LineLib.sol";
 
+import { EscrowLib } from "../utils/EscrowLib.sol";
+
 import { MockLine } from "../mock/MockLine.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
@@ -24,7 +26,7 @@ contract EscrowTest is Test {
     SimpleOracle oracle;
     MockLine line;
     uint mintAmount = 100 ether;
-    uint MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint MAX_INT = type(uint256).max;
     uint32 minCollateralRatio = 10000; // 100%
 
     address borrower = address(this);
@@ -68,6 +70,9 @@ contract EscrowTest is Test {
         // allow tokens to be deposited as collateral
         _enableCollateral(address(supportedToken2));
         _enableCollateral(address(supportedToken1));
+
+        // Native Eth support is disabled
+        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
         _enableCollateral(Denominations.ETH);
     }
 
@@ -123,20 +128,14 @@ contract EscrowTest is Test {
         assertEq(borrowerBalance2, supportedToken2.balanceOf(borrower) + mintAmount, "borrower should have decreased with collateral deposit");
     }
 
-    function test_can_add_collateral_ETH() public {
-        uint borrowerBalance = borrower.balance;
-        uint escrowBalance = address(escrow).balance;
+    function test_adding_collateral_with_ETH_should_fail() public {
+        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
         escrow.addCollateral{value: mintAmount}(mintAmount, Denominations.ETH);
-        assertEq(
-          borrowerBalance,
-          borrower.balance + mintAmount,
-          "borrower should have decreased with collateral deposit"
-        );
-        assertEq(
-          escrowBalance,
-          address(escrow).balance - mintAmount,
-          "escrow should have increased with collateral deposit"
-        );
+    }
+
+    function test_adding_collateral_ETH_token_should_fail() public {
+        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
+        escrow.addCollateral(mintAmount, Denominations.ETH);
     }
 
     function test_can_add_collateral_eip4626() public {
@@ -162,25 +161,9 @@ contract EscrowTest is Test {
         assertEq(borrowerBalance + 1 ether, supportedToken1.balanceOf(borrower), "borrower should have released collateral");
     }
 
-    function test_can_remove_collateral_ETH() public {
-        uint borrowerBalance = borrower.balance;
-        uint escrowBalance = address(escrow).balance;
-        escrow.addCollateral{value: mintAmount}(mintAmount, Denominations.ETH);
-        
-        uint borrowerBalance2 = borrower.balance;
-        assertEq(
-          borrowerBalance,
-          borrowerBalance2 + mintAmount,
-          "borrower should have decreased with collateral deposit"
-        );
-        assertEq(
-          escrowBalance,
-          address(escrow).balance - mintAmount,
-          "escrow should have increased with collateral deposit"
-        );
-
+    function test_cannot_remove_collateral_ETH() public {
+        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
         escrow.releaseCollateral(1 ether, Denominations.ETH, borrower);
-        assertEq(borrowerBalance2 + 1 ether, borrower.balance, "borrower should have released collateral");
     }
 
     function test_cratio_adjusts_when_collateral_changes() public {
@@ -240,33 +223,23 @@ contract EscrowTest is Test {
         assertEq(token4626.balanceOf(arbiter), 1 ether, "arbiter should have received 1e18 worth of the 4626 token");
     }
 
-    function test_can_liquidate_ETH() public {
-        uint borrowerBalance = borrower.balance;
-        uint escrowBalance = address(escrow).balance;
-        // 1 ether = minCRatio if price = 1 so send < 1 ether
-        escrow.addCollateral{value: 100}(100, Denominations.ETH);
-        
-        uint borrowerBalance2 = borrower.balance;
-        assertEq(
-          borrowerBalance,
-          borrowerBalance2 + 100,
-          "borrower should have decreased with collateral deposit"
-        );
-        assertEq(
-          escrowBalance,
-          address(escrow).balance - 100,
-          "escrow should have increased with collateral deposit"
-        );
+    function test_cannot_add_ETH_collateral() public {
+        vm.startPrank(arbiter);
+        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
+        escrow.enableCollateral(Denominations.ETH);
+        vm.stopPrank();
 
-        oracle.changePrice(Denominations.ETH, 1); // ze murj failz
-        assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
+        vm.startPrank(borrower);
+        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
+        escrow.addCollateral(mintAmount, Denominations.ETH);
+        vm.stopPrank();
+    }
 
-        hoax(arbiter);
-        uint arbiterBalance = arbiter.balance;
-        uint escrowBalance2 = address(escrow).balance;
+    function test_cannot_liquidate_ETH() public {
+        vm.startPrank(arbiter);
+        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
         line.liquidate(0, 1, Denominations.ETH, arbiter);
-        assertEq(arbiter.balance, arbiterBalance + 1, "arbiter should have received 1 wei");
-        assertEq(address(escrow).balance, escrowBalance2 - 1, "escrow should have decreased with liquidation");
+        vm.stopPrank();
 
     }
 
@@ -370,11 +343,11 @@ contract EscrowTest is Test {
         escrow.addCollateral(1000, address(token4626));
     }
 
-    function test_can_send_eth_and_token() public {
+    function test_cannot_send_eth_and_token() public {
         uint borrowerBalance = borrower.balance;
         uint borrowerTokenBalance = supportedToken1.balanceOf(borrower);
         uint escrowBalance = address(escrow).balance;
-        vm.expectRevert(LineLib.EthSentWithERC20.selector);
+        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
         escrow.addCollateral{value: mintAmount}(mintAmount, address(supportedToken1));
     }
 

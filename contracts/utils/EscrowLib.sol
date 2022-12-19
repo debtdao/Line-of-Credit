@@ -22,7 +22,7 @@ library EscrowLib {
     using SafeERC20 for IERC20;
 
     // return if have collateral but no debt
-    uint256 constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint256 constant MAX_INT = type(uint256).max;
 
     /**
      * @notice updates the cratio according to the collateral value vs line value
@@ -81,7 +81,12 @@ library EscrowLib {
         uint256 amount,
         address token
     ) external returns (uint256) {
-        require(amount > 0);
+        if (amount == 0) {
+            revert InvalidZeroAmount();
+        }
+        if (msg.value != 0) {
+            revert EthSupportDisabled();
+        }
         if (!self.enabled[token]) {
             revert InvalidCollateral();
         }
@@ -97,36 +102,35 @@ library EscrowLib {
 
     /** see Escrow.enableCollateral */
     function enableCollateral(EscrowState storage self, address oracle, address token) external returns (bool) {
-        require(msg.sender == ILineOfCredit(self.line).arbiter());
+        if (msg.sender != ILineOfCredit(self.line).arbiter()) {
+            revert ArbiterOnly();
+        } // TODO: test this
+        if (token == Denominations.ETH) {
+            revert EthSupportDisabled();
+        }
 
         bool isEnabled = self.enabled[token];
         IEscrow.Deposit memory deposit = self.deposited[token]; // gas savings
         if (!isEnabled) {
-            if (token == Denominations.ETH) {
-                // enable native eth support
-                deposit.asset = Denominations.ETH;
-                deposit.assetDecimals = 18;
+            (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
+
+            bool is4626 = tokenAddrBytes.length > 0 && passed;
+            deposit.isERC4626 = is4626;
+            // if 4626 save the underlying token to use for oracle pricing
+            deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
+
+            int256 price = IOracle(oracle).getLatestAnswer(deposit.asset);
+            if (price <= 0) {
+                revert InvalidCollateral();
+            }
+
+            (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(
+                abi.encodeWithSignature("decimals()")
+            );
+            if (decimalBytes.length > 0 && successDecimals) {
+                deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
             } else {
-                (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
-
-                bool is4626 = tokenAddrBytes.length > 0 && passed;
-                deposit.isERC4626 = is4626;
-                // if 4626 save the underlying token to use for oracle pricing
-                deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
-
-                int256 price = IOracle(oracle).getLatestAnswer(deposit.asset);
-                if (price <= 0) {
-                    revert InvalidCollateral();
-                }
-
-                (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(
-                    abi.encodeWithSignature("decimals()")
-                );
-                if (decimalBytes.length > 0 && successDecimals) {
-                    deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
-                } else {
-                    deposit.assetDecimals = 18;
-                }
+                deposit.assetDecimals = 18;
             }
 
             // update collateral settings
@@ -149,7 +153,9 @@ library EscrowLib {
         address token,
         address to
     ) external returns (uint256) {
-        require(amount > 0);
+        if (amount == 0) {
+            revert InvalidZeroAmount();
+        }
         if (msg.sender != borrower) {
             revert CallerAccessDenied();
         }
@@ -187,7 +193,9 @@ library EscrowLib {
 
     /** see Escrow.liquidate */
     function liquidate(EscrowState storage self, uint256 amount, address token, address to) external returns (bool) {
-        require(amount > 0);
+        if (amount == 0) {
+            revert InvalidZeroAmount();
+        } // TODO: test this
         if (msg.sender != self.line) {
             revert CallerAccessDenied();
         }
@@ -226,7 +234,13 @@ library EscrowLib {
 
     event Liquidate(address indexed token, uint256 indexed amount);
 
+    error ArbiterOnly();
+
+    error InvalidZeroAmount();
+
     error InvalidCollateral();
+
+    error EthSupportDisabled();
 
     error CallerAccessDenied();
 

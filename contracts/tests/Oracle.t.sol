@@ -36,7 +36,7 @@ contract OracleTest is Test, Events {
     // Mainnet Tokens
     address constant linkToken = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
     address constant btc = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
-    address constant ampl = 0xD46bA6D942050d489DBd938a2C909A5d5039A161;
+    address constant dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
 
     // Mock Tokens
     RevenueToken tokenA;
@@ -178,12 +178,16 @@ contract OracleTest is Test, Events {
         emit log_named_uint("btc decimals", btcDecimals);
     }
 
+    // TODO: change this name to
     function test_token_with_more_than_8_decimals() external {
-        uint256 amplDecimals = registry.decimals(ampl, Denominations.USD);
-        assertEq(amplDecimals, 18);
-        (,int256 normalPrice,,,) = registry.latestRoundData(ampl, Denominations.USD);
-        int256 price = forkOracle.getLatestAnswer(ampl);
-        assertEq(price, normalPrice / 10**10);
+        uint256 daiDecimals = registry.decimals(dai, Denominations.USD);
+        emit log_named_uint("daiDecimals", daiDecimals);
+        assertEq(daiDecimals, 8);
+        (,int256 normalPrice,,,) = registry.latestRoundData(dai, Denominations.USD);
+        emit log_named_int("normalPrice", normalPrice);
+        int256 price = forkOracle.getLatestAnswer(dai);
+        emit log_named_int("price", price);
+        assertEq(price, normalPrice);
     }
 
     /*/////////////////////////////////////////////////////////

@@ -3,6 +3,8 @@ pragma solidity ^0.8.9;
 
 import "chainlink/interfaces/FeedRegistryInterface.sol";
 import {Denominations} from "chainlink/Denominations.sol";
+
+import {LineLib} from "../../utils/LineLib.sol";
 import "../../interfaces/IOracle.sol";
 
 /**
@@ -31,10 +33,13 @@ contract Oracle is IOracle {
     }
 
     /**
-     * @param token - ERC20 token to get USD price for
+     * @param token_ - ERC20 token to get USD price for
      * @return price - the latest price in USD to 8 decimals
      */
-    function getLatestAnswer(address token) external returns (int256) {
+    function getLatestAnswer(address token_) external returns (int256) {
+        // TODO: test this
+        address token = token_ == LineLib.WETH ? Denominations.ETH : token_;
+
         try registry.latestRoundData(token, Denominations.USD) returns (
             uint80 /* uint80 roundID */,
             int256 _price,
