@@ -105,7 +105,8 @@ library EscrowLib {
         if (msg.sender != ILineOfCredit(self.line).arbiter()) {
             revert ArbiterOnly();
         } // TODO: test this
-        if (token == Denominations.ETH) {
+        if (token == address(0) || token == Denominations.ETH) {
+            // TODO: test this
             revert EthSupportDisabled();
         }
 

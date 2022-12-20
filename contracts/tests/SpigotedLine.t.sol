@@ -571,26 +571,28 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(creditT), lentAmount);
     }
 
-    function test_can_trade_for_ETH_debt() public {
-      deal(address(lender), lentAmount + 1 ether);
-      deal(address(revenueToken), MAX_REVENUE);
-      address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(Denominations.ETH), Denominations.ETH, revenueC);
-      _borrow(id, lentAmount);
+    // // TODO: test with 0x mainnet
+    // function test_can_trade_for_ETH_debt()  public {
+    //   deal(address(lender), lentAmount + 1 ether);
+    //   deal(address(revenueToken), MAX_REVENUE);
+    //   address revenueC = address(0xbeef); // need new spigot for testing
+    //   bytes32 id = _createCredit(address(Denominations.ETH), Denominations.ETH, revenueC);
+    //   _borrow(id, lentAmount);
 
-      bytes memory tradeData = abi.encodeWithSignature(
-        'trade(address,address,uint256,uint256)',
-        address(revenueToken),
-        Denominations.ETH,
-        1 gwei,
-        lentAmount
-      );
+    //   bytes memory tradeData = abi.encodeWithSignature(
+    //     'trade(address,address,uint256,uint256)',
+    //     address(revenueToken), // tokenIn
+    //     Denominations.ETH, // tokenOut
+    //     1 gwei, // amountIn
+    //     lentAmount // minAmountOut
+    //   );
 
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
-      hoax(arbiter);
-      line.claimAndTrade(address(revenueToken), tradeData);
-      assertEq(line.unused(Denominations.ETH), lentAmount);
-    }
+    //   uint claimable = spigot.getOwnerTokens(address(revenueToken));
+    //   hoax(arbiter);
+    //   line.claimAndTrade(address(revenueToken), tradeData); // claimToken (ETH), tradeData
+    //   assertEq(line.unused(Denominations.ETH), lentAmount);
+    // }
+
 
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
       if(timespan > ttl) return;

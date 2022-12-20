@@ -37,9 +37,11 @@ library SpigotLib {
         }
 
         uint256 existingBalance = LineLib.getBalance(token);
+        // TODO: do we want to remove push payments?
         if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
 
+            // TODO: test this with multiple revenue streams
             // claimed = total balance - already accounted for balance
             claimed = existingBalance - self.ownerTokens[token];
             // underflow revert ensures we have more tokens than we started with and actually claimed revenue

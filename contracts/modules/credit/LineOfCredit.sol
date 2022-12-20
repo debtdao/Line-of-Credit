@@ -298,7 +298,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     /// see ILineOfCredit.depositAndClose
     function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower returns (bool) {
         if (msg.value != 0) {
-            revert NonZeroEthValue();
+            revert NonZeroEthValue(); // TODO: test this
         }
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
@@ -334,7 +334,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     /// see ILineOfCredit.depositAndRepay
     function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
         if (msg.value != 0) {
-            revert NonZeroEthValue();
+            revert NonZeroEthValue(); // TODO: teset this
         }
 
         bytes32 id = ids[0];
