@@ -100,12 +100,29 @@ contract RemoveEth is Test {
         
     }
 
+    /*////////////////////////////////////////////////
+    ////////////////    TESTS   //////////////////////
+    ////////////////////////////////////////////////*/
+
+    // test claiming native eth from the revenue contract
     function test_claiming_ETH_as_revenue() public {
         // revenue go brrrrrrr
         // assertTrue(true);
         spigot.claimRevenue(address(revenueContract), Denominations.ETH, abi.encode(SimpleRevenueContract.sendPushPayment.selector));
         assertEq(address(spigot).balance, REVENUE_EARNED);
     }
+
+    // TODO: test claiming Eth and trading it for the credit token
+
+    // TODO: test claimAndRepay
+
+    // TODO: test depositAndClose
+
+    // TODO: test close
+
+    /*////////////////////////////////////////////////
+    ////////////////    UTILS   //////////////////////
+    ////////////////////////////////////////////////*/
 
     function _mintAndApprove() public {
       // ETH

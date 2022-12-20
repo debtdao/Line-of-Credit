@@ -249,9 +249,6 @@ contract LineTest is Test, Events {
         );
         vm.stopPrank();
 
-        bytes32 id = line.ids(0);
-        assert(id != bytes32(0));
-        assertEq(address(line).balance, 0, "Line balance should be 1e18");
     }
 
     function test_cannot_add_credit_position_token_with_ETH() public {
