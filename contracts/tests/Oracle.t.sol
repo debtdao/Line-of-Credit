@@ -3,6 +3,8 @@ pragma solidity 0.8.9;
 import "forge-std/Test.sol";
 
 import "chainlink/interfaces/FeedRegistryInterface.sol";
+
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 import { Oracle } from "../modules/oracle/Oracle.sol";
 import {MockRegistry} from "../mock/MockRegistry.sol";
@@ -30,6 +32,7 @@ interface Events {
     event NullPrice(address indexed token);
     event NoDecimalData(address indexed token, bytes errData);
     event NoRoundData(address indexed token, bytes errData);
+    event EnableCollateral(address indexed token);
 }
 contract OracleTest is Test, Events {
 
@@ -173,14 +176,9 @@ contract OracleTest is Test, Events {
         assertEq(price, 0);
     }
 
-    // TODO: test mainnet token with less than 8 decimals
-    function test_token_with_less_than_8_decimals() external {
-        uint256 btcDecimals = registry.decimals(btc, Denominations.USD);
-        emit log_named_uint("btc decimals", btcDecimals);
-    }
 
     // TODO: change this name to
-    function test_token_with_more_than_8_decimals() external {
+    function test_stable_coin_with_8_decimals() external {
         uint256 daiDecimals = registry.decimals(dai, Denominations.USD);
         emit log_named_uint("daiDecimals", daiDecimals);
         assertEq(daiDecimals, 8);
@@ -189,6 +187,37 @@ contract OracleTest is Test, Events {
         int256 price = forkOracle.getLatestAnswer(dai);
         emit log_named_int("price", price);
         assertEq(price, normalPrice);
+    }
+
+    function test_can_use_WETH_as_collateral(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 100 ether);
+
+        // use the mainnet fork's chainlink feedregistry
+        escrow = new Escrow ( minCollateralRatio, address(forkOracle), address(line), borrower);
+
+        vm.startPrank(arbiter);
+        vm.expectEmit(true,false,false,true, address(escrow));
+        emit EnableCollateral(WETH);
+        escrow.enableCollateral(WETH);
+        vm.stopPrank();
+
+        // deal(WETH, lender, amount * 2);
+
+        // vm.startPrank(borrower);
+        // IERC20(WETH).approve(address(line), type(uint256).max);
+        // line.addCredit(dRate, fRate, amount, WETH, lender);
+        // vm.stopPrank();
+        // vm.startPrank(lender);
+        // IERC20(WETH).approve(address(escrow), type(uint256).max);
+        // line.addCredit(dRate, fRate, amount, WETH, lender);
+        // vm.stopPrank();
+
+
+
+        // vm.startPrank(borrower);
+        // escrow.addCollateral(1 ether, address(WETH));
+        // line.borrow(line.ids(0), 1 ether);
+        // vm.stopPrank();
     }
 
     /*/////////////////////////////////////////////////////////

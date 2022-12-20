@@ -112,6 +112,10 @@ contract RemoveEth is Test {
         assertEq(address(spigot).balance, REVENUE_EARNED);
     }
 
+    function test_adding_WETH_as_collateral() public {
+
+    }
+
     // TODO: test claiming Eth and trading it for the credit token
 
     // TODO: test claimAndRepay
@@ -123,6 +127,7 @@ contract RemoveEth is Test {
     /*////////////////////////////////////////////////
     ////////////////    UTILS   //////////////////////
     ////////////////////////////////////////////////*/
+
 
     function _mintAndApprove() public {
       // ETH

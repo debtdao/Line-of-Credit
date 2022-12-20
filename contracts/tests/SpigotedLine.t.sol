@@ -1146,28 +1146,32 @@ contract SpigotedLineTest is Test {
     }
     
     
+    // TODO: this fails when interest is accrued
     function test_lender_can_use_and_repay() public {
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
       address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      bytes32 id = _createCredit(address(revenueToken), address(revenueToken), revenueC);
       _borrow(id, lentAmount);
 
+      vm.warp(5 days);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
-        address(revenueToken),
-        Denominations.ETH,
-        1 gwei,
-        lentAmount
+        address(revenueToken), // token in
+        Denominations.ETH, // token out
+        1 gwei, //amountIn
+        lentAmount // minAmountOut
       );
 
       hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
+
+      (, uint256 principal,uint256 interest,,,,,) = line.credits(line.ids(0));
       vm.prank(lender); // prank lender
-      line.useAndRepay(lentAmount);
-      (, uint256 principal,,,,,,) = line.credits(line.ids(0));
-      assertEq(principal, 0);
+      line.useAndRepay(principal + interest);
+      (, principal,,,,,,) = line.credits(line.ids(0));
+      assertEq(principal, 0, "principal should be zero");
     }
     
     function test_cant_claim_and_repay_if_unauthorized() public {
@@ -1219,7 +1223,7 @@ contract SpigotedLineTest is Test {
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
       address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      bytes32 id = _createCredit(address(revenueToken), address(creditToken), revenueC);
 
       // 1. Borrow lentAmount = 1 ether
       _borrow(id, lentAmount);
@@ -1228,7 +1232,7 @@ contract SpigotedLineTest is Test {
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
-        Denominations.ETH,
+        address(creditToken),
         1 gwei,
         largeRevenueAmount
       );
