@@ -261,7 +261,7 @@ contract LineTest is Test, Events {
 
 
 
-    function test_can_add_credit_position_ETH() public {
+    function test_cannot_add_credit_position_ETH() public {
         assertEq(address(line).balance, 0, "Line balance should be 0");
         assertEq(
             lender.balance,
@@ -269,10 +269,14 @@ contract LineTest is Test, Events {
             "lender should have initial mint balance"
         );
         console.log(lender.balance);
-        hoax(borrower);
+        
+        vm.startPrank(borrower);
+        vm.expectRevert(ILineOfCredit.EthSupportDisabled.selector);
         line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
+        vm.stopPrank();
 
         vm.startPrank(lender);
+        vm.expectRevert(ILineOfCredit.EthSupportDisabled.selector);
         line.addCredit{value: 1 ether}(
             dRate,
             fRate,
@@ -281,15 +285,27 @@ contract LineTest is Test, Events {
             lender
         );
         vm.stopPrank();
-        console.log(lender.balance);
+
         bytes32 id = line.ids(0);
         assert(id != bytes32(0));
-        assertEq(address(line).balance, 1 ether, "Line balance should be 1e18");
-        assertEq(
-            lender.balance,
-            mintAmount - 1 ether,
-            "Lender should have initial mint balance minus 1e18"
+        assertEq(address(line).balance, 0, "Line balance should be 1e18");
+    }
+
+    function test_cannot_add_credit_position_token_with_ETH() public {
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        vm.stopPrank();
+
+        vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+        line.addCredit{value: 1 ether}(
+            dRate,
+            fRate,
+            1 ether,
+            address(supportedToken1),
+            lender
         );
+        vm.stopPrank();
+
     }
 
     function test_can_borrow_within_credit_limit(uint256 amount) public {

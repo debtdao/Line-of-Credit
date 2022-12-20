@@ -79,6 +79,7 @@ interface ILineOfCredit {
     error PositionIsClosed();
     error RepayAmountExceedsDebt(uint256 totalAvailable);
     error CantStepQ();
+    error EthSupportDisabled();
 
     // Fully public functions
 
@@ -92,6 +93,7 @@ interface ILineOfCredit {
     * @dev           - Requires mutualConsent participants send EXACT same params when calling addCredit
     * @dev           - Fully executes function after a Borrower and a Lender have agreed terms, both Lender and borrower have agreed through mutualConsent
     * @dev           - callable by `lender` and `borrower`
+    * @dev           - The function does not accept Eth via mutualConsent modifier, but retains `payable` designation as a gas-optimization
     * @param drate   - The interest rate charged to a Borrower on borrowed / drawn down funds. In bps, 4 decimals.
     * @param frate   - The interest rate charged to a Borrower on the remaining funds available, but not yet drawn down 
                         (rate charged on the available headroom). In bps, 4 decimals.
@@ -124,6 +126,7 @@ interface ILineOfCredit {
      * @notice           - Lets a Lender and a Borrower increase the credit limit on a position
      * @dev              - line status must be ACTIVE
      * @dev              - callable by borrower
+     * @dev              - The function retains the `payable` designation, despite not accepting Eth via mutualConsent modifier, as a gas-optimization
      * @param id         - position id that we are updating
      * @param amount     - amount to deposit by the Lender
      * @return - if function executed successfully
@@ -144,6 +147,7 @@ interface ILineOfCredit {
     /**
      * @notice       - Transfers token used in position id from msg.sender to Line contract.
      * @dev          - Available for anyone to deposit Credit Tokens to be available to be withdrawn by Lenders
+     * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
      * @notice       - see LineOfCredit._repay() for more details
      * @param amount - amount of `token` in `id` to pay back
      * @return - if function executed successfully
@@ -153,6 +157,7 @@ interface ILineOfCredit {
     /**
      * @notice       - A Borrower deposits enough tokens to repay and close a credit line.
      * @dev          - callable by borrower
+     * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
      * @return - if function executed successfully
      */
     function depositAndClose() external payable returns (bool);
@@ -162,6 +167,7 @@ interface ILineOfCredit {
      *         - Requires that the position principal has already been repais in full
      * @dev      - MUST repay accrued interest from facility fee during call
      * @dev - callable by `borrower` or Lender
+     * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
      * @param id -the position id to be closed
      * @return - if function executed successfully
      */

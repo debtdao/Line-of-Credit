@@ -103,7 +103,8 @@ library CreditLib {
         }
 
         uint8 decimals;
-        if (token == Denominations.ETH) {
+        // TODO: this probably isn't needed
+        if (token == LineLib.WETH) {
             decimals = 18;
         } else {
             (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
