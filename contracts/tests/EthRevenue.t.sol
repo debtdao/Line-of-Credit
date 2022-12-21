@@ -4,25 +4,19 @@ import "forge-std/Test.sol";
 
 
 import { Denominations } from "chainlink/Denominations.sol";
-
 import { ZeroEx } from "../mock/ZeroEx.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
-
 import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
-
 import {LineFactory} from "../modules/factories/LineFactory.sol";
 import {ModuleFactory} from "../modules/factories/ModuleFactory.sol";
-
 import { Spigot } from "../modules/spigot/Spigot.sol";
 import { SpigotedLine } from '../modules/credit/SpigotedLine.sol';
-
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
-
 import { LineLib } from '../utils/LineLib.sol';
 import { SpigotedLineLib } from '../utils/SpigotedLineLib.sol';
-
 import { ISpigot } from '../interfaces/ISpigot.sol';
+import { IEscrow } from '../interfaces/IEscrow.sol';
 import { ISpigotedLine } from '../interfaces/ISpigotedLine.sol';
 import { ILineOfCredit } from '../interfaces/ILineOfCredit.sol';
 
@@ -31,7 +25,7 @@ import { ILineOfCredit } from '../interfaces/ILineOfCredit.sol';
  * @dev -   This file tests functionality relating to the removal of native Eth support
  *      -   and scenarios in which native Eth is generated as revenue
  */
-contract RemoveEth is Test {
+contract EthRevenue is Test {
 
     ModuleFactory moduleFactory;
     LineFactory lineFactory;
@@ -56,7 +50,7 @@ contract RemoveEth is Test {
 
     uint constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     uint constant MAX_REVENUE = MAX_INT / 100;
-    uint256 constant REVENUE_EARNED = 10 ether;
+    uint256 constant REVENUE_EARNED = 2 ether;
 
     // Line access control vars
     address private arbiter = makeAddr("arbiter");
@@ -67,6 +61,8 @@ contract RemoveEth is Test {
     SimpleOracle private oracle;
 
     SecuredLine line;
+
+    IEscrow escrow;
 
     function setUp() public {
 
@@ -89,11 +85,15 @@ contract RemoveEth is Test {
 
         line = SecuredLine(payable(securedLine));
 
+
+        spigot = line.spigot();
+        escrow = line.escrow();
+
         _mintAndApprove();
         
         _createCredit();
 
-        spigot = line.spigot();
+
 
         vm.prank(borrower);
         revenueContract.transferOwnership(address(spigot));
@@ -107,22 +107,34 @@ contract RemoveEth is Test {
     // test claiming native eth from the revenue contract
     function test_claiming_ETH_as_revenue() public {
         // revenue go brrrrrrr
-        // assertTrue(true);
         spigot.claimRevenue(address(revenueContract), Denominations.ETH, abi.encode(SimpleRevenueContract.sendPushPayment.selector));
         assertEq(address(spigot).balance, REVENUE_EARNED);
     }
 
-    function test_adding_WETH_as_collateral() public {
+  
+    function test_claiming_and_trading_ETH_revenue_for_credit_tokens() public {
 
+      spigot.claimRevenue(address(revenueContract), Denominations.ETH, abi.encode(SimpleRevenueContract.sendPushPayment.selector));
+      assertEq(address(spigot).balance, REVENUE_EARNED);
+
+      uint256 claimable = spigot.getOwnerTokens(Denominations.ETH);
+
+      emit log_named_uint("claimable", claimable);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        Denominations.ETH, // token in
+        address(creditToken1), // token out
+        claimable, // in amount
+        1 // out amount
+      );
+
+      vm.prank(arbiter);
+      line.claimAndTrade(Denominations.ETH, tradeData);
+
+      // TODO: confirm the balances are correct
     }
 
-    // TODO: test claiming Eth and trading it for the credit token
-
-    // TODO: test claimAndRepay
-
-    // TODO: test depositAndClose
-
-    // TODO: test close
 
     /*////////////////////////////////////////////////
     ////////////////    UTILS   //////////////////////
@@ -137,6 +149,7 @@ contract RemoveEth is Test {
       
       // seed dex with tokens to buy
       creditToken1.mint(address(dex), MAX_REVENUE);
+      creditToken1.mint(address(borrower), lentAmount / 2);
       creditToken2.mint(address(dex), MAX_REVENUE);
 
       // allow line to use tokens for depositAndRepay()
@@ -153,8 +166,11 @@ contract RemoveEth is Test {
       creditToken2.approve(address(dex), MAX_INT);
 
       // user approvals
-      vm.prank(borrower);
+      vm.startPrank(borrower);
       creditToken1.approve(address(line), MAX_INT);
+      creditToken1.approve(address(escrow), MAX_INT);
+      vm.stopPrank();
+
       vm.prank(lender);
       creditToken1.approve(address(line), MAX_INT);
 
@@ -173,7 +189,13 @@ contract RemoveEth is Test {
         transferOwnerFunction: SimpleRevenueContract.transferOwnership.selector
       });
 
-      startHoax(borrower);
+      vm.startPrank(arbiter);
+      escrow.enableCollateral(address(creditToken1));
+      vm.stopPrank();
+
+
+      vm.startPrank(borrower);
+      escrow.addCollateral(lentAmount / 2, address(creditToken1));
       line.addCredit(dRate, fRate, lentAmount, address(creditToken1), lender);
       vm.stopPrank();
       
@@ -186,9 +208,11 @@ contract RemoveEth is Test {
       hoax(arbiter);
       line.addSpigot(address(revenueContract), settings);
       vm.stopPrank();
+
+      vm.startPrank(borrower);
+      line.borrow(line.ids(0), lentAmount);
+      vm.stopPrank();
     }
 
 
-
-    // TODO: test WETH/ETH price using fork oracle
 }

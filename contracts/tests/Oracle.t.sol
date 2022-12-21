@@ -176,8 +176,6 @@ contract OracleTest is Test, Events {
         assertEq(price, 0);
     }
 
-
-    // TODO: change this name to
     function test_stable_coin_with_8_decimals() external {
         uint256 daiDecimals = registry.decimals(dai, Denominations.USD);
         emit log_named_uint("daiDecimals", daiDecimals);
