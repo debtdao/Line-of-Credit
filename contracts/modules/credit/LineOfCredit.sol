@@ -35,8 +35,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     mapping(bytes32 => Credit) public credits; // id -> Reference ID for a credit line provided by a single Lender for a given token on a Line of Credit
 
-    event log_named_address(string key, address val);
-
     // Line Financials aggregated accross all existing  Credit
     LineLib.STATUS public status;
 
