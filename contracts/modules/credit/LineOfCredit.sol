@@ -333,7 +333,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     /// see ILineOfCredit.depositAndRepay
     function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
         if (msg.value != 0) {
-            revert NonZeroEthValue(); // TODO: teset this
+            revert NonZeroEthValue();
         }
 
         bytes32 id = ids[0];
