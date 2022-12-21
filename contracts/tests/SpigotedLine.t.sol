@@ -471,7 +471,7 @@ contract SpigotedLineTest is Test {
       // also check credit balances;
       assertEq(creditToken.balanceOf((address(line))), buyAmount);
       assertEq(revenueToken.balanceOf((address(line))), MAX_REVENUE + claimable - sellAmount);
-    }
+    } 
 
     function test_cant_claim_and_trade_not_borrowing() public {
       bytes memory tradeData = abi.encodeWithSignature(
@@ -1165,7 +1165,6 @@ contract SpigotedLineTest is Test {
     }
     
     
-    // TODO: this fails when interest is accrued
     function test_lender_can_use_and_repay() public {
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
@@ -1173,7 +1172,6 @@ contract SpigotedLineTest is Test {
       bytes32 id = _createCredit(address(revenueToken), address(revenueToken), revenueC);
       _borrow(id, lentAmount);
 
-      vm.warp(5 days);
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken), // token in
@@ -1241,8 +1239,9 @@ contract SpigotedLineTest is Test {
 
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
-      address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), address(creditToken), revenueC);
+      // address revenueC = address(0xbeef); // need new spigot for testing
+      // bytes32 id = _createCredit(address(revenueToken), address(creditToken), revenueC);
+      bytes32 id = line.ids(0);
 
       // 1. Borrow lentAmount = 1 ether
       _borrow(id, lentAmount);
@@ -1273,6 +1272,31 @@ contract SpigotedLineTest is Test {
       );
 
       line.useAndRepay(largeRevenueAmount);
+    }
+
+    function test_can_sweep_ETH_sent_directly_to_spigoted_line() public {
+      address eoa = makeAddr("eoa");
+      deal(eoa, 1 ether);
+      vm.prank(eoa);
+      (bool success, ) = payable(address(line)).call{value: 1 ether}("");
+      assertTrue(success);
+      assertEq(address(line).balance, 1 ether);
+      assertEq(eoa.balance, 0);
+
+      vm.warp(ttl + 1 days);
+
+      uint256 unusedEth = line.unused(Denominations.ETH);
+      assertEq(unusedEth, 1 ether);
+
+      vm.startPrank(arbiter);
+
+      uint256 swept = line.sweep(eoa, Denominations.ETH);
+      
+      assertEq(swept, 1 ether);
+      assertEq(eoa.balance, 1 ether);
+
+
+
     }
 }
 

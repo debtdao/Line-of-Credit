@@ -242,5 +242,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     }
 
     // allow claiming/trading in ETH
-    receive() external payable {}
+    // TODO: test sweep with ETH
+    receive() external payable {
+        unusedTokens[Denominations.ETH] += msg.value;
+    }
 }
