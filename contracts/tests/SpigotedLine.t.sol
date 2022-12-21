@@ -8,6 +8,8 @@ import { ZeroEx } from "../mock/ZeroEx.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 
+import {MutualConsent} from "../utils/MutualConsent.sol";
+
 import { Spigot } from "../modules/spigot/Spigot.sol";
 import { SpigotedLine } from '../modules/credit/SpigotedLine.sol';
 
@@ -732,6 +734,15 @@ contract SpigotedLineTest is Test {
       line.depositAndRepay(lentAmount);
     }
 
+    function test_cannot_depositAndRepay_with_ETH() public {
+      _borrow(line.ids(0), lentAmount);
+      creditToken.mint(address(0xdebf), lentAmount);
+      hoax(address(0xdebf));
+      creditToken.approve(address(line), lentAmount);
+      vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+      line.depositAndRepay{value: 0.0000000098 ether}(lentAmount);
+    }
+
     // Spigot integration tests
     // results change based on line status (ACTIVE vs LIQUIDATABLE vs INSOLVENT)
     // Only checking that Line functions dont fail. Check `Spigot.t.sol` for expected functionality
@@ -753,6 +764,14 @@ contract SpigotedLineTest is Test {
       assertTrue(line.releaseSpigot(borrower));
 
       assertEq(spigot.owner(), borrower);
+    }
+
+    function test_cannot_close_with_ETH() public {
+      vm.startPrank(borrower);
+        bytes32 id = line.ids(0);
+        vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+        line.close{value: 0.00001 ether}(id);
+      vm.stopPrank();
     }
 
     function test_only_borrower_release_spigot_when_repaid() public {  

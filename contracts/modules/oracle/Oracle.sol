@@ -38,7 +38,6 @@ contract Oracle is IOracle {
      * @return price - the latest price in USD to 8 decimals
      */
     function getLatestAnswer(address token_) external returns (int256) {
-        // TODO: test this
         address token = token_ == LineLib.WETH ? Denominations.ETH : token_;
 
         try registry.latestRoundData(token, Denominations.USD) returns (
