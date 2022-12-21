@@ -403,7 +403,7 @@ contract SecuredLineTest is Test {
 
     // Native ETH support
 
-    function test_cannot_depositAndClose_with_ETH() public {
+    function test_cannot_depositAndClose_when_sending_ETH() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         hoax(borrower);

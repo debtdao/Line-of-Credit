@@ -734,7 +734,7 @@ contract SpigotedLineTest is Test {
       line.depositAndRepay(lentAmount);
     }
 
-    function test_cannot_depositAndRepay_with_ETH() public {
+    function test_cannot_depositAndRepay_when_sending_ETH() public {
       _borrow(line.ids(0), lentAmount);
       creditToken.mint(address(0xdebf), lentAmount);
       hoax(address(0xdebf));
