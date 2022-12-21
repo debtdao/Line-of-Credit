@@ -42,7 +42,7 @@ contract SpigotedLineTest is Test {
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
-    uint constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint constant MAX_INT = type(uint256).max;
     uint constant MAX_REVENUE = MAX_INT / 100;
 
     // Line access control vars
