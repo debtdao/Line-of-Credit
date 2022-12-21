@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "chainlink/interfaces/FeedRegistryInterface.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 import { Oracle } from "../modules/oracle/Oracle.sol";
+import { ReadonlyOracle } from "../modules/oracle/ReadonlyOracle.sol";
 import {MockRegistry} from "../mock/MockRegistry.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
@@ -65,6 +66,8 @@ contract OracleTest is Test, Events {
     Oracle oracle1;
     Oracle oracle2;
 
+    ReadonlyOracle readonlyOracle;
+
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
     // Line
@@ -90,6 +93,8 @@ contract OracleTest is Test, Events {
         vm.selectFork(mainnetFork);
         forkOracle = new Oracle(feedRegistryAddress);
         registry = FeedRegistryInterface(feedRegistryAddress);
+
+        readonlyOracle = new ReadonlyOracle(feedRegistryAddress);
 
         // Mocks
         mockRegistry1 = new MockRegistry();
@@ -184,6 +189,14 @@ contract OracleTest is Test, Events {
         (,int256 normalPrice,,,) = registry.latestRoundData(ampl, Denominations.USD);
         int256 price = forkOracle.getLatestAnswer(ampl);
         assertEq(price, normalPrice / 10**10);
+    }
+
+    function test_readonly_oracle_matches_oracle() public {
+        int256 btcPrice = forkOracle.getLatestAnswer(btc);
+        int256 readonlyBtcPrice = readonlyOracle.getLatestAnswer(btc);
+
+        assertEq(btcPrice, readonlyBtcPrice, "pricesShouldMatch");
+        assertTrue(btcPrice > 0);
     }
 
     /*/////////////////////////////////////////////////////////
