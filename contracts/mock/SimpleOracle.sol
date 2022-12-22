@@ -34,6 +34,11 @@ contract SimpleOracle is IOracle {
         return prices[token];
     }
 
+    function _getLatestAnswer(address token) external view returns (int256) {
+        require(prices[token] != 0, "SimpleOracle: unsupported token");
+        return prices[token];
+    }
+
     function healthcheck() external pure returns (LineLib.STATUS status) {
         return LineLib.STATUS.ACTIVE;
     }
