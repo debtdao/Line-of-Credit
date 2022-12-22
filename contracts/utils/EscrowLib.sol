@@ -104,9 +104,8 @@ library EscrowLib {
     function enableCollateral(EscrowState storage self, address oracle, address token) external returns (bool) {
         if (msg.sender != ILineOfCredit(self.line).arbiter()) {
             revert ArbiterOnly();
-        } // TODO: test this
+        }
         if (token == address(0) || token == Denominations.ETH) {
-            // TODO: test this
             revert EthSupportDisabled();
         }
 
@@ -197,7 +196,7 @@ library EscrowLib {
     function liquidate(EscrowState storage self, uint256 amount, address token, address to) external returns (bool) {
         if (amount == 0) {
             revert InvalidZeroAmount();
-        } // TODO: test this
+        }
         if (msg.sender != self.line) {
             revert CallerAccessDenied();
         }

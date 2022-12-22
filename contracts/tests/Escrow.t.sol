@@ -224,6 +224,16 @@ contract EscrowTest is Test {
         assertEq(supportedToken2.balanceOf(arbiter), 0.9 ether, "arbiter should have received token 2");
     }
 
+    function test_cannot_liquidate_zero_amount() public {
+        escrow.addCollateral(1 ether, address(supportedToken1));
+        line.setDebtValue(2000 ether);
+        assertGt(minCollateralRatio, escrow.getCollateralRatio(), "should be below the liquidation threshold");
+        vm.startPrank(arbiter);
+        vm.expectRevert(EscrowLib.InvalidZeroAmount.selector);
+        line.liquidate(0, 0, address(supportedToken1), arbiter);
+        vm.stopPrank();
+    }
+
     function test_can_liquidate_eip4626() public {
         token4626.setAssetAddress(address(supportedToken1));
         _enableCollateral(address(token4626));  // must enable after setAssetAddress for proper token to be used
