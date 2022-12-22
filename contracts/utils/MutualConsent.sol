@@ -82,9 +82,6 @@ abstract contract MutualConsent {
     /* ============ Internal Functions ============ */
 
     function _mutualConsent(address _signerOne, address _signerTwo) internal returns (bool) {
-        if (msg.value != 0) {
-            revert NonZeroEthValue();
-        } // TODO: test this
         if (msg.sender != _signerOne && msg.sender != _signerTwo) {
             revert Unauthorized();
         }

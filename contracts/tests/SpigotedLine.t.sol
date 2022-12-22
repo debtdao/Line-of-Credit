@@ -103,7 +103,7 @@ contract SpigotedLineTest is Test {
         RevenueToken(creditT).approve(address(line), MAX_INT);
         id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
       } else {
-        id = line.addCredit{value: lentAmount}(dRate, fRate, lentAmount, creditT, lender);
+        // id = line.addCredit{value: lentAmount}(dRate, fRate, lentAmount, creditT, lender);
       }
       vm.stopPrank();
 

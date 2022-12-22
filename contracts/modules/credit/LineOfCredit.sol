@@ -94,13 +94,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         _;
     }
 
-    modifier excludeEth(address token_) {
-        if (token_ == Denominations.ETH) {
-            revert EthSupportDisabled();
-        }
-        _;
-    }
-
     /**
      * @notice - mutualConsent() but hardcodes borrower address and uses the position id to
                  get Lender address instead of passing it in directly
@@ -240,16 +233,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         uint256 amount,
         address token,
         address lender
-    )
-        external
-        payable
-        override
-        nonReentrant
-        whileActive
-        excludeEth(token)
-        mutualConsent(lender, borrower)
-        returns (bytes32)
-    {
+    ) external override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
         LineLib.receiveTokenOrETH(token, lender, amount);
 
         bytes32 id = _createCredit(lender, token, amount);

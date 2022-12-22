@@ -128,11 +128,12 @@ library EscrowLib {
             (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(
                 abi.encodeWithSignature("decimals()")
             );
-            if (decimalBytes.length > 0 && successDecimals) {
-                deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
-            } else {
-                deposit.assetDecimals = 18;
+
+            // TODO: test this
+            if (!successDecimals || decimalBytes.length == 0) {
+                revert InvalidTokenDecimals();
             }
+            deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
 
             // update collateral settings
             self.enabled[token] = true;
@@ -248,4 +249,6 @@ library EscrowLib {
     error UnderCollateralized();
 
     error NotLiquidatable();
+
+    error InvalidTokenDecimals();
 }

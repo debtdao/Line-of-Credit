@@ -93,7 +93,6 @@ interface ILineOfCredit {
     * @dev           - Requires mutualConsent participants send EXACT same params when calling addCredit
     * @dev           - Fully executes function after a Borrower and a Lender have agreed terms, both Lender and borrower have agreed through mutualConsent
     * @dev           - callable by `lender` and `borrower`
-    * @dev           - The function does not accept Eth via mutualConsent modifier, but retains `payable` designation as a gas-optimization
     * @param drate   - The interest rate charged to a Borrower on borrowed / drawn down funds. In bps, 4 decimals.
     * @param frate   - The interest rate charged to a Borrower on the remaining funds available, but not yet drawn down 
                         (rate charged on the available headroom). In bps, 4 decimals.
@@ -108,7 +107,7 @@ interface ILineOfCredit {
         uint256 amount,
         address token,
         address lender
-    ) external payable returns (bytes32);
+    ) external returns (bytes32);
 
     /**
      * @notice           - lets Lender and Borrower update rates on the lender's position

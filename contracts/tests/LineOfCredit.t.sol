@@ -234,13 +234,13 @@ contract LineTest is Test, Events {
         console.log(lender.balance);
         
         vm.startPrank(borrower);
-        vm.expectRevert(ILineOfCredit.EthSupportDisabled.selector);
         line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
         vm.stopPrank();
 
+        // should fail as we cant send Eth and msg.value won't match "amount"
         vm.startPrank(lender);
-        vm.expectRevert(ILineOfCredit.EthSupportDisabled.selector);
-        line.addCredit{value: 1 ether}(
+        vm.expectRevert(LineLib.TransferFailed.selector);
+        line.addCredit(
             dRate,
             fRate,
             1 ether,
@@ -256,15 +256,15 @@ contract LineTest is Test, Events {
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.stopPrank();
 
-        vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
-        line.addCredit{value: 1 ether}(
-            dRate,
-            fRate,
-            1 ether,
-            address(supportedToken1),
-            lender
-        );
-        vm.stopPrank();
+        // vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+        // line.addCredit{value: 1 ether}(
+        //     dRate,
+        //     fRate,
+        //     1 ether,
+        //     address(supportedToken1),
+        //     lender
+        // );
+        // vm.stopPrank();
 
     }
 
