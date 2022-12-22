@@ -80,6 +80,7 @@ interface ILineOfCredit {
     error RepayAmountExceedsDebt(uint256 totalAvailable);
     error CantStepQ();
     error EthSupportDisabled();
+    error BorrowFailed();
 
     // Fully public functions
 

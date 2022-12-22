@@ -354,7 +354,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
-            revert NotActive();
+            revert BorrowFailed();
         }
 
         LineLib.sendOutTokenOrETH(credit.token, borrower, amount);

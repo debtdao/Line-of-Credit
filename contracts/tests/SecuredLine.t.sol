@@ -235,7 +235,7 @@ contract SecuredLineTest is Test {
          
         _addCredit(address(supportedToken1), 100 ether);
         bytes32 id = line.ids(0);
-        vm.expectRevert(ILineOfCredit.NotActive.selector); 
+        vm.expectRevert(ILineOfCredit.BorrowFailed.selector); 
         hoax(borrower);
         line.borrow(id, 100 ether);
     }
