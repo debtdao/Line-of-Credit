@@ -109,7 +109,7 @@ library SpigotedLineLib {
     ) public returns (bool) {
         if (sellToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData); // TODO: have we tested this specifically?
+            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData); // TODO: test with 0x api data on mainnet fork
             if (!success) {
                 revert TradeFailed();
             }

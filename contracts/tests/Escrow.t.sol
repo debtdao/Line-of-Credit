@@ -19,18 +19,25 @@ import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
 contract EscrowTest is Test {
 
     Escrow escrow;
+    Escrow badEscrow;
+
     RevenueToken supportedToken1;
     RevenueToken supportedToken2;
     RevenueToken unsupportedToken;
     RevenueToken4626 token4626;
     SimpleOracle oracle;
+    SimpleOracle badOracle;
     MockLine line;
+    MockLine badLine;
+
     uint mintAmount = 100 ether;
     uint MAX_INT = type(uint256).max;
     uint32 minCollateralRatio = 10000; // 100%
 
     address borrower = address(this);
     address arbiter = address(20);
+
+    address invalidToken = makeAddr("invalidToken");
 
     function setUp() public {
         // deploy tokens and add oracle prices for valid collateral
@@ -39,11 +46,19 @@ contract EscrowTest is Test {
         unsupportedToken = new RevenueToken();
         token4626 = new RevenueToken4626(address(supportedToken1));
         oracle = new SimpleOracle(address(supportedToken1), address(supportedToken2));
+        badOracle = new SimpleOracle(invalidToken, invalidToken);
+
         line = new MockLine(1, arbiter);
+        badLine = new MockLine(0, arbiter);
+
         // deploy and save escrow
         address _escrow = _createEscrow(minCollateralRatio, address(oracle), address(line), borrower);
+        
+        badEscrow = new Escrow(minCollateralRatio, address(badOracle), address(badLine), borrower);
+        
         // add escrow to mock line
         line.setEscrow(_escrow);
+        badLine.setEscrow(address(badEscrow));
 
         _mintAndApprove();
     }
@@ -151,6 +166,13 @@ contract EscrowTest is Test {
     function test_adding_collateral_ETH_token_should_fail() public {
         vm.expectRevert(EscrowLib.InvalidCollateral.selector);
         escrow.addCollateral(mintAmount, Denominations.ETH);
+    }
+
+    function test_adding_collateral_with_bad_decimals_should_fail() public {
+        vm.startPrank(arbiter);
+        vm.expectRevert(EscrowLib.InvalidTokenDecimals.selector);
+        badEscrow.enableCollateral(invalidToken);
+        vm.stopPrank();
     }
 
     function test_can_add_collateral_eip4626() public {

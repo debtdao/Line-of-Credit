@@ -128,7 +128,6 @@ library EscrowLib {
                 abi.encodeWithSignature("decimals()")
             );
 
-            // TODO: test this
             if (!successDecimals || decimalBytes.length == 0) {
                 revert InvalidTokenDecimals();
             }
