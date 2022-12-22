@@ -37,7 +37,7 @@ library SpigotLib {
         }
 
         uint256 existingBalance = LineLib.getBalance(token);
-        // TODO: do we want to remove push payments?
+
         if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
 

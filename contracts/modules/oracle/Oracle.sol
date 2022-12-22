@@ -34,7 +34,7 @@ contract Oracle is IOracle {
 
     /**
      * @param token_ - ERC20 token to get USD price for
-     * @dev - Weth is not supported by Chainlink Oracle, so treat it as Native Eth
+     * @dev - Native ETH is not supported, but there is no WETH oracle. Use ETH price for WETH token.
      * @return price - the latest price in USD to 8 decimals
      */
     function getLatestAnswer(address token_) external returns (int256) {
