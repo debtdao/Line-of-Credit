@@ -251,23 +251,6 @@ contract LineTest is Test, Events {
 
     }
 
-    function test_cannot_add_credit_position_token_with_ETH() public {
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        vm.stopPrank();
-
-        // vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
-        // line.addCredit{value: 1 ether}(
-        //     dRate,
-        //     fRate,
-        //     1 ether,
-        //     address(supportedToken1),
-        //     lender
-        // );
-        // vm.stopPrank();
-
-    }
-
     function test_can_borrow_within_credit_limit(uint256 amount) public {
         vm.assume(amount >= 1 ether && amount <= mintAmount);
 

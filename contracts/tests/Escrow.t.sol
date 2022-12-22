@@ -101,6 +101,21 @@ contract EscrowTest is Test {
         _enableCollateral(address(token));
     }
 
+    function test_cannot_enable_collateral_when_not_arbiter() public {
+
+        address eoa = makeAddr("eoa");
+        vm.startPrank(eoa);
+        vm.expectRevert(EscrowLib.ArbiterOnly.selector);
+        escrow.enableCollateral(address(supportedToken1));
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        vm.expectRevert(EscrowLib.ArbiterOnly.selector);
+        escrow.enableCollateral(address(supportedToken1));
+        vm.stopPrank();
+
+    }
+
     function testFail_enable_collateral_as_anon() public {
         hoax(address(0xf1c0));
         escrow.enableCollateral(address(supportedToken1));
