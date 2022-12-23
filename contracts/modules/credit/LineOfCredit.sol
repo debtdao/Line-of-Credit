@@ -506,9 +506,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 nextQSpot = i; // index of first undrawn line found
             } else {
                 if (nextQSpot == lastSpot) return true; // nothing to update
+                // get id value being swapped with `p`
+                bytes32 oldPositionId = ids[nextQSpot];
                 // swap positions
-                ids[i] = ids[nextQSpot]; // id put into old `p` position
+                ids[i] = oldPositionId; // id put into old `p` position
                 ids[nextQSpot] = p; // p put at target index
+
+                emit SortedIntoQ(p, nextQSpot, i, oldPositionId);
                 return true;
             }
         }

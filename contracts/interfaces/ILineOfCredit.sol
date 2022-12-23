@@ -22,6 +22,8 @@ interface ILineOfCredit {
 
     event DeployLine(address indexed oracle, address indexed arbiter, address indexed borrower);
 
+    event SortedIntoQ(bytes32 indexed id, uint256 indexed newIdx, uint256 indexed oldIdx, bytes32 oldId);
+
     // MutualConsent borrower/lender events
 
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
