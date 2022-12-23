@@ -10,7 +10,7 @@ import {CreditLib} from "./CreditLib.sol";
  */
 library CreditListLib {
     event QueueCleared();
-    event SortedIntoQ(bytes32 indexed id, uint256 newIdx, uint256 oldIdx);
+    event SortedIntoQ(bytes32 indexed id, uint256 indexed newIdx, uint256 indexed oldIdx, bytes32 oldId);
 
     /**
      * @dev assumes that `id` of a single credit line within the Line of Credit facility (same lender/token) is stored only once in the `positions` array 
@@ -45,7 +45,7 @@ library CreditListLib {
         if (len <= 1) return false;
         if (len == 2 && ids[1] != bytes32(0)) {
             (ids[0], ids[1]) = (ids[1], ids[0]);
-            emit SortedIntoQ(ids[0], 0, 1);
+            emit SortedIntoQ(ids[0], 0, 1, ids[1]);
             return true;
         } // skip the loop if we don't need
 
@@ -53,7 +53,7 @@ library CreditListLib {
         for (uint i = 1; i < len; ) {
             if (ids[i] != bytes32(0)) {
                 (ids[0], ids[i]) = (ids[i], ids[0]); // swap the ids
-                emit SortedIntoQ(ids[0], 0, i);
+                emit SortedIntoQ(ids[0], 0, i, ids[i]);
                 return true; // if we make the swap, return early
             }
             unchecked {
