@@ -110,7 +110,7 @@ library SpigotLib {
     ) external returns (uint256 claimed) {
         claimed = _claimRevenue(self, revenueContract, token, data);
 
-        // splits revenue stream according to Spigot settings
+        // splits revenue stream according to Spigot settings (ownersplit to the line of credit)
         uint256 ownerTokens = (claimed * self.settings[revenueContract].ownerSplit) / 100;
         // update escrowed balance
         self.ownerTokens[token] = self.ownerTokens[token] + ownerTokens;

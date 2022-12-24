@@ -68,6 +68,8 @@ library SpigotedLineLib {
         // reverts if there are no tokens to claim
         uint256 claimed = ISpigot(spigot).claimOwnerTokens(claimToken);
 
+        // TODO: what happens if you send too much Eth, eg. when trade data is for 10 eth,
+        // but unused is say 50 eth, so it sends 60eth to trade 10eth work, does TX
         trade(claimed + unused, claimToken, swapTarget, zeroExTradeData);
 
         // underflow revert ensures we have more tokens than we started with

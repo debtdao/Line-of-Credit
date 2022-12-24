@@ -46,6 +46,8 @@ library CreditLib {
 
     error InvalidTokenDecimals();
 
+    error CreditPositionClosed();
+
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
      * @param line   - The Line of Credit facility concerned
@@ -148,7 +150,9 @@ library CreditLib {
                 emit RepayInterest(id, amount);
                 return credit;
             } else {
-                require(credit.isOpen);
+                if (!credit.isOpen) {
+                    revert CreditPositionClosed();
+                } // TODO: test this
                 uint256 interest = credit.interestAccrued;
                 uint256 principalPayment = amount - interest;
 

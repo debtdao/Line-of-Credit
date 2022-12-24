@@ -66,7 +66,6 @@ library EscrowLib {
                     if (!success) continue;
                     deposit = abi.decode(assetAmount, (uint256));
                 }
-
                 collateralValue += CreditLib.calculateValue(o.getLatestAnswer(d.asset), deposit, d.assetDecimals);
             }
         }
