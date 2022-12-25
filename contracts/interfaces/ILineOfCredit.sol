@@ -8,7 +8,7 @@ interface ILineOfCredit {
     struct Credit {
         //  all denominated in token, not USD
         uint256 deposit; // The total liquidity provided by a Lender in a given token on a Line of Credit
-        uint256 principal; // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (USD)
+        uint256 principal; // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (in Tokens)
         uint256 interestAccrued; // Interest due by a Borrower but not yet repaid to the Line of Credit contract
         uint256 interestRepaid; // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
         uint8 decimals; // Decimals of Credit Token for calcs

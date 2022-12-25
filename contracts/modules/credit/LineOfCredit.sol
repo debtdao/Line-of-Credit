@@ -35,6 +35,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     mapping(bytes32 => Credit) public credits; // id -> Reference ID for a credit line provided by a single Lender for a given token on a Line of Credit
 
+    event log_credit(Credit c);
+    event log_named_uint(string key, uint256 val);
+    event log_named_int(string key, int256 val);
+
     // Line Financials aggregated accross all existing  Credit
     LineLib.STATUS public status;
 
@@ -192,6 +196,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 oracle_,
                 interestRate_
             );
+            emit log_credit(c);
+            emit log_named_uint("_principal", _p);
+            emit log_named_uint("_interest", _i);
             // update total outstanding debt
             principal += _p;
             interest += _i;
@@ -382,6 +389,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         // if lender is pulling all funds AND no debt owed to them then delete positions
         if (credit.deposit == 0 && credit.interestAccrued == 0) {
+            // TODO: should this have an event?
             delete credits[id];
         }
         // save to storage if position still exists
