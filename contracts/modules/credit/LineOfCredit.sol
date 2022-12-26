@@ -315,8 +315,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         uint256 facilityFee = credit.interestAccrued;
 
-        emit log_named_uint("facilityFee", facilityFee);
-
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee), id);
 
