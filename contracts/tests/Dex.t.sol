@@ -287,6 +287,8 @@ contract EthRevenue is Test {
         line.withdraw(line.ids(0), deposit + interestRepaid); //10000.27
         vm.stopPrank();
 
+        // NOTE: withdrawing as the lender closes (deletes the line of credit, trapping any additional funds)
+
         unusedDai = line.unused(DAI);        
         uint256 unusedEth = line.unused(Denominations.ETH);
         lineDaiBalance = IERC20(DAI).balanceOf(address(line));

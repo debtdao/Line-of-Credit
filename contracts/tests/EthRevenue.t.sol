@@ -124,26 +124,18 @@ contract EthRevenue is Test {
       
       assertEq(address(spigot).balance, 0);
 
-      emit log_string(" ");
-      emit log_string("===== claiming revenue =====");
-      emit log_string(" ");
+      // Claim Revenue
 
       claimed = spigot.claimRevenue(address(revenueContract), Denominations.ETH, abi.encode(SimpleRevenueContract.sendPushPayment.selector));
       ownerTokens = spigot.getOwnerTokens(Denominations.ETH);
       operatorTokens = spigot.getOperatorTokens(Denominations.ETH);
-
-      emit log_named_uint("[claimed] claimed        ", claimed);
-      emit log_named_uint("operatorTokens after claiming revenue", operatorTokens);
-      emit log_named_uint("ownerTokens after claiming revenue", ownerTokens);
 
       assertEq(claimed, ownerTokens + operatorTokens, "token split should add up to total claimed");
       assertEq(address(spigot).balance, REVENUE_EARNED_ETH, "spigot balance should equal earned revenue");
       assertEq(address(revenueContract).balance, 0, "revenue contract balance should be zero");
       assertEq(claimed, REVENUE_EARNED_ETH, "claimable should equal earned revenue");
 
-      emit log_string(" ");
-      emit log_string("===== claiming operator tokens =====");
-      emit log_string(" ");
+      // Claim operator Tokens
 
       // withdraw the operator tokens, ie the borrower retrieves 90% of the Eth revenue
       borrowerBalance = borrower.balance;
@@ -154,10 +146,6 @@ contract EthRevenue is Test {
       assertEq(borrower.balance, borrowerBalance + operatorTokens, "borrowers ETH balance increases after claiming operator tokens");
       assertEq(address(spigot).balance, ownerTokens, " spigot balance should be equal to only the ownerTokens");
 
-      emit log_string(" ");
-      emit log_string("===== warping timestamp =====");
-      emit log_string(" ");
-
       // warp forward to generate some interest
       vm.warp(block.timestamp + 36.25 days);
 
@@ -165,16 +153,6 @@ contract EthRevenue is Test {
       outstandingDebtUSD = principalUSD + interestUSD;
       creditTokenPriceUSD = oracle.getLatestAnswer(address(creditToken1));
       outstandingDebtTokens = (outstandingDebtUSD / uint256(creditTokenPriceUSD)) * 10**8;
-      
-      emit log_named_int("creditTokenPriceUSD", creditTokenPriceUSD);
-      emit log_named_uint("outstandingDebtUSD", outstandingDebtUSD);
-      emit log_named_uint("outstandingDebtTokens", outstandingDebtTokens);
-      emit log_named_uint("principal", principalUSD);
-      emit log_named_uint("interest", interestUSD);
-      
-      emit log_string(" ");
-      emit log_string("===== claim And Trade =====");
-      emit log_string(" ");
 
       uint256 ownerTokenValueInCreditToken = ownerTokens / uint256(oracle.getLatestAnswer(address(creditToken1)));
       emit log_named_uint("outstandingDebtUSD", outstandingDebtUSD);
@@ -188,9 +166,9 @@ contract EthRevenue is Test {
         outstandingDebtTokens // out amount
       );
 
-      vm.prank(arbiter);
-      uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData);
-      emit log_named_uint("tokens bought", tokensBought);
+      // vm.prank(arbiter);
+      // uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData); // NOTE: uncomment this <===
+      // emit log_named_uint("tokens bought", tokensBought);
 
       // assertEq(address(spigot).balance, 0);
 
