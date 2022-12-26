@@ -13,10 +13,6 @@ contract InterestRateCredit is IInterestRateCredit {
     address immutable lineContract;
     mapping(bytes32 => Rate) public rates; // position id -> lending rates
 
-    event log_rate(Rate rate);
-    event log_named_uint(string key, uint256 val);
-    event log_named_int(string key, int256 val);
-
     /**
      * @notice Interest rate / acrrued interest calculation contract for Line of Credit contracts
      */
@@ -42,15 +38,11 @@ contract InterestRateCredit is IInterestRateCredit {
 
     function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal returns (uint256) {
         Rate memory rate = rates[id];
-        emit log_rate(rate);
 
         uint256 timespan = block.timestamp - rate.lastAccrued;
 
-        emit log_named_uint("InterestRateCredit: timespan", timespan);
         // update last timestamp in storage
         rates[id].lastAccrued = block.timestamp;
-
-        emit log_named_uint("InterestRateCredit: lastAccrued", rates[id].lastAccrued);
 
         return (_calculateInterestOwed(rate.dRate, drawnBalance, timespan) +
             _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan));
@@ -67,11 +59,6 @@ contract InterestRateCredit is IInterestRateCredit {
      * @return interestOwed
      */
     function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal returns (uint256) {
-        emit log_named_uint("InterestRateCredit: bpsRate", bpsRate);
-        emit log_named_uint("InterestRateCredit: balance", balance);
-        emit log_named_uint("InterestRateCredit: timespan", timespan);
-        emit log_named_uint("InterestRateCredit: bpsRate * balance * timespan", bpsRate * balance * timespan);
-        emit log_named_uint("INTEREST_DENOMINATOR", INTEREST_DENOMINATOR);
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 

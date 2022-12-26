@@ -308,9 +308,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         if (msg.value != 0) {
             revert NonZeroEthValue();
         }
+
+        emit log_credit(credits[id]);
+
         Credit memory credit = _accrue(credits[id], id);
 
+        emit log_credit(credit);
+
         uint256 facilityFee = credit.interestAccrued;
+
+        emit log_named_uint("facilityFee", facilityFee);
+
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee), id);
 
