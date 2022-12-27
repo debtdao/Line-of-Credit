@@ -51,7 +51,7 @@ contract EthRevenue is Test {
 
     uint256 MAX_INT = type(uint256).max;
     uint256 constant REVENUE_EARNED_USD = 200_000; // (100 Eth at $2000/Eth)
-    uint256 constant REVENUE_EARNED_ETH = 100 ether;
+    uint256 constant REVENUE_EARNED_ETH = 500 ether;
     
     // Line access control vars
     address private arbiter = makeAddr("arbiter");
@@ -147,16 +147,17 @@ contract EthRevenue is Test {
       assertEq(address(spigot).balance, ownerTokens, " spigot balance should be equal to only the ownerTokens");
 
       // warp forward to generate some interest
-      vm.warp(block.timestamp + 36.25 days);
+      // vm.warp(block.timestamp + 36.25 days);
 
       (principalUSD, interestUSD) = line.updateOutstandingDebt();
       outstandingDebtUSD = principalUSD + interestUSD;
       creditTokenPriceUSD = oracle.getLatestAnswer(address(creditToken1));
-      outstandingDebtTokens = (outstandingDebtUSD / uint256(creditTokenPriceUSD)) * 10**8;
+      outstandingDebtTokens = (outstandingDebtUSD / uint256(creditTokenPriceUSD)) * 10**10;
 
       uint256 ownerTokenValueInCreditToken = ownerTokens / uint256(oracle.getLatestAnswer(address(creditToken1)));
       emit log_named_uint("outstandingDebtUSD", outstandingDebtUSD);
       emit log_named_uint("ownerTokenValueInCreditToken", ownerTokenValueInCreditToken);
+      emit log_named_uint("outstandingDebtTokens", outstandingDebtTokens);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',

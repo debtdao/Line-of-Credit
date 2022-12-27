@@ -161,10 +161,10 @@ contract EthRevenue is Test {
         // vm.rollFork(mainnetFork, finalBlockNumber);
         // emit log_named_uint("timestamp after", block.timestamp);
 
-        vm.warp(block.timestamp + 24 hours);
-        ( principal, interest) = line.updateOutstandingDebt();
-        debtUSD = principal + interest;
-        emit log_named_uint("debtUSD", debtUSD);
+        // vm.warp(block.timestamp + 24 hours);
+        // ( principal, interest) = line.updateOutstandingDebt();
+        // debtUSD = principal + interest;
+        // emit log_named_uint("debtUSD", debtUSD);
 
         // Claim revenue to the spigot
         spigot.claimRevenue(address(revenueContract), Denominations.ETH,  abi.encode(SimpleRevenueContract.sendPushPayment.selector));
@@ -291,9 +291,6 @@ contract EthRevenue is Test {
         ( ,,,,,,,isOpen) = line.credits(line.ids(0));
         assertFalse(isOpen);
 
-
-        // NOTE: withdrawing as the lender closes (deletes the line of credit, trapping any additional funds)
-
         unusedDai = line.unused(DAI);        
         uint256 unusedEth = line.unused(Denominations.ETH);
         lineDaiBalance = IERC20(DAI).balanceOf(address(line));
@@ -302,9 +299,9 @@ contract EthRevenue is Test {
         assertEq(unusedDai, IERC20(DAI).balanceOf(address(line)), "unused dai should match the dai balance"); // the balance does not match because it hasn't been withdrawn
         assertEq(unusedEth, address(line).balance, "unused ETH should match the ETH balance");
 
-
+        // line should be closed anad interest should be 0
          ( , , uint256 interestAccruedTokensAfter, ,,, ,  bool lineIsOpen) = line.credits(line.ids(0));
-        // assertTrue(lineIsOpen);
+        assertFalse(lineIsOpen);
         assertEq(interestAccruedTokensAfter, 0);
 
 
@@ -326,7 +323,6 @@ contract EthRevenue is Test {
         assertEq(borrower.balance, borrowerEthBalance + unusedEth, "borrower's ETH balance should increase");
         assertEq(address(line).balance, 0, "Line's ETH balance should be 0 after sweep");
 
-        // TODO: why does this not revert?
 
         // The line was closed when lender withdrew, so expect a revert
         vm.startPrank(borrower);

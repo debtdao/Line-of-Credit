@@ -548,32 +548,32 @@ contract LineTest is Test, Events {
         assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
-    function test_all_position_data_is_deleted_after_lender_withdraws_all_money() public {
+    // function test_all_position_data_is_deleted_after_lender_withdraws_all_money() public {
 
-        _addCredit(address(supportedToken1), 1 ether);
+    //     _addCredit(address(supportedToken1), 1 ether);
 
-        bytes32 id = line.ids(0);
+    //     bytes32 id = line.ids(0);
         
-        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
+    //     assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
         
-        vm.warp(ttl-2); // TODO calculate and compare accrued IR
+    //     vm.warp(ttl-2); // TODO calculate and compare accrued IR
         
-        hoax(borrower);
-        line.close(id);
+    //     hoax(borrower);
+    //     line.close(id);
         
-        (uint256 d,,uint256 r,uint256 i,,,address l,) = line.credits(id);
-        uint256 amt = (supportedToken1.balanceOf(address(line)));
+    //     (uint256 d,,uint256 r,uint256 i,,,address l,) = line.credits(id);
+    //     uint256 amt = (supportedToken1.balanceOf(address(line)));
 
-        hoax(lender);
-        line.withdraw(id, d + i);
+    //     hoax(lender);
+    //     line.withdraw(id, d + i);
 
-        ( uint256 d2,, uint256 r2, uint256 i2,,, address l2,) = line.credits(id);
+    //     ( uint256 d2,, uint256 r2, uint256 i2,,, address l2,) = line.credits(id);
 
-        // lender is only var that should never be nulll/0 so is only way to check if position deleted
-        assertEq(l2, address(0), "position has not been deleted");
-        // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
-        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
-    }
+    //     // lender is only var that should never be nulll/0 so is only way to check if position deleted
+    //     assertEq(l2, address(0), "position has not been deleted");
+    //     // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
+    //     assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+    // }
 
     // TODO before close, isOpen is true, after close, isOpen is false. Lender is not 0
      function test_position_data_still_exists_after_position_is_closed() public {
