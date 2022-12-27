@@ -12,7 +12,7 @@ import "../../interfaces/IOracle.sol";
  */
 contract Oracle is IOracle {
     /// @notice registry - Chainlink Feed Registry with aggregated prices across
-    FeedRegistryInterface internal registry;
+    FeedRegistryInterface public immutable registry;
     /// @notice NULL_PRICE - null price when asset price feed is deemed invalid
     int256 public constant NULL_PRICE = 0;
     /// @notice PRICE_DECIMALS - the normalized amount of decimals for returned prices in USD

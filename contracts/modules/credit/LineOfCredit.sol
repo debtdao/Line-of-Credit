@@ -47,12 +47,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @param borrower_   - The debitor for all credit lines in this contract.
      * @param ttl_        - The time to live for all credit lines for the Line of Credit facility (sets the maturity/term of the Line of Credit)
      */
-    constructor(
-        address oracle_,
-        address arbiter_,
-        address borrower_,
-        uint256 ttl_
-    ) {
+    constructor(address oracle_, address arbiter_, address borrower_, uint256 ttl_) {
         oracle = IOracle(oracle_);
         arbiter = arbiter_;
         borrower = borrower_;
@@ -180,9 +175,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         if (len == 0) return (0, 0);
 
         bytes32 id;
-        address oracle_ = address(oracle); // gas savings
-        address interestRate_ = address(interestRate); // gas savings
-
         for (uint256 i; i < len; ++i) {
             id = ids[i];
 
@@ -194,8 +186,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             (Credit memory c, uint256 _p, uint256 _i) = CreditLib.getOutstandingDebt(
                 credits[id],
                 id,
-                oracle_,
-                interestRate_
+                address(oracle),
+                address(interestRate)
             );
             // update total outstanding debt
             principal += _p;
@@ -239,42 +231,31 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         address token,
         address lender
     ) external payable override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
-        LineLib.receiveTokenOrETH(token, lender, amount);
-
         bytes32 id = _createCredit(lender, token, amount);
 
         require(interestRate.setRate(id, drate, frate));
 
         emit SetRates(id, drate, frate);
 
+        LineLib.receiveTokenOrETH(token, lender, amount);
+
         return id;
     }
 
     /// see ILineOfCredit.setRates
-    function setRates(
-        bytes32 id,
-        uint128 drate,
-        uint128 frate
-    ) external override mutualConsentById(id) returns (bool) {
-        Credit memory credit = credits[id];
-        credits[id] = _accrue(credit, id);
+    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) returns (bool) {
+        credits[id] = _accrue(credits[id], id);
         require(interestRate.setRate(id, drate, frate));
         emit SetRates(id, drate, frate);
         return true;
     }
 
     /// see ILineOfCredit.increaseCredit
-    function increaseCredit(bytes32 id, uint256 amount)
-        external
-        payable
-        override
-        nonReentrant
-        whileActive
-        mutualConsentById(id)
-        returns (bool)
-    {
-        Credit memory credit = credits[id];
-        credit = _accrue(credit, id);
+    function increaseCredit(
+        bytes32 id,
+        uint256 amount
+    ) external payable override nonReentrant whileActive mutualConsentById(id) returns (bool) {
+        Credit memory credit = _accrue(credits[id], id);
 
         credit.deposit += amount;
 
@@ -323,9 +304,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     /// see ILineOfCredit.depositAndRepay
     function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
         bytes32 id = ids[0];
-        Credit memory credit = credits[id];
+        Credit memory credit = _accrue(credits[id], id);
         require(credit.isOpen);
-        credit = _accrue(credit, id);
 
         require(amount <= credit.principal + credit.interestAccrued);
 
@@ -434,11 +414,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @param token - ERC20 token that is being lent and borrower
      * @param amount - amount of tokens lender will initially deposit
      */
-    function _createCredit(
-        address lender,
-        address token,
-        uint256 amount
-    ) internal returns (bytes32 id) {
+    function _createCredit(address lender, address token, uint256 amount) internal returns (bytes32 id) {
         id = CreditLib.computeId(address(this), lender, token);
         // MUST not double add the credit line. otherwise we can not _close()
         if (credits[id].isOpen) {
@@ -465,11 +441,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
    * @param amount - amount of Credit Token being repaid on credit line
    * @return credit - position struct in memory with updated values
   */
-    function _repay(
-        Credit memory credit,
-        bytes32 id,
-        uint256 amount
-    ) internal returns (Credit memory) {
+    function _repay(Credit memory credit, bytes32 id, uint256 amount) internal returns (Credit memory) {
         credit = CreditLib.repay(credit, id, amount);
 
         return credit;
@@ -534,9 +506,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 nextQSpot = i; // index of first undrawn line found
             } else {
                 if (nextQSpot == lastSpot) return true; // nothing to update
+                // get id value being swapped with `p`
+                bytes32 oldPositionId = ids[nextQSpot];
                 // swap positions
-                ids[i] = ids[nextQSpot]; // id put into old `p` position
+                ids[i] = oldPositionId; // id put into old `p` position
                 ids[nextQSpot] = p; // p put at target index
+
+                emit SortedIntoQ(p, nextQSpot, i, oldPositionId);
                 return true;
             }
         }
