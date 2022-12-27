@@ -380,8 +380,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        emit log_named_credit("after withdraw", credit);
-
         // save before deleting position and sending out. Can remove if we add reentrancy guards
         (address token, address lender) = (credit.token, credit.lender);
 
