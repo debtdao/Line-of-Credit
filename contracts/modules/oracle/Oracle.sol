@@ -71,6 +71,12 @@ contract Oracle is IOracle {
         }
     }
 
+    /**
+     * @notice          - View function for oracle pricing that can be used off-chain.
+     * @dev             - Can be used onchain for less gas than `getLatestAnswer` (no event emission).
+     * @param token     - ERC20 token to get USD price for
+     * @return price    - the latest price in USD to 8 decimals
+     */
     function _getLatestAnswer(address token) external view returns (int256) {
         try registry.latestRoundData(token, Denominations.USD) returns (
             uint80 /* uint80 roundID */,
