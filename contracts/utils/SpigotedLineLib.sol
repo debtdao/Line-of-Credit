@@ -32,6 +32,9 @@ library SpigotedLineLib {
         uint256 indexed debtTokensBought
     );
 
+    event log_named_uint(string key, uint256 val);
+    event log_named_address(string key, address val);
+
     /**
      * @notice              Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt. 
                             The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay 
@@ -68,8 +71,6 @@ library SpigotedLineLib {
         // reverts if there are no tokens to claim
         uint256 claimed = ISpigot(spigot).claimOwnerTokens(claimToken);
 
-        // TODO: what happens if you send too much Eth, eg. when trade data is for 10 eth,
-        // but unused is say 50 eth, so it sends 60eth to trade 10eth work, does TX
         trade(claimed + unused, claimToken, swapTarget, zeroExTradeData);
 
         // underflow revert ensures we have more tokens than we started with
@@ -110,6 +111,8 @@ library SpigotedLineLib {
         bytes calldata zeroExTradeData
     ) public returns (bool) {
         if (sellToken == Denominations.ETH) {
+            emit log_named_address("sell token", sellToken);
+            emit log_named_uint("amount", amount);
             // if claiming/trading eth send as msg.value to dex
             (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData); // TODO: test with 0x api data on mainnet fork
             if (!success) {

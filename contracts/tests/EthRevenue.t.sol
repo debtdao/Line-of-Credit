@@ -76,8 +76,8 @@ contract EthRevenue is Test {
 
     function setUp() public {
 
-        mainnetFork = vm.createFork(MAINNET_RPC_URL);
-        vm.selectFork(mainnetFork);
+        // mainnetFork = vm.createFork(MAINNET_RPC_URL);
+        // vm.selectFork(mainnetFork);
 
         dex = new ZeroEx();
         creditToken1 = new RevenueToken();
@@ -95,12 +95,10 @@ contract EthRevenue is Test {
 
         line = SecuredLine(payable(securedLine));
 
-
         spigot = line.spigot();
         escrow = line.escrow();
 
         _mintAndApprove();
-        
         _createCredit();
 
         vm.prank(borrower);
@@ -155,9 +153,9 @@ contract EthRevenue is Test {
       outstandingDebtTokens = (outstandingDebtUSD / uint256(creditTokenPriceUSD)) * 10**10;
 
       uint256 ownerTokenValueInCreditToken = ownerTokens / uint256(oracle.getLatestAnswer(address(creditToken1)));
-      emit log_named_uint("outstandingDebtUSD", outstandingDebtUSD);
-      emit log_named_uint("ownerTokenValueInCreditToken", ownerTokenValueInCreditToken);
-      emit log_named_uint("outstandingDebtTokens", outstandingDebtTokens);
+      // emit log_named_uint("outstandingDebtUSD", outstandingDebtUSD);
+      // emit log_named_uint("ownerTokenValueInCreditToken", ownerTokenValueInCreditToken);
+      // emit log_named_uint("outstandingDebtTokens", outstandingDebtTokens);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -166,6 +164,10 @@ contract EthRevenue is Test {
         ownerTokens, // in amount
         2 // out amount
       );
+
+      // emit log_bytes(tradeData);
+      // vm.startPrank(arbiter);
+      // uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData);
 
       // vm.prank(arbiter);
       // uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData); // NOTE: uncomment this <===
@@ -232,16 +234,15 @@ contract EthRevenue is Test {
     function _mintAndApprove() public {
       // ETH
       vm.deal(address(dex), MAX_INT);
-      vm.deal(address(borrower), 0);
-      vm.deal(address(lender), lentAmountTokens);
       
       // seed dex with tokens to buy
       creditToken1.mint(address(dex), MAX_INT / 2);
       creditToken1.mint(address(borrower), lentAmountTokens / 2); // for collateral
+      creditToken1.mint(address(lender), lentAmountTokens);
 
       // allow line to use tokens for depositAndRepay()
-      creditToken1.mint(lender, lentAmountTokens);
       creditToken1.approve(address(line), MAX_INT);
+       
       // allow trades
       creditToken1.approve(address(dex), MAX_INT);
 
@@ -270,56 +271,25 @@ contract EthRevenue is Test {
         ownerSplit: ownerSplit,
         claimFunction: SimpleRevenueContract.sendPushPayment.selector,
         transferOwnerFunction: SimpleRevenueContract.transferOwnership.selector
-      });
-
-      emit log_string("enable collateral");
+      });     
 
       vm.startPrank(arbiter);
+      line.addSpigot(address(revenueContract), settings);
       escrow.enableCollateral(address(creditToken1));
       vm.stopPrank();
-
-      emit log_string("adding Collateral");
 
       vm.startPrank(borrower);
       escrow.addCollateral(lentAmountTokens / 2, address(creditToken1));
       line.addCredit(dRate, fRate, lentAmountTokens, address(creditToken1), lender);
       vm.stopPrank();
 
-      emit log_named_uint("collateral value", escrow.getCollateralValue());
-      
-      startHoax(lender);
+      vm.startPrank(lender);
       id = line.addCredit(dRate, fRate, lentAmountTokens, address(creditToken1), lender);
       vm.stopPrank();
 
-      // as arbiter
-      hoax(arbiter);
-      line.addSpigot(address(revenueContract), settings);
-      vm.stopPrank();
-
-      emit log_string("borrowing");
       vm.startPrank(borrower);
       line.borrow(line.ids(0), lentAmountTokens);
       vm.stopPrank();
-
-      int256 ethPrice = oracle.getLatestAnswer(Denominations.ETH);
-      emit log_named_int("[create ethPrice] ethPrice", ethPrice);
-
-      int256 creditTokenPrice = oracle.getLatestAnswer(address(creditToken1));
-      emit log_named_int("[create credit] creditTokenPrice", creditTokenPrice);
-
-      (uint256 principal, uint256 interest) = line.updateOutstandingDebt();
-      emit log_named_uint("[create credit] principal", principal);
-      emit log_named_uint("[create credit] interest", interest);
-    }
-
-    function _convertUsdToEthToken(uint256 usd) internal returns (uint256){
-      int256 ethPriceUSD = oracle.getLatestAnswer(Denominations.ETH);
-      return uint256(ethPriceUSD) * usd;
-    }
-
-    function _convertUsdToCreditTokens(uint256 usd) internal returns (uint256) {
-      int256 tokenPriceUSD = oracle.getLatestAnswer(address(creditToken1));
-      return uint256(tokenPriceUSD) * usd;
     }
 
 }

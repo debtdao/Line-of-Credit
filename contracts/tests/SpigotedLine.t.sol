@@ -84,6 +84,8 @@ contract SpigotedLineTest is Test {
 
     function _createCredit(address revenueT, address creditT, address revenueC) public returns(bytes32 id) {
 
+      if (creditT == Denominations.ETH) revert("Eth not supported");
+
       ISpigot.Setting memory setting = ISpigot.Setting({
         // token: revenueT,
         ownerSplit: ownerSplit,
@@ -98,19 +100,19 @@ contract SpigotedLineTest is Test {
       vm.stopPrank();
       
       startHoax(lender);
-      if(creditT != Denominations.ETH) {
-        deal(creditT, lender, MAX_REVENUE);
-        RevenueToken(creditT).approve(address(line), MAX_INT);
-        id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
-      } else {
-        // id = line.addCredit{value: lentAmount}(dRate, fRate, lentAmount, creditT, lender);
-      }
+      deal(creditT, lender, MAX_REVENUE);
+      RevenueToken(creditT).approve(address(line), MAX_INT);
+      id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
       vm.stopPrank();
 
       // as arbiter
       hoax(arbiter);
       line.addSpigot(revenueC, setting);
       vm.stopPrank();
+    }
+
+    function _createEthRevenue(address revenueC, uint256 revenue) internal {
+      deal(revenueC, revenue);
     }
 
     function _borrow(bytes32 id, uint amount) public {
@@ -573,27 +575,40 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(creditT), lentAmount);
     }
 
-    // // TODO: test with 0x mainnet
-    // function test_can_trade_for_ETH_debt()  public {
-    //   deal(address(lender), lentAmount + 1 ether);
-    //   deal(address(revenueToken), MAX_REVENUE);
-    //   address revenueC = address(0xbeef); // need new spigot for testing
-    //   bytes32 id = _createCredit(address(Denominations.ETH), Denominations.ETH, revenueC);
-    //   _borrow(id, lentAmount);
+    function test_can_trade_ETH_revenue_for_debt()  public {
+      deal(address(revenueToken), MAX_REVENUE);
 
-    //   bytes memory tradeData = abi.encodeWithSignature(
-    //     'trade(address,address,uint256,uint256)',
-    //     address(revenueToken), // tokenIn
-    //     Denominations.ETH, // tokenOut
-    //     1 gwei, // amountIn
-    //     lentAmount // minAmountOut
-    //   );
+      address revenueC = address(0xbeef99); // need new spigot for testing'
+      address creditT = address(new RevenueToken());
+      deal(creditT, address(dex), MAX_INT);
 
-    //   uint claimable = spigot.getOwnerTokens(address(revenueToken));
-    //   hoax(arbiter);
-    //   line.claimAndTrade(address(revenueToken), tradeData); // claimToken (ETH), tradeData
-    //   assertEq(line.unused(Denominations.ETH), lentAmount);
-    // }
+
+      bytes32 id = _createCredit(creditT, creditT, revenueC);
+      _borrow(id, lentAmount);
+
+      _createEthRevenue(revenueC, 100 ether);
+
+      hoax(revenueC);
+      (bool success, ) = payable(spigot).call{value: 100 ether}("");
+      assertTrue(success);
+
+      // anyone can claim revenue
+      spigot.claimRevenue(revenueC, Denominations.ETH, "");
+
+      uint claimable = spigot.getOwnerTokens(Denominations.ETH);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        Denominations.ETH,// tokenIn
+        address(creditT), // tokenOut
+        claimable, // amount in
+        lentAmount // minAmountOut
+      );
+    
+      hoax(arbiter);
+      line.claimAndTrade(Denominations.ETH, tradeData); // claimToken (ETH), tradeData
+      assertEq(line.unused(Denominations.ETH), 0); // used all unusedTokens[Eth]
+    }
 
 
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {

@@ -37,6 +37,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      */
     mapping(address => uint256) private unusedTokens;
 
+    event log_named_uint(string key, uint256 val);
+    event log_named_address(string key, address val);
+
     /**
      * @notice - The SpigotedLine is a LineofCredit contract with additional functionality for integrating with a Spigot.
                - allows Borrower or Lender to repay debt using collateralized revenue streams
@@ -183,6 +186,12 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         address targetToken,
         bytes calldata zeroExTradeData
     ) internal returns (uint256) {
+        emit log_named_uint("unusedTokens[claimToken]", unusedTokens[claimToken]);
+        emit log_named_address("claimToken", claimToken);
+        emit log_named_address("targetToken", targetToken);
+        emit log_named_address("swapTarget", swapTarget);
+        emit log_named_address("address(spigot)", address(spigot));
+
         (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
             claimToken,
             targetToken,
