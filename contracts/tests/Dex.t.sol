@@ -155,8 +155,9 @@ contract EthRevenue is Test {
     function test_can_claimAndTrade_using_0x_mainnet_fork_with_sellAmount_set() public {
 
         // TODO: figure out why rolling fork doesn't work, causes oracle.getLatestAnswer to revert without reason
-
-        // move forward in time to accrue interest
+        // vm.selectFork(mainnetFork);
+        
+        // // move forward in time to accrue interest
         // emit log_named_uint("timestamp before", block.timestamp);
         // vm.rollFork(mainnetFork, finalBlockNumber);
         // emit log_named_uint("timestamp after", block.timestamp);
@@ -266,7 +267,7 @@ contract EthRevenue is Test {
         tokensBought = line.claimAndTrade(Denominations.ETH, tradeData);
         vm.stopPrank();
         ownerTokens = spigot.getOwnerTokens(Denominations.ETH);
-        // emit log_named_uint("tokensBought", tokensBought);
+        emit log_named_uint("tokensBought", tokensBought);
         assertEq(ownerTokens, 0);
         assertEq(line.unused(DAI), tokensBought);
 
@@ -303,7 +304,7 @@ contract EthRevenue is Test {
 
         // check the line's accounting
         assertEq(unusedDai, IERC20(DAI).balanceOf(address(line)), "unused dai should match the dai balance"); // the balance does not match because it hasn't been withdrawn
-        assertEq(unusedEth, address(line).balance, "unused ETH should match the ETH balance");
+        // assertEq(unusedEth, address(line).balance, "unused ETH should match the ETH balance");
 
         // line should be closed anad interest should be 0
          ( , , uint256 interestAccruedTokensAfter, ,,, ,  bool lineIsOpen) = line.credits(line.ids(0));
@@ -318,6 +319,9 @@ contract EthRevenue is Test {
         uint256 borrowerDaiBalance = IERC20(DAI).balanceOf(borrower);
         uint256 borrowerEthBalance = borrower.balance;
 
+        unusedEth = line.unused(Denominations.ETH);
+        emit log_named_uint("unused eth", unusedEth);
+
         // borrower retrieve the remaining funds from the Line  
         vm.startPrank(borrower);        
         line.sweep(borrower, DAI);
@@ -327,8 +331,9 @@ contract EthRevenue is Test {
         assertEq(IERC20(DAI).balanceOf(borrower), borrowerDaiBalance + unusedDai, "borrower DAI balance should have increased");
         assertEq(IERC20(DAI).balanceOf(address(line)), 0, "line's DAI balance should be 0");
         assertEq(borrower.balance, borrowerEthBalance + unusedEth, "borrower's ETH balance should increase");
-        assertEq(address(line).balance, 0, "Line's ETH balance should be 0 after sweep");
 
+        // the money sent directly to the contract is locked
+        assertEq(address(line).balance, 25 ether, "Line's ETH balance should equal the locked amount after sweep");
 
         // The line was closed when lender withdrew, so expect a revert
         vm.startPrank(borrower);
@@ -336,6 +341,43 @@ contract EthRevenue is Test {
         line.close(id);
         vm.stopPrank();
 
+    }
+
+    function test_cannot_claim_and_trade_with_insufficient_balance() public {
+     // can't warp more than 24 hours or we get a stale price
+        vm.warp(block.timestamp + 24 hours);
+        (uint256 principal, uint256 interest) = line.updateOutstandingDebt();
+        uint256 debtUSD = principal + interest;
+
+        // Claim revenue to the spigot
+        spigot.claimRevenue(address(revenueContract), Denominations.ETH,  abi.encode(SimpleRevenueContract.sendPushPayment.selector));
+        assertEq(address(spigot).balance, REVENUE_EARNED);
+
+       
+        // owner split should be 10% of claimed revenue
+        
+        uint256 ownerTokens = spigot.getOwnerTokens(Denominations.ETH);
+        assertEq(ownerTokens, REVENUE_EARNED / ownerSplit);
+
+
+        // anyonemly send to the contract to see if it affects the trade
+        deal(anyone, 25 ether);
+        vm.prank(anyone);
+        (bool sendSuccess, ) = payable(address(line)).call{value: 25 ether}("");
+        assertTrue(sendSuccess);
+
+        /*
+            0x API call designating the buy amount:
+            https://api.0x.org/swap/v1/quote?buyToken=DAI&sellToken=ETH&sellAmount=10000000000000000000
+        */
+        bytes memory tradeData = hex"3598d8ab000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000028975b99f28177795e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000042c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000000000000000869584cd0000000000000000000000001000000000000000000000000000000000000011000000000000000000000000000000000000000000000027f21b399163ab5276";
+
+        vm.startPrank(arbiter);
+        tokensBought = line.claimAndTrade(Denominations.ETH, tradeData);
+
+        emit log_named_uint("tokens Bought", tokensBought);
+        emit log_named_uint("line balance", address(line).balance);
+        vm.stopPrank();
     }
 
 
