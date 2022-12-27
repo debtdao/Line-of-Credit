@@ -48,10 +48,6 @@ library CreditLib {
 
     error CreditPositionClosed();
 
-    event log_credit(ILineOfCredit.Credit c);
-    event log_named_uint(string key, uint256 val);
-    event log_named_int(string key, int256 val);
-
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
      * @param line   - The Line of Credit facility concerned
@@ -221,7 +217,6 @@ library CreditLib {
         unchecked {
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate
-            emit log_credit(credit);
 
             // get token demoninated interest accrued
             uint256 accruedToken = IInterestRateCredit(interest).accrueInterest(id, credit.principal, credit.deposit);

@@ -164,12 +164,12 @@ contract EthRevenue is Test {
         Denominations.ETH, // token in
         address(creditToken1), // token out
         ownerTokens, // in amount
-        outstandingDebtTokens // out amount
+        2 // out amount
       );
 
-      // vm.prank(arbiter);
-      // uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData); // NOTE: uncomment this <===
-      // emit log_named_uint("tokens bought", tokensBought);
+      vm.prank(arbiter);
+      uint256 tokensBought = line.claimAndTrade(Denominations.ETH, tradeData); // NOTE: uncomment this <===
+      emit log_named_uint("tokens bought", tokensBought);
 
       // assertEq(address(spigot).balance, 0);
 

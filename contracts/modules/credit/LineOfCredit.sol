@@ -35,10 +35,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     mapping(bytes32 => Credit) public credits; // id -> Reference ID for a credit line provided by a single Lender for a given token on a Line of Credit
 
-    // TODO: remove these
-    event log_credit(Credit c);
-    event log_named_credit(string key, Credit c);
-
     // Line Financials aggregated accross all existing  Credit
     LineLib.STATUS public status;
 
@@ -196,7 +192,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 oracle_,
                 interestRate_
             );
-            emit log_credit(c); // TODO: remove this
 
             // update total outstanding debt
             principal += _p;
@@ -308,18 +303,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             revert NonZeroEthValue();
         }
 
-        emit log_credit(credits[id]);
-
         Credit memory credit = _accrue(credits[id], id);
-
-        emit log_credit(credit);
 
         uint256 facilityFee = credit.interestAccrued;
 
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee), id);
 
-        emit log_credit(credits[id]);
         LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
 
         return true;
@@ -490,7 +480,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
-        emit log_credit(credit);
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }

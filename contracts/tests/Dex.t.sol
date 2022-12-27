@@ -264,10 +264,7 @@ contract EthRevenue is Test {
         (,uint principalTokens, uint256 interestAccruedTokens,,,,,) = line.credits(line.ids(0));
 
         numTokensToRepayDebt = principalTokens + interestAccruedTokens;
-        // emit log_named_uint("numTokensToRepayDebt", numTokensToRepayDebt);
-
         unusedTradedTokens = tokensBought - numTokensToRepayDebt;
-        // emit log_named_uint("unusedTradedTokens", unusedTradedTokens);
 
         uint256 lineDaiBalance = IERC20(DAI).balanceOf(address(line));
         uint256 unusedDai = line.unused(DAI);    
