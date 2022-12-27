@@ -84,6 +84,7 @@ contract EthRevenue is Test {
     uint256 unusedTradedTokens;
 
     // credit position
+    bytes32 id;
     uint256 deposit;
     uint256 principal;
     uint256 interestAccrued;
@@ -287,19 +288,15 @@ contract EthRevenue is Test {
         line.withdraw(line.ids(0), deposit + interestRepaid); //10000.27
         vm.stopPrank();
 
+        ( ,,,,,,,isOpen) = line.credits(line.ids(0));
+        assertFalse(isOpen);
+
+
         // NOTE: withdrawing as the lender closes (deletes the line of credit, trapping any additional funds)
 
         unusedDai = line.unused(DAI);        
         uint256 unusedEth = line.unused(Denominations.ETH);
         lineDaiBalance = IERC20(DAI).balanceOf(address(line));
-
-        // uint256 borrowerDaiBalance = IERC20(DAI).balanceOf(borrower);
-        // uint256 borrowerEthBalance = borrower.balance;
-
-        // emit log_named_uint("line eth balance", address(line).balance);
-        // emit log_named_uint("lineUnusedEth", unusedEth);
-        // emit log_named_uint("unusedDai", unusedDai); // 1676.00
-        // emit log_named_uint("lineDaiBalance", lineDaiBalance);
 
         // check the line's accounting
         assertEq(unusedDai, IERC20(DAI).balanceOf(address(line)), "unused dai should match the dai balance"); // the balance does not match because it hasn't been withdrawn
@@ -307,17 +304,16 @@ contract EthRevenue is Test {
 
 
          ( , , uint256 interestAccruedTokensAfter, ,,, ,  bool lineIsOpen) = line.credits(line.ids(0));
-        assertTrue(lineIsOpen);
+        // assertTrue(lineIsOpen);
         assertEq(interestAccruedTokensAfter, 0);
 
-        // Close the line and sweet for remaining unused funds
-        // vm.startPrank(borrower);
-        // line.close(line.ids(0));
-        // vm.stopPrank();
 
         LineLib.STATUS status = line.status();
         emit log_named_uint("status", uint256(status));
-        // assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+
+        uint256 borrowerDaiBalance = IERC20(DAI).balanceOf(borrower);
+        uint256 borrowerEthBalance = borrower.balance;
 
         // borrower retrieve the remaining funds from the Line  
         vm.startPrank(borrower);        
@@ -325,15 +321,18 @@ contract EthRevenue is Test {
         line.sweep(borrower, Denominations.ETH);
         vm.stopPrank();
 
-        // unusedDai = line.unused(DAI); 
-        // assertEq(unusedDai, IERC20(DAI).balanceOf(address(line)));
+        assertEq(IERC20(DAI).balanceOf(borrower), borrowerDaiBalance + unusedDai, "borrower DAI balance should have increased");
+        assertEq(IERC20(DAI).balanceOf(address(line)), 0, "line's DAI balance should be 0");
+        assertEq(borrower.balance, borrowerEthBalance + unusedEth, "borrower's ETH balance should increase");
+        assertEq(address(line).balance, 0, "Line's ETH balance should be 0 after sweep");
 
-        // emit log_named_uint("line dai balance", IERC20(DAI).balanceOf(address(line)));
+        // TODO: why does this not revert?
 
-        // assertEq(IERC20(DAI).balanceOf(borrower), borrowerDaiBalance + unusedDai, "borrower DAI balance should have increased");
-        // assertEq(IERC20(DAI).balanceOf(address(line)), 0, "line's DAI balance should be 0");
-        // assertEq(borrower.balance, borrowerEthBalance + unusedEth, "borrower's ETH balance should increase");
-        // assertEq(address(line).balance, 0, "Line's ETH balance should be 0 after sweep");
+        // The line was closed when lender withdrew, so expect a revert
+        vm.startPrank(borrower);
+        vm.expectRevert(ILineOfCredit.PositionIsClosed.selector);
+        line.close(id);
+        vm.stopPrank();
 
     }
 
@@ -362,7 +361,7 @@ contract EthRevenue is Test {
         
         startHoax(lender);
         IERC20(DAI).approve(address(line), BORROW_AMOUNT_DAI);
-        bytes32 id = line.addCredit(dRate, fRate, BORROW_AMOUNT_DAI, DAI, lender);
+        id = line.addCredit(dRate, fRate, BORROW_AMOUNT_DAI, DAI, lender);
         emit log_named_bytes32("position id", id);
         vm.stopPrank();
 

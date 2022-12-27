@@ -37,6 +37,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     // TODO: remove these
     event log_credit(Credit c);
+    event log_named_credit(string key, Credit c);
 
     // Line Financials aggregated accross all existing  Credit
     LineLib.STATUS public status;
@@ -318,6 +319,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee), id);
 
+        emit log_credit(credits[id]);
         LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
 
         return true;
@@ -388,13 +390,18 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
+        emit log_named_credit("after withdraw", credit);
+
         // save before deleting position and sending out. Can remove if we add reentrancy guards
         (address token, address lender) = (credit.token, credit.lender);
 
         // if lender is pulling all funds AND no debt owed to them then delete positions
-        if (credit.deposit == 0 && credit.interestAccrued == 0) {
-            // TODO: should this have an event?
-            delete credits[id];
+        // if (credit.deposit == 0 && credit.interestAccrued == 0) {
+        //     // TODO: should this have an event?
+        //     delete credits[id];
+        // }
+        if (credit.principal == 0 && credit.interestAccrued == 0 && credit.isOpen) {
+            credits[id] = _close(credit, id);
         }
         // save to storage if position still exists
         else {
@@ -483,6 +490,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
+        emit log_credit(credit);
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }
