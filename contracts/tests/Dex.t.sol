@@ -161,25 +161,25 @@ contract EthRevenue is Test {
         // vm.rollFork(mainnetFork, finalBlockNumber);
         // emit log_named_uint("timestamp after", block.timestamp);
 
-        // vm.warp(block.timestamp + 24 hours);
-        // ( principal, interest) = line.updateOutstandingDebt();
-        // debtUSD = principal + interest;
-        // emit log_named_uint("debtUSD", debtUSD);
+        vm.warp(block.timestamp + 24 hours);
+        ( principal, interest) = line.updateOutstandingDebt();
+        debtUSD = principal + interest;
+        emit log_named_uint("debtUSD", debtUSD);
 
         // Claim revenue to the spigot
         spigot.claimRevenue(address(revenueContract), Denominations.ETH,  abi.encode(SimpleRevenueContract.sendPushPayment.selector));
         assertEq(address(spigot).balance, REVENUE_EARNED);
 
         // owner split should be 10% of claimed revenue
-       ownerTokens = spigot.getOwnerTokens(Denominations.ETH);
+        ownerTokens = spigot.getOwnerTokens(Denominations.ETH);
         emit log_named_uint("ownerTokens ETH", ownerTokens);
         assertEq(ownerTokens, REVENUE_EARNED / ownerSplit);
 
         /*
             0x API call designating the sell amount:
-            https://api.0x.org/swap/v1/quote?buyToken=DAI&sellToken=ETH&sellAmount=1500000000000000000
+            https://api.0x.org/swap/v1/quote?buyToken=DAI&sellToken=ETH&sellAmount=10000000000000000000
         */
-        bytes memory tradeData = hex"3598d8ab0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000061512813302d7a66100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f46b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000005fb851ab9463a89b6e";
+        bytes memory tradeData = hex"3598d8ab0000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000287b133bc7283b22ed000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000042c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000646b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000000000000000000000869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000007754ade3b163ab43f7";
 
         vm.startPrank(arbiter);
         tokensBought = line.claimAndTrade(Denominations.ETH, tradeData);
@@ -221,6 +221,15 @@ contract EthRevenue is Test {
 
         assertEq(IERC20(DAI).balanceOf(borrower), borrowerDaiBalance + unusedDai);
         assertEq(claimedEth, (REVENUE_EARNED / 100) * 90 );
+
+        // withdraw the lender's funds + profit using the original position ID (line.ids(0) is now empty)
+        ( deposit, , , interestRepaid,,, ,  ) = line.credits(id);
+        vm.startPrank(lender);
+        line.withdraw(id, deposit + interestRepaid);
+        vm.stopPrank();
+
+        assertEq(address(line).balance, 0, "line should have no more Eth");
+        assertEq(IERC20(DAI).balanceOf(address(line)), 0, "line should have no more DAI");
     }
 
 
