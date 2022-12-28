@@ -578,12 +578,12 @@ contract SpigotTest is Test {
     }
 
     function test_addSpigot_ExistingSpigot() public {
-        vm.expectRevert();
+        vm.expectRevert(SpigotLib.SpigotSettingsExist.selector);
         spigot.addSpigot(revenueContract, settings);
     }
 
     function test_addSpigot_SpigotAsRevenueContract() public {
-        vm.expectRevert();
+        vm.expectRevert(SpigotLib.InvalidRevenueContract.selector);
         spigot.addSpigot(address(spigot), settings);
     }
 
