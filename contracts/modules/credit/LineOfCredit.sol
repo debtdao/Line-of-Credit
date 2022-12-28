@@ -175,9 +175,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         if (len == 0) return (0, 0);
 
         bytes32 id;
-        address oracle_ = address(oracle); // gas savings
-        address interestRate_ = address(interestRate); // gas savings
-
         for (uint256 i; i < len; ++i) {
             id = ids[i];
 
@@ -189,8 +186,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             (Credit memory c, uint256 _p, uint256 _i) = CreditLib.getOutstandingDebt(
                 credits[id],
                 id,
-                oracle_,
-                interestRate_
+                address(oracle),
+                address(interestRate)
             );
 
             // update total outstanding debt
@@ -234,22 +231,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         uint256 amount,
         address token,
         address lender
-    ) external override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
-        LineLib.receiveTokenOrETH(token, lender, amount);
-
+    ) external payable override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
         bytes32 id = _createCredit(lender, token, amount);
 
         require(interestRate.setRate(id, drate, frate));
 
         emit SetRates(id, drate, frate);
 
+        LineLib.receiveTokenOrETH(token, lender, amount);
+
         return id;
     }
 
     /// see ILineOfCredit.setRates
     function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) returns (bool) {
-        Credit memory credit = credits[id];
-        credits[id] = _accrue(credit, id);
+        credits[id] = _accrue(credits[id], id);
         require(interestRate.setRate(id, drate, frate));
         emit SetRates(id, drate, frate);
         return true;
@@ -260,8 +256,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         bytes32 id,
         uint256 amount
     ) external payable override nonReentrant whileActive mutualConsentById(id) returns (bool) {
-        Credit memory credit = credits[id];
-        credit = _accrue(credit, id);
+        Credit memory credit = _accrue(credits[id], id);
 
         credit.deposit += amount;
 
@@ -280,9 +275,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     /// see ILineOfCredit.depositAndClose
     function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower returns (bool) {
-        if (msg.value != 0) {
-            revert NonZeroEthValue();
-        }
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
@@ -299,10 +291,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     /// see ILineOfCredit.close
     function close(bytes32 id) external payable override nonReentrant onlyBorrower returns (bool) {
-        if (msg.value != 0) {
-            revert NonZeroEthValue();
-        }
-
         Credit memory credit = _accrue(credits[id], id);
 
         uint256 facilityFee = credit.interestAccrued;
@@ -317,14 +305,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     /// see ILineOfCredit.depositAndRepay
     function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
-        if (msg.value != 0) {
-            revert NonZeroEthValue();
-        }
-
         bytes32 id = ids[0];
-        Credit memory credit = credits[id];
+        Credit memory credit = _accrue(credits[id], id);
         require(credit.isOpen);
-        credit = _accrue(credit, id);
 
         require(amount <= credit.principal + credit.interestAccrued);
 
@@ -380,23 +363,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        // save before deleting position and sending out. Can remove if we add reentrancy guards
-        (address token, address lender) = (credit.token, credit.lender);
-
-        // if lender is pulling all funds AND no debt owed to them then delete positions
-        // if (credit.deposit == 0 && credit.interestAccrued == 0) {
-        //     // TODO: should this have an event?
-        //     delete credits[id];
-        // }
+        // if lender is pulling all funds AND no debt owed to them then close position
         if (credit.principal == 0 && credit.interestAccrued == 0 && credit.isOpen) {
             credits[id] = _close(credit, id);
-        }
-        // save to storage if position still exists
-        else {
+        } else {
+            // save to storage if position still exists
             credits[id] = credit;
         }
 
-        LineLib.sendOutTokenOrETH(token, lender, amount);
+        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
         return true;
     }
@@ -439,8 +414,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      */
     function _createCredit(address lender, address token, uint256 amount) internal returns (bytes32 id) {
         id = CreditLib.computeId(address(this), lender, token);
-        // MUST not double add the credit line. otherwise we can not _close()
-        if (credits[id].isOpen) {
+
+        // MUST not double add the credit line. once lender is set it cant be deleted even if position is closed.
+        if (credits[id].lender != address(0)) {
             revert PositionExists();
         }
 
