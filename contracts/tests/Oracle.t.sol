@@ -186,6 +186,14 @@ contract OracleTest is Test, Events {
         assertEq(price, normalPrice / 10**10);
     }
 
+    function test_readonly_oracle_matches_oracle() public {
+        int256 btcPrice = forkOracle.getLatestAnswer(btc);
+        int256 readonlyBtcPrice = forkOracle._getLatestAnswer(btc);
+
+        assertEq(btcPrice, readonlyBtcPrice, "pricesShouldMatch");
+        assertTrue(btcPrice > 0);
+    }
+
     /*/////////////////////////////////////////////////////////
     ///////////////         MOCK TESTS          ///////////////
     /////////////////////////////////////////////////////////*/
@@ -230,7 +238,6 @@ contract OracleTest is Test, Events {
         assertEq(tokenAdecimals, 8);
         
         mockRegistry1.updateTokenDecimals(address(tokenA), 0);
-
 
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 0);

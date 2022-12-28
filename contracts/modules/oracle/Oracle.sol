@@ -70,4 +70,43 @@ contract Oracle is IOracle {
             return NULL_PRICE;
         }
     }
+
+    /**
+     * @notice          - View function for oracle pricing that can be used off-chain.
+     * @dev             - Can be used onchain for less gas than `getLatestAnswer` (no event emission).
+     * @param token     - ERC20 token to get USD price for
+     * @return price    - the latest price in USD to 8 decimals
+     */
+    function _getLatestAnswer(address token) external view returns (int256) {
+        try registry.latestRoundData(token, Denominations.USD) returns (
+            uint80 /* uint80 roundID */,
+            int256 _price,
+            uint256 /* uint256 roundStartTime */,
+            uint256 answerTimestamp /* uint80 answeredInRound */,
+            uint80
+        ) {
+            // no price for asset if price is stale. Asset is toxic
+            if (answerTimestamp == 0 || block.timestamp - answerTimestamp > MAX_PRICE_LATENCY) {
+                return NULL_PRICE;
+            }
+            if (_price <= NULL_PRICE) {
+                return NULL_PRICE;
+            }
+
+            try registry.decimals(token, Denominations.USD) returns (uint8 decimals) {
+                // if already at target decimals then return price
+                if (decimals == PRICE_DECIMALS) return _price;
+                // transform decimals to target value. disregard rounding errors
+                return
+                    decimals < PRICE_DECIMALS
+                        ? _price * int256(10 ** (PRICE_DECIMALS - decimals))
+                        : _price / int256(10 ** (decimals - PRICE_DECIMALS));
+            } catch (bytes memory) {
+                return NULL_PRICE;
+            }
+            // another try catch for decimals call
+        } catch (bytes memory) {
+            return NULL_PRICE;
+        }
+    }
 }
