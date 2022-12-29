@@ -815,39 +815,10 @@ contract SpigotedLineTest is Test {
       assertEq(postBalance, 0, "post balance should be 0");
     }
 
-    function test_can_perform_partial_sweep_of_unused_tokens() public {
-       _borrow(line.ids(0), lentAmount);
+    function test_can_perform_partial_sweep_of_unused_tokens(uint256 unusedTokens) public {
+      unusedTokens = bound(unusedTokens, 1, 1_000_000 * 10**18);
+      vm.assume(unusedTokens % 2 == 0);
 
-      uint256 preBalance = line.unused(address(creditToken));
-      assertEq(preBalance, 0, "prebalance should be 0");
-      uint256 claimable = spigot.getOwnerTokens(address(creditToken));
-      emit log_named_uint("claimable", claimable);
-
-      bytes memory tradeData = abi.encodeWithSignature(
-        'trade(address,address,uint256,uint256)',
-        address(revenueToken),
-        address(creditToken),
-        claimable,
-        10_000
-      );
-      vm.startPrank(arbiter);
-      line.claimAndTrade(address(revenueToken), tradeData);
-      uint256 postBalance = line.unused(address(creditToken));
-      assertEq(postBalance, 10_000);
-
-      vm.warp(ttl+2);
-
-      line.sweep(address(this), address(creditToken), 5000);
-      postBalance = line.unused(address(creditToken));
-      assertEq(postBalance, 5000);
-
-      line.sweep(address(this), address(creditToken), 5000);
-      postBalance = line.unused(address(creditToken));
-      assertEq(postBalance, 0);
-      vm.stopPrank();
-    }
-
-    function test_can_sweep_max_amount_of_unused_tokens_by_passing_zero_amount() public {
       _borrow(line.ids(0), lentAmount);
 
       uint256 preBalance = line.unused(address(creditToken));
@@ -860,19 +831,82 @@ contract SpigotedLineTest is Test {
         address(revenueToken),
         address(creditToken),
         claimable,
-        10_000
+        unusedTokens
       );
       vm.startPrank(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
       uint256 postBalance = line.unused(address(creditToken));
-      assertEq(postBalance, 10_000);
+      assertEq(postBalance, unusedTokens);
+
+      vm.warp(ttl+2);
+
+      line.sweep(address(this), address(creditToken), unusedTokens/2);
+      postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, unusedTokens/2);
+
+      line.sweep(address(this), address(creditToken), unusedTokens/2);
+      postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, 0);
+      vm.stopPrank();
+    }
+
+    function test_can_sweep_max_amount_of_unused_tokens_by_passing_zero_amount(uint256 unusedTokens) public {
+      unusedTokens = bound(unusedTokens, 1, 1_000_000 * 10**18);
+      
+      _borrow(line.ids(0), lentAmount);
+
+      uint256 preBalance = line.unused(address(creditToken));
+      assertEq(preBalance, 0, "prebalance should be 0");
+      uint256 claimable = spigot.getOwnerTokens(address(creditToken));
+      emit log_named_uint("claimable", claimable);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        unusedTokens
+      );
+      vm.startPrank(arbiter);
+      line.claimAndTrade(address(revenueToken), tradeData);
+      uint256 postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, unusedTokens);
 
       vm.warp(ttl+2);
 
       uint256 swept = line.sweep(address(this), address(creditToken), 0);
-      assertEq(swept, 10_000);
+      assertEq(swept, unusedTokens);
       postBalance = line.unused(address(creditToken));
       assertEq(postBalance, 0);
+      vm.stopPrank();
+    }
+
+    function test_cannot_sweep_more_than_unused_tokens(uint256 unusedTokens) public {
+      unusedTokens = bound(unusedTokens, 1, 1_000_000 * 10**18);
+
+      _borrow(line.ids(0), lentAmount);
+
+      uint256 preBalance = line.unused(address(creditToken));
+      assertEq(preBalance, 0, "prebalance should be 0");
+      
+      uint256 claimable = spigot.getOwnerTokens(address(creditToken));
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        unusedTokens
+      );
+      vm.startPrank(arbiter);
+      line.claimAndTrade(address(revenueToken), tradeData);
+      uint256 postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, unusedTokens);
+
+      vm.warp(ttl+2);
+
+      vm.expectRevert(abi.encodeWithSelector(ISpigotedLine.ReservesOverdrawn.selector, address(creditToken), unusedTokens));
+      line.sweep(address(this), address(creditToken), unusedTokens+1);
       vm.stopPrank();
     }
 
