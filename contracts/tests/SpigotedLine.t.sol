@@ -805,14 +805,14 @@ contract SpigotedLineTest is Test {
 
     function test_can_sweep_empty_tokens() public {
       // sweeps 0 so no side effects but tx succeeds
-      uint256 preBalance = LineLib.getBalance(address(creditToken));
-
+      uint256 preBalance = line.unused(address(creditToken));
+      emit log_named_uint("unused", preBalance);
       vm.warp(ttl+2);
       hoax(arbiter);
       line.sweep(address(this), address(creditToken), 0);
-      uint256 postBalance = LineLib.getBalance(address(creditToken));
-      assertEq(preBalance, 0);
-      assertEq(postBalance, 0);
+      uint256 postBalance = line.unused(address(creditToken));
+      assertEq(preBalance, 0, "prebalance should be 0");
+      assertEq(postBalance, 0, "post balance should be 0");
     }
 
     function test_cant_sweep_tokens_when_repaid_as_anon() public {

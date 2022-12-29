@@ -147,9 +147,9 @@ contract OracleTest is Test, Events {
         uint256 altCollateralValue = escrow.getCollateralValue();
         (uint256 altPrincipal, uint256 altInterest) = line.updateOutstandingDebt();
         
-        assertEq(collateralValue, altCollateralValue);
-        assertEq(principal, altPrincipal);
-        assertEq(interest, altInterest);
+        assertEq(collateralValue, altCollateralValue, "collateral value should equal alt collateral value");
+        assertEq(principal, altPrincipal, "principal value should equal alt principal value");
+        assertEq(interest, altInterest, "interest value should equal alt interest value");
     }
 
 
@@ -179,6 +179,7 @@ contract OracleTest is Test, Events {
     }
 
     function test_token_with_more_than_8_decimals() external {
+        emit log_named_uint("timestamp", block.timestamp);
         uint256 amplDecimals = registry.decimals(ampl, Denominations.USD);
         assertEq(amplDecimals, 18);
         (,int256 normalPrice,,,) = registry.latestRoundData(ampl, Denominations.USD);

@@ -247,6 +247,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     /// see ISpigotedLine.sweep
     function sweep(address to, address token, uint256 amount) external nonReentrant returns (uint256) {
         uint256 available = unusedTokens[token];
+        if (available == 0) { return 0; }
         if(amount == 0) {
             // use all tokens if no amount specified specified
             amount = available;
@@ -256,6 +257,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             }
         }
         unusedTokens[token] -= amount;
+        emit ReservesChanged(token, -int256(amount), 1);
 
         bool success = SpigotedLineLib.sweep(to, token, amount, _updateStatus(_healthcheck()), borrower, arbiter);
 
