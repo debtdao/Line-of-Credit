@@ -3,7 +3,6 @@ pragma solidity 0.8.9;
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {ISpigotedLine} from "../interfaces/ISpigotedLine.sol";
 import {LineLib} from "../utils/LineLib.sol";
-import {SpigotLib} from "../utils/SpigotLib.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 import {Denominations} from "chainlink/Denominations.sol";
@@ -90,17 +89,25 @@ library SpigotedLineLib {
 
         // used reserve revenue to repay debt
         if (oldClaimTokens > newClaimTokens) {
-            uint256 diff = oldClaimTokens - newClaimTokens;
+            unchecked { // we check all values before math so can use unchecked
+                uint256 diff = oldClaimTokens - newClaimTokens;
+                
+                emit ReservesChanged(claimToken, -int256(diff), 0);
 
-            // used more tokens than we had in revenue reserves.
-            // prevent borrower from pulling idle lender funds to repay other lenders
-            if (diff > unused) revert ReservesOverdrawn(claimToken, unused);
-            // reduce reserves by consumed amount
-            else return (tokensBought, unused - diff);
+                // used more tokens than we had in revenue reserves.
+                // prevent borrower from pulling idle lender funds to repay other lenders
+                if (diff > unused) revert ReservesOverdrawn(claimToken, unused);
+                // reduce reserves by consumed amount
+                else return (tokensBought, unused - diff);
+            }
         } else {
             unchecked { // `unused` unlikely to overflow
                 // excess revenue in trade. store in reserves
-                return (tokensBought, unused + (newClaimTokens - oldClaimTokens));
+                uint256 diff = newClaimTokens - oldClaimTokens;
+                
+                emit ReservesChanged(claimToken, int256(diff), 0);
+
+                return (tokensBought, unused + diff);
             }
         }
     }

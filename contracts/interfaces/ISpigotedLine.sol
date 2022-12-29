@@ -10,7 +10,7 @@ interface ISpigotedLine {
     */
     event RevenuePayment(address indexed token, uint256 indexed amount);
 
-    error ReservesOverdrawn(uint256 totalAvailable);
+    error ReservesOverdrawn(address token, uint256 amountAvailable);
 
     
     /**

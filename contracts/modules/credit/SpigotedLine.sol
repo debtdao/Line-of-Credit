@@ -114,11 +114,15 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // update reserves based on usage
         if (repaid > newTokens) {
-            // using bought + unused to repay line
-            unusedTokens[credit.token] -= repaid - newTokens;
+            // if using `unusedTokens` to repay line, reduce reserves
+            uint256 diff = repaid - newTokens;
+            emit ReservesChanged(credit.token, -int256(diff), 1);
+            unusedTokens[credit.token] -= diff;
         } else {
-            // high revenue and bought more than we need
-            unusedTokens[credit.token] += newTokens - repaid;
+            // else high revenue and bought more than debt, fill reserves
+            uint256 diff = newTokens - repaid;
+            emit ReservesChanged(credit.token, int256(diff), 1);
+            unusedTokens[credit.token] += diff;
         }
 
         credits[id] = _repay(credit, id, repaid);
@@ -137,8 +141,12 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             revert CallerAccessDenied();
         }
 
+        if(amount > credit.principal + credit.interestAccrued) {
+            revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
+        }
+
         if (amount > unusedTokens[credit.token]) {
-            revert ReservesOverdrawn(unusedTokens[credit.token]);
+            revert ReservesOverdrawn(credit.token, unusedTokens[credit.token]);
         }
 
         // reduce reserves before _repay calls token to prevent reentrancy
