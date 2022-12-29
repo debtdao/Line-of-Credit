@@ -107,9 +107,10 @@ library CreditLib {
         }
 
         (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-        if (!passed || result.length == 0) {
+        // TODO: test byte length: returns a uint8 (8 bits) thus 1 byte of data
+        if (!passed || result.length != 32) {
             revert InvalidTokenDecimals();
-        } // TODO: test this
+        }
 
         uint8 decimals = abi.decode(result, (uint8));
 

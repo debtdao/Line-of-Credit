@@ -239,7 +239,8 @@ contract LineTest is Test, Events {
 
         // should fail as we cant send Eth and msg.value won't match "amount"
         vm.startPrank(lender);
-        vm.expectRevert(LineLib.TransferFailed.selector);
+        // Credit lib tries to check the token decimals, which fails for 0xEeeEEEeeEee
+        vm.expectRevert(CreditLib.InvalidTokenDecimals.selector);
         line.addCredit(
             dRate,
             fRate,
