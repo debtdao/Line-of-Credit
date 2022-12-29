@@ -16,7 +16,7 @@ import {EscrowState, EscrowLib} from "../../utils/EscrowLib.sol";
  * @title  - Debt DAO Escrow
  * @author - James Senegalli
  * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
- */
+*/
 contract Escrow is IEscrow, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EscrowLib for EscrowState;

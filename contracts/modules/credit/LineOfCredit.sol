@@ -205,6 +205,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 address(oracle),
                 address(interestRate)
             );
+
             // update total outstanding debt
             principal += _p;
             interest += _i;
@@ -309,6 +310,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         Credit memory credit = _accrue(credits[id], id);
 
         uint256 facilityFee = credit.interestAccrued;
+
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee), id);
 
@@ -354,7 +356,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
-            revert NotActive();
+            revert BorrowFailed();
         }
 
         LineLib.sendOutTokenOrETH(credit.token, borrower, amount);
@@ -377,19 +379,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        // save before deleting position and sending out. Can remove if we add reentrancy guards
-        (address token, address lender) = (credit.token, credit.lender);
-
-        // if lender is pulling all funds AND no debt owed to them then delete positions
-        if (credit.deposit == 0 && credit.interestAccrued == 0) {
-            delete credits[id];
-        }
-        // save to storage if position still exists
-        else {
+        // if lender is pulling all funds AND no debt owed to them then close position
+        if (credit.principal == 0 && credit.interestAccrued == 0 && credit.isOpen) {
+            credits[id] = _close(credit, id);
+        } else {
+            // save to storage if position still exists
             credits[id] = credit;
         }
 
-        LineLib.sendOutTokenOrETH(token, lender, amount);
+        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
         return true;
     }
@@ -432,8 +430,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      */
     function _createCredit(address lender, address token, uint256 amount) internal returns (bytes32 id) {
         id = CreditLib.computeId(address(this), lender, token);
-        // MUST not double add the credit line. otherwise we can not _close()
-        if (credits[id].isOpen) {
+
+        // MUST not double add the credit line. once lender is set it cant be deleted even if position is closed.
+        if (credits[id].lender != address(0)) {
             revert PositionExists();
         }
 

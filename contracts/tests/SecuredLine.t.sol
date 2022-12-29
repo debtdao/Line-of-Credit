@@ -235,7 +235,7 @@ contract SecuredLineTest is Test {
          
         _addCredit(address(supportedToken1), 100 ether);
         bytes32 id = line.ids(0);
-        vm.expectRevert(ILineOfCredit.NotActive.selector); 
+        vm.expectRevert(ILineOfCredit.BorrowFailed.selector); 
         hoax(borrower);
         line.borrow(id, 100 ether);
     }
@@ -401,6 +401,19 @@ contract SecuredLineTest is Test {
         vm.stopPrank();
     }
 
+    // Native ETH support
+
+    function test_cannot_depositAndClose_when_sending_ETH() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+        vm.startPrank(borrower);
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
+        line.depositAndClose{value: 0.1 ether}();
+    }
+
+
 
 
 
@@ -496,6 +509,9 @@ contract SecuredLineTest is Test {
         line.declareInsolvent();
         assertEq(uint(LineLib.STATUS.INSOLVENT), uint(line.status()));
     }
+
+
+
 
 
     // Rollover()

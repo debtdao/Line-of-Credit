@@ -14,6 +14,8 @@ import {Denominations} from "chainlink/Denominations.sol";
 library LineLib {
     using SafeERC20 for IERC20;
 
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2; // mainnet WETH
+
     error EthSentWithERC20();
     error TransferFailed();
     error SendingEthFailed();

@@ -40,8 +40,11 @@ library SpigotLib {
         }
 
         uint256 existingBalance = LineLib.getBalance(token);
+
         if (self.settings[revenueContract].claimFunction == bytes4(0)) {
             // push payments
+
+            // TODO: test this with multiple revenue streams
 
             // claimed = total balance - already accounted for balance
             claimed = existingBalance - self.ownerTokens[token];
@@ -178,9 +181,14 @@ library SpigotLib {
             revert CallerAccessDenied();
         }
 
-        require(revenueContract != address(this));
+        if (revenueContract == address(this)) {
+            revert InvalidRevenueContract();
+        }
+
         // spigot setting already exists
-        require(self.settings[revenueContract].transferOwnerFunction == bytes4(0));
+        if (self.settings[revenueContract].transferOwnerFunction != bytes4(0)) {
+            revert SpigotSettingsExist();
+        }
 
         // must set transfer func
         if (setting.transferOwnerFunction == bytes4(0)) {
@@ -329,4 +337,6 @@ library SpigotLib {
     error BadSetting();
 
     error InvalidRevenueContract();
+
+    error SpigotSettingsExist();
 }
