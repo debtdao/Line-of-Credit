@@ -815,6 +815,38 @@ contract SpigotedLineTest is Test {
       assertEq(postBalance, 0, "post balance should be 0");
     }
 
+    function test_can_sweep_amount_less_than_total_unused_tokens() public {
+       _borrow(line.ids(0), lentAmount);
+
+      uint256 preBalance = line.unused(address(creditToken));
+      assertEq(preBalance, 0, "prebalance should be 0");
+      uint256 claimable = spigot.getOwnerTokens(address(creditToken));
+      emit log_named_uint("claimable", claimable);
+
+      bytes memory tradeData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        claimable,
+        10_000
+      );
+      vm.startPrank(arbiter);
+      line.claimAndTrade(address(revenueToken), tradeData);
+      uint256 postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, 10_000);
+
+      vm.warp(ttl+2);
+
+      line.sweep(address(this), address(creditToken), 5000);
+      postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, 5000);
+
+      line.sweep(address(this), address(creditToken), 5000);
+      postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, 0);
+      vm.stopPrank();
+    }
+
     function test_cant_sweep_tokens_when_repaid_as_anon() public {
       _borrow(line.ids(0), lentAmount);
       uint claimed = (MAX_REVENUE * ownerSplit) / 100; // expected claim amountd tokens for test
