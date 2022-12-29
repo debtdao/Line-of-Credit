@@ -23,6 +23,7 @@ abstract contract MutualConsent {
     error Unauthorized();
     error InvalidConsent();
     error NotUserConsent();
+    error NonZeroEthValue();
 
     // causes revert when the msg.data passed in has more data (ie arguments) than the largest known fn signature
     error UnsupportedMutualConsentFunction();

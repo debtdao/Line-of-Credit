@@ -38,7 +38,9 @@ contract InterestRateCredit is IInterestRateCredit {
 
     function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal returns (uint256) {
         Rate memory rate = rates[id];
+
         uint256 timespan = block.timestamp - rate.lastAccrued;
+
         // update last timestamp in storage
         rates[id].lastAccrued = block.timestamp;
 
@@ -56,11 +58,7 @@ contract InterestRateCredit is IInterestRateCredit {
      *
      * @return interestOwed
      */
-    function _calculateInterestOwed(
-        uint256 bpsRate,
-        uint256 balance,
-        uint256 timespan
-    ) internal pure returns (uint256) {
+    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal returns (uint256) {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 

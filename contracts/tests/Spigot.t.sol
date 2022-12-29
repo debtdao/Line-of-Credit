@@ -3,6 +3,8 @@ pragma solidity 0.8.9;
 import "forge-std/Test.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 
+import {SpigotLib} from "../utils/SpigotLib.sol";
+
 import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
 import {Denominations} from "chainlink/Denominations.sol";
@@ -576,12 +578,12 @@ contract SpigotTest is Test {
     }
 
     function test_addSpigot_ExistingSpigot() public {
-        vm.expectRevert();
+        vm.expectRevert(SpigotLib.SpigotSettingsExist.selector);
         spigot.addSpigot(revenueContract, settings);
     }
 
     function test_addSpigot_SpigotAsRevenueContract() public {
-        vm.expectRevert();
+        vm.expectRevert(SpigotLib.InvalidRevenueContract.selector);
         spigot.addSpigot(address(spigot), settings);
     }
 
@@ -802,6 +804,32 @@ contract SpigotTest is Test {
         hoax(address(0xdebf));
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spigot.updateOperator(operator);
+    }
+
+    function test_cannot_add_spigot_with_spigot_as_revenue_contract() public {
+        revenueContract = address(new SimpleRevenueContract(owner, address(new RevenueToken())));
+
+        settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
+
+        spigot = new Spigot(owner, operator);
+
+        vm.expectRevert(SpigotLib.InvalidRevenueContract.selector);
+        spigot.addSpigot(address(spigot), settings);
+    }
+
+    function test_cannot_add_spigot_with_same_revenue_contract() public {
+        revenueContract = address(new SimpleRevenueContract(owner, address(new RevenueToken())));
+
+        settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
+
+        spigot = new Spigot(owner, operator);
+
+        spigot.addSpigot(address(revenueContract), settings);
+
+        ISpigot.Setting memory altSettings = ISpigot.Setting(50, bytes4(""), bytes4("1234"));
+        
+        vm.expectRevert(SpigotLib.SpigotSettingsExist.selector);
+         spigot.addSpigot(address(revenueContract), altSettings);
     }
 
 }

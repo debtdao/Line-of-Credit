@@ -10,6 +10,9 @@ import {CreditLib} from "../utils/CreditLib.sol";
 import {CreditListLib} from "../utils/CreditListLib.sol";
 import {MutualConsent} from "../utils/MutualConsent.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
+
+import {Escrow} from "../modules/escrow/Escrow.sol";
+import {EscrowLib} from "../utils/EscrowLib.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
@@ -219,49 +222,9 @@ contract LineTest is Test, Events {
         );
     }
 
-    // TODO take out with native ETH removal
-    function test_can_add_credit_position_and_refund_excess_eth() public {
-        assertEq(
-            supportedToken1.balanceOf(address(line)),
-            0,
-            "Line balance should be 0"
-        );
-        assertEq(
-            supportedToken1.balanceOf(lender),
-            mintAmount,
-            "Contract should have initial mint balance"
-        );
-        
-        // borrower
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
-        vm.stopPrank();
-
-        // overpay as lender
-        vm.prank(lender);
-        emit log_named_uint("lender before: ", lender.balance / 10**18);
-        uint256 lenderBalanceBefore = lender.balance;
-        line.addCredit{value: 7 ether}(dRate, fRate, 1 ether, Denominations.ETH, lender);
-        emit log_named_uint("lender after: ", lender.balance / 10**18);
-        uint256 lenderBalanceAfter = lender.balance;
-        vm.stopPrank();
-
-        // check that the refund takes place
-        assertEq(lenderBalanceAfter, lenderBalanceBefore - 1 ether, "Excess should have been refunded");
-
-        bytes32 id = line.ids(0);
-
-        assert(id != bytes32(0));
-        assertEq(
-            address(line).balance,
-            1 ether,
-            "Line balance should be 1e18"
-        );
-    }
 
 
-
-    function test_can_add_credit_position_ETH() public {
+    function test_cannot_add_credit_position_ETH() public {
         assertEq(address(line).balance, 0, "Line balance should be 0");
         assertEq(
             lender.balance,
@@ -269,11 +232,16 @@ contract LineTest is Test, Events {
             "lender should have initial mint balance"
         );
         console.log(lender.balance);
-        hoax(borrower);
+        
+        vm.startPrank(borrower);
         line.addCredit(dRate, fRate, 1 ether, Denominations.ETH, lender);
+        vm.stopPrank();
 
+        // should fail as we cant send Eth and msg.value won't match "amount"
         vm.startPrank(lender);
-        line.addCredit{value: 1 ether}(
+        // Credit lib tries to check the token decimals, which fails for 0xEeeEEEeeEee
+        vm.expectRevert(CreditLib.InvalidTokenDecimals.selector);
+        line.addCredit(
             dRate,
             fRate,
             1 ether,
@@ -281,15 +249,7 @@ contract LineTest is Test, Events {
             lender
         );
         vm.stopPrank();
-        console.log(lender.balance);
-        bytes32 id = line.ids(0);
-        assert(id != bytes32(0));
-        assertEq(address(line).balance, 1 ether, "Line balance should be 1e18");
-        assertEq(
-            lender.balance,
-            mintAmount - 1 ether,
-            "Lender should have initial mint balance minus 1e18"
-        );
+
     }
 
     function test_can_borrow_within_credit_limit(uint256 amount) public {
@@ -327,59 +287,6 @@ contract LineTest is Test, Events {
         assertEq(
             p,
             (tokenPriceOneUnit * amount) / 1e18,
-            "Principal should be set as one full unit price in USD"
-        );
-    }
-
-    function test_can_borrow_ETH(uint128 amount) public {
-        vm.assume(amount >= 1 ether && amount <= mintAmount);
-
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, amount, Denominations.ETH, lender);
-        vm.stopPrank();
-        vm.startPrank(lender);
-        line.addCredit{value: amount}(
-            dRate,
-            fRate,
-            amount,
-            Denominations.ETH,
-            lender
-        );
-        vm.stopPrank();
-        bytes32 id = line.ids(0);
-        assert(id != bytes32(0));
-        assertEq(
-            address(line).balance,
-            amount,
-            "Line balance amount should be correct"
-        );
-        assertEq(
-            lender.balance,
-            mintAmount - amount,
-            "Contract should have initial mint balance minus 1e18"
-        );
-
-        uint256 borrowAmount = (amount * 25) / 1000;
-        vm.startPrank(borrower);
-        line.borrow(id, borrowAmount);
-        vm.stopPrank();
-        assertEq(
-            address(line).balance,
-            amount - borrowAmount,
-            "Line balance should be 0"
-        );
-        assertEq(
-            borrower.balance,
-            borrowAmount,
-            "Borrower should have initial mint balance"
-        );
-
-        int256 prc = oracle.getLatestAnswer(Denominations.ETH);
-        uint256 tokenPriceOneUnit = prc < 0 ? 0 : uint256(prc);
-        (uint256 p, ) = line.updateOutstandingDebt();
-        assertEq(
-            p,
-            (borrowAmount * tokenPriceOneUnit) / 1e18,
             "Principal should be set as one full unit price in USD"
         );
     }
@@ -642,32 +549,32 @@ contract LineTest is Test, Events {
         assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
-    function test_all_position_data_is_deleted_after_lender_withdraws_all_money() public {
+    // function test_all_position_data_is_deleted_after_lender_withdraws_all_money() public {
 
-        _addCredit(address(supportedToken1), 1 ether);
+    //     _addCredit(address(supportedToken1), 1 ether);
 
-        bytes32 id = line.ids(0);
+    //     bytes32 id = line.ids(0);
         
-        assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
+    //     assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Lender should have initial balance less lent amount");
         
-        vm.warp(ttl-2); // TODO calculate and compare accrued IR
+    //     vm.warp(ttl-2); // TODO calculate and compare accrued IR
         
-        hoax(borrower);
-        line.close(id);
+    //     hoax(borrower);
+    //     line.close(id);
         
-        (uint256 d,,uint256 r,uint256 i,,,address l,) = line.credits(id);
-        uint256 amt = (supportedToken1.balanceOf(address(line)));
+    //     (uint256 d,,uint256 r,uint256 i,,,address l,) = line.credits(id);
+    //     uint256 amt = (supportedToken1.balanceOf(address(line)));
 
-        hoax(lender);
-        line.withdraw(id, d + i);
+    //     hoax(lender);
+    //     line.withdraw(id, d + i);
 
-        ( uint256 d2,, uint256 r2, uint256 i2,,, address l2,) = line.credits(id);
+    //     ( uint256 d2,, uint256 r2, uint256 i2,,, address l2,) = line.credits(id);
 
-        // lender is only var that should never be nulll/0 so is only way to check if position deleted
-        assertEq(l2, address(0), "position has not been deleted");
-        // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
-        assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
-    }
+    //     // lender is only var that should never be nulll/0 so is only way to check if position deleted
+    //     assertEq(l2, address(0), "position has not been deleted");
+    //     // assertEq(supportedToken1.balanceOf(address(line)), interest_and_principal, "Line should have tokens");
+    //     assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
+    // }
 
     // TODO before close, isOpen is true, after close, isOpen is false. Lender is not 0
      function test_position_data_still_exists_after_position_is_closed() public {
