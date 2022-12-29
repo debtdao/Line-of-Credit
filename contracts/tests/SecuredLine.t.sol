@@ -409,7 +409,7 @@ contract SecuredLineTest is Test {
         hoax(borrower);
         line.borrow(id, 1 ether);
         vm.startPrank(borrower);
-        vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
         line.depositAndClose{value: 0.1 ether}();
     }
 
