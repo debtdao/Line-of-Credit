@@ -754,7 +754,7 @@ contract SpigotedLineTest is Test {
       creditToken.mint(address(0xdebf), lentAmount);
       hoax(address(0xdebf));
       creditToken.approve(address(line), lentAmount);
-      vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+      vm.expectRevert(LineLib.EthSentWithERC20.selector);
       line.depositAndRepay{value: 0.0000000098 ether}(lentAmount);
     }
 
