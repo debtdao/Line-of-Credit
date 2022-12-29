@@ -81,7 +81,7 @@ library EscrowLib {
         uint256 amount,
         address token
     ) external returns (uint256) {
-        require(amount > 0);
+        require(amount != 0);
         if (!self.enabled[token]) {
             revert InvalidCollateral();
         }
@@ -109,7 +109,7 @@ library EscrowLib {
             } else {
                 (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
 
-                bool is4626 = tokenAddrBytes.length > 0 && passed;
+                bool is4626 = tokenAddrBytes.length != 0 && passed;
                 deposit.isERC4626 = is4626;
                 // if 4626 save the underlying token to use for oracle pricing
                 deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
@@ -122,7 +122,7 @@ library EscrowLib {
                 (bool successDecimals, bytes memory decimalBytes) = deposit.asset.call(
                     abi.encodeWithSignature("decimals()")
                 );
-                if (decimalBytes.length > 0 && successDecimals) {
+                if (decimalBytes.length != 0 && successDecimals) {
                     deposit.assetDecimals = abi.decode(decimalBytes, (uint8));
                 } else {
                     deposit.assetDecimals = 18;
@@ -149,7 +149,7 @@ library EscrowLib {
         address token,
         address to
     ) external returns (uint256) {
-        require(amount > 0);
+        require(amount != 0);
         if (msg.sender != borrower) {
             revert CallerAccessDenied();
         }
@@ -187,7 +187,7 @@ library EscrowLib {
 
     /** see Escrow.liquidate */
     function liquidate(EscrowState storage self, uint256 amount, address token, address to) external returns (bool) {
-        require(amount > 0);
+        require(amount != 0);
         if (msg.sender != self.line) {
             revert CallerAccessDenied();
         }

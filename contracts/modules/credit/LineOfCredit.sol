@@ -133,7 +133,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         }
 
         // Liquidate if all credit lines aren't closed by deadline
-        if (block.timestamp >= deadline && count > 0) {
+        if (block.timestamp >= deadline && count != 0) {
             emit Default(ids[0]); // can query all defaulted positions offchain once event picked up
             return LineLib.STATUS.LIQUIDATABLE;
         }
@@ -501,7 +501,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 if (
                     id == bytes32(0) || // deleted element. In the middle of the q because it was closed.
                     nextQSpot != lastSpot || // position already found. skip to find `p` asap
-                    credits[id].principal > 0 //`id` should be placed before `p`
+                    credits[id].principal != 0 //`id` should be placed before `p`
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
             } else {
