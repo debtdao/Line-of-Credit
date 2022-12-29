@@ -3,14 +3,12 @@ pragma solidity 0.8.9;
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {ISpigotedLine} from "../interfaces/ISpigotedLine.sol";
 import {LineLib} from "../utils/LineLib.sol";
+import {SpigotLib} from "../utils/SpigotLib.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 import {Denominations} from "chainlink/Denominations.sol";
 
 library SpigotedLineLib {
-    // max revenue to take from Spigot if line is in distress
-    uint8 constant MAX_SPLIT = 100;
-
     error NoSpigot();
 
     error TradeFailed();
@@ -32,13 +30,19 @@ library SpigotedLineLib {
         uint256 indexed debtTokensBought
     );
 
+    event ReservesChanged (
+        address indexed token,
+        int256 indexed diff,
+        uint256 tokenType       // 0 for revenue token, 1 for credit token
+    ); 
+
     /**
-     * @notice              Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt. 
-                            The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay 
-                            This feature allows a Borrower to take advantage of an increase in the value of the revenue token compared 
-                            to the credit token and to in effect use less revenue tokens to be later used to repay the same amount of debt.
-     * @dev                 MUST trade all available claimTokens to targetTokens
-     * @dev                 priviliged internal function
+     * @dev                 - priviliged internal function!
+     * @notice              - Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt. 
+                            - The newly exchanged credit tokens are held in 'unusedTokens' ready for a Lender to withdraw using useAndRepay 
+                            - This feature allows a Borrower to take advantage of an increase in the value of the revenue token compared 
+                            - to the credit token and to in effect use less revenue tokens to be later used to repay the same amount of debt.
+     * @dev                 - MUST trade all available claimTokens (unused + claimed) to targetTokens
      * @param claimToken    - The revenue token escrowed in the Spigot to sell in trade
      * @param targetToken   - The credit token that needs to be bought in order to pat down debt. Always `credits[ids[0]].token`
      * @param swapTarget    - The 0x exchange router address to call for trades
@@ -79,7 +83,7 @@ library SpigotedLineLib {
 
         uint256 newClaimTokens = LineLib.getBalance(claimToken);
 
-        // ideally we could use oracle to calculate # of tokens to receive
+        // ideally we could use oracle here to calculate # of tokens to receive
         // but sellToken might not have oracle. buyToken must have oracle
 
         emit TradeSpigotRevenue(claimToken, claimed, targetToken, tokensBought);
@@ -94,13 +98,22 @@ library SpigotedLineLib {
             // reduce reserves by consumed amount
             else return (tokensBought, unused - diff);
         } else {
-            unchecked {
+            unchecked { // `unused` unlikely to overflow
                 // excess revenue in trade. store in reserves
                 return (tokensBought, unused + (newClaimTokens - oldClaimTokens));
             }
         }
     }
 
+    /**
+     * @dev                     - priviliged internal function!
+     * @notice                  - dumb func that executes arbitry code against a target contract 
+     * @param amount            - amount of revenue tokens to sell
+     * @param sellToken         - revenue token being sold
+     * @param swapTarget        - exchange aggregator to trade against
+     * @param zeroExTradeData   - Trade data to execute against exchange for target token/amount
+     * @return bool             - if trade was successful
+     */
     function trade(
         uint256 amount,
         address sellToken,
@@ -125,8 +138,11 @@ library SpigotedLineLib {
     }
 
     /**
-     * @notice cleanup function when a Line of Credit facility has expired.
-        Used in the event that we want to reuse a Spigot instead of starting from scratch
+     * @notice          - cleanup function when a Line of Credit facility has expired. Called in SecuredLine.rollover
+     *                  - Reuse a Spigot across a single borrower's Line contracts
+     * @param spigot    - The spigot address owned by this SpigotedLine
+     * @param newLine   - The new line to transfer Spigot ownership to
+     * @return bool     - if Spigot ownership was transferred or not
      */
     function rollover(address spigot, address newLine) external returns (bool) {
         require(ISpigot(spigot).updateOwner(newLine));
@@ -139,15 +155,17 @@ library SpigotedLineLib {
         if (address(this) == owner_ || arbiter == owner_) {
             revert NotInsolvent(spigot);
         }
-        // no additional logic in LineOfCredit to include
+
+        // no additional logic from LineOfCredit to include
+        
         return true;
     }
 
     /**
-     * @notice Changes the revenue split between a Borrower's treasury and the LineOfCredit based on line health, runs with updateOwnerSplit()
-     * @dev    - callable `arbiter` + `borrower`
-     * @param revenueContract - spigot to update
-     * @return whether or not split was updated
+     * @notice                  - Changes the revenue split between a Borrower's treasury and the LineOfCredit based on line health, runs with updateOwnerSplit()
+     * @dev                     - callable by anyone
+     * @param revenueContract   - spigoted contract to update
+     * @return sucesss          - whether or not split was updated
      */
     function updateSplit(
         address spigot,
@@ -164,20 +182,19 @@ library SpigotedLineLib {
         if (status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
             // if Line of Credit is healthy then set the split to the prior agreed default split of revenue tokens
             return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
-        } else if (status == LineLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
+        } else if (status == LineLib.STATUS.LIQUIDATABLE && split != SpigotLib.MAX_SPLIT) {
             // if the Line of Credit is in distress then take all revenue to repay debt
-            return ISpigot(spigot).updateOwnerSplit(revenueContract, MAX_SPLIT);
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, SpigotLib.MAX_SPLIT);
         }
 
         return false;
     }
 
-    /**
-
-   * @notice -  Transfers ownership of the entire Spigot and its revenuw streams from its then Owner to either 
-                the Borrower (if a Line of Credit has been been fully repaid) or 
-                to the Arbiter (if the Line of Credit is liquidatable).
-   * @dev    - callable by anyone 
+  /**
+   * @notice - Transfers ownership of the entire Spigot and its revenuw streams from its then Owner to either 
+             - the Borrower (if a Line of Credit has been been fully repaid) or 
+             - to the Arbiter (if the Line of Credit is liquidatable).
+   * @dev    - callable by `borrower` or `arbiter`
    * @return - whether or not Spigot was released
   */
     function releaseSpigot(
@@ -202,16 +219,15 @@ library SpigotedLineLib {
         }
 
         revert CallerAccessDenied();
-
-        return false;
     }
 
     /**
-   * @notice -  Sends any remaining tokens (revenue or credit tokens) in the Spigot to the Borrower after the loan has been repaid.
-             -  In case of a Borrower default (loan status = liquidatable), this is a fallback mechanism to withdraw all the tokens and send them to the Arbiter
-             -  Does not transfer anything if line is healthy
-   * @return - whether or not spigot was released
-  */
+      * @notice -  Sends any remaining tokens (revenue or credit tokens) in the Spigot to the Borrower after the loan has been repaid.
+                  -  In case of a Borrower default (loan status = liquidatable), this is a fallback mechanism to withdraw all the tokens and send them to the Arbiter
+                  -  Does not transfer anything if line is healthy
+      * @dev    - callable by `borrower` or `arbiter`
+      * @return - whether or not spigot was released
+    */
     function sweep(
         address to,
         address token,

@@ -19,23 +19,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     using CreditListLib for bytes32[];
 
+    /// @notice - the timestamp that all creditors must be repaid by
     uint256 public immutable deadline;
-
+    /// @notice - the account that can drawdown and manage debt positions
     address public immutable borrower;
-
+    /// @notice - neutral 3rd party that mediates btw borrower and all lenders
     address public immutable arbiter;
-
+    /// @notice - price feed to use for valuing credit tokens
     IOracle public immutable oracle;
-
+    /// @notice - contract responsible for calculating interest owed on debt positions
     InterestRateCredit public immutable interestRate;
-
-    uint256 private count; // amount of open credit lines on a Line of Credit facility. ids.length includes null items
-
-    bytes32[] public ids; // all open credit lines
-
-    mapping(bytes32 => Credit) public credits; // id -> Reference ID for a credit line provided by a single Lender for a given token on a Line of Credit
-
-    // Line Financials aggregated accross all existing  Credit
+    /// @notice - current amount of active positions (aka non-null ids) in `ids` list
+    uint256 private count;
+    /// @notice - positions ids of all open credit lines.
+    /// @dev - may contain null elements
+    bytes32[] public ids;
+    /// @notice id -> position data
+    mapping(bytes32 => Credit) public credits;
+    /// @notice - urrent health status of line
     LineLib.STATUS public status;
 
     /**

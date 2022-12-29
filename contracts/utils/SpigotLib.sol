@@ -5,14 +5,17 @@ import {LineLib} from "../utils/LineLib.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
 struct SpigotState {
+    /// @notice Economic owner of Spigot revenue streams
     address owner;
+    /// @notice account in charge of running onchain ops of spigoted contracts on behalf of owner
     address operator;
-    // Total amount of revenue tokens escrowed by the Spigot and available to be claimed
-    mapping(address => uint256) ownerTokens; // escrowed; // token  -> amount escrowed
-    mapping(address => uint256) operatorTokens;
-    // Functions that the operator is allowed to run on all revenue contracts controlled by the Spigot
+    /// @notice Total amount of revenue tokens help by the Spigot and available to be claimed by owner
+    mapping(address => uint256) ownerTokens;      // token -> claimable
+    /// @notice Total amount of revenue tokens help by the Spigot and available to be claimed by operator
+    mapping(address => uint256) operatorTokens;   // token -> claimable
+    /// @notice Functions that the operator is allowed to run on all revenue contracts controlled by the Spigot
     mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
-    // Configurations for revenue contracts related to the split of revenue, access control to claiming revenue tokens and transfer of Spigot ownership
+    /// @notice Configurations for revenue contracts related to the split of revenue, access control to claiming revenue tokens and transfer of Spigot ownership
     mapping(address => ISpigot.Setting) settings; // revenue contract -> settings
 }
 
@@ -69,7 +72,31 @@ library SpigotLib {
         return claimed;
     }
 
-    /** see Spigot.operate */
+    /** see Spigot.claimRevenue */
+    function claimRevenue(
+        SpigotState storage self,
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external returns (uint256 claimed) {
+        claimed = _claimRevenue(self, revenueContract, token, data);
+
+        // splits revenue stream according to Spigot settings
+        uint256 ownerTokens = (claimed * self.settings[revenueContract].ownerSplit) / 100;
+        // update escrowed balance
+        self.ownerTokens[token] = self.ownerTokens[token] + ownerTokens;
+
+        // update operator amount
+        if (claimed > ownerTokens) {
+            self.operatorTokens[token] = self.operatorTokens[token] + (claimed - ownerTokens);
+        }
+
+        emit ClaimRevenue(token, claimed, ownerTokens, revenueContract);
+
+        return claimed;
+    }
+
+        /** see Spigot.operate */
     function operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
         if (msg.sender != self.operator) {
             revert CallerAccessDenied();
@@ -97,30 +124,6 @@ library SpigotLib {
         }
 
         return true;
-    }
-
-    /** see Spigot.claimRevenue */
-    function claimRevenue(
-        SpigotState storage self,
-        address revenueContract,
-        address token,
-        bytes calldata data
-    ) external returns (uint256 claimed) {
-        claimed = _claimRevenue(self, revenueContract, token, data);
-
-        // splits revenue stream according to Spigot settings
-        uint256 ownerTokens = (claimed * self.settings[revenueContract].ownerSplit) / 100;
-        // update escrowed balance
-        self.ownerTokens[token] = self.ownerTokens[token] + ownerTokens;
-
-        // update operator amount
-        if (claimed > ownerTokens) {
-            self.operatorTokens[token] = self.operatorTokens[token] + (claimed - ownerTokens);
-        }
-
-        emit ClaimRevenue(token, claimed, ownerTokens, revenueContract);
-
-        return claimed;
     }
 
     /** see Spigot.claimEscrow */
