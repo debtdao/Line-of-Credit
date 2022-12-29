@@ -784,7 +784,7 @@ contract SpigotedLineTest is Test {
     function test_cannot_close_with_ETH() public {
       vm.startPrank(borrower);
         bytes32 id = line.ids(0);
-        vm.expectRevert(MutualConsent.NonZeroEthValue.selector);
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
         line.close{value: 0.00001 ether}(id);
       vm.stopPrank();
     }
