@@ -809,7 +809,8 @@ contract SpigotedLineTest is Test {
       emit log_named_uint("unused", preBalance);
       vm.warp(ttl+2);
       hoax(arbiter);
-      line.sweep(address(this), address(creditToken), 0);
+      uint256 swept = line.sweep(address(this), address(creditToken), 0);
+      assertEq(swept, 0);
       uint256 postBalance = line.unused(address(creditToken));
       assertEq(preBalance, 0, "prebalance should be 0");
       assertEq(postBalance, 0, "post balance should be 0");
@@ -840,11 +841,13 @@ contract SpigotedLineTest is Test {
 
       vm.warp(ttl+2);
 
-      line.sweep(address(this), address(creditToken), unusedTokens/2);
+      uint256 swept = line.sweep(address(this), address(creditToken), unusedTokens/2);
+      assertEq(swept, unusedTokens/2);
       postBalance = line.unused(address(creditToken));
       assertEq(postBalance, unusedTokens/2);
 
-      line.sweep(address(this), address(creditToken), unusedTokens/2);
+      swept = line.sweep(address(this), address(creditToken), unusedTokens/2);
+      assertEq(swept, unusedTokens/2);
       postBalance = line.unused(address(creditToken));
       assertEq(postBalance, 0);
       vm.stopPrank();
