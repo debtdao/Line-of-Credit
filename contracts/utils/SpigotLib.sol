@@ -126,7 +126,7 @@ library SpigotLib {
         return true;
     }
 
-    /** see Spigot.claimEscrow */
+    /** see Spigot.claimOwnerTokens */
     function claimOwnerTokens(SpigotState storage self, address token) external returns (uint256 claimed) {
         if (msg.sender != self.owner) {
             revert CallerAccessDenied();
@@ -147,6 +147,7 @@ library SpigotLib {
         return claimed;
     }
 
+    /** see Spigot.claimOperatorTokens */
     function claimOperatorTokens(SpigotState storage self, address token) external returns (uint256 claimed) {
         if (msg.sender != self.operator) {
             revert CallerAccessDenied();

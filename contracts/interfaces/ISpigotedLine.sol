@@ -108,9 +108,8 @@ interface ISpigotedLine {
    * @dev      - callable by `borrower` or `arbiter`
    * @param to           - address to send swept tokens to
    * @param token        - revenue or credit token to sweep
-   * @param amount       - amount of reserve tokens to withdraw/liquidate
   */
-    function sweep(address to, address token, uint256 amount) external returns (uint256);
+    function sweep(address to, address token) external returns (uint256);
 
     // getters
 

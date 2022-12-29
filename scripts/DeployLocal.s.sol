@@ -34,14 +34,14 @@ contract DeployLocal is DeployBase {
         tokenA = new RevenueToken();
         tokenB = new RevenueToken();
         oracle = new SimpleOracle(address(tokenA), address(tokenB));
-        swapTarget = makeAddr("swapTarget");
+        // swapTarget = makeAddr("swapTarget");
 
         console.log("deployer balance", deployer.balance);
         console.log("tokenA", address(tokenA));
         console.log("tokenB", address(tokenB));
         console.log("oracle", address(oracle));
-        console.log("swapTarget", swapTarget);
+        // console.log("swapTarget", swapTarget);
 
-        run(arbiter, swapTarget, address(oracle));
+        // run(arbiter, swapTarget, address(oracle));
     }
 }
