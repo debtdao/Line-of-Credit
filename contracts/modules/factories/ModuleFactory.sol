@@ -6,7 +6,9 @@ import {Spigot} from "../spigot/Spigot.sol";
 import {Escrow} from "../escrow/Escrow.sol";
 
 /**
-  @author - Mo
+ * @title   - Debt DAO Module Factory
+ * @author  - Mom
+ * @notice  - Facotry contract to deploy Spigot, and Escrow contracts.
 */
 contract ModuleFactory is IModuleFactory {
     /**

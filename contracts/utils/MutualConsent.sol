@@ -94,7 +94,7 @@ abstract contract MutualConsent {
         if (mutualConsents[expectedHash] == address(0)) {
             bytes32 newHash = keccak256(abi.encodePacked(msg.data, msg.sender));
 
-            mutualConsents[newHash] = msg.sender;
+            mutualConsents[newHash] = msg.sender; // save caller's consent for nonCaller to accept
 
             emit MutualConsentRegistered(newHash);
 

@@ -6,6 +6,12 @@ import {LineLib} from "../../utils/LineLib.sol";
 import {LineFactoryLib} from "../../utils/LineFactoryLib.sol";
 import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
+/**
+ * @title   - Debt DAO Line Factory
+ * @author  - Mom
+ * @notice  - Facotry contract to deploy SecuredLine, Spigot, and Escrow contracts.
+ * @dev     - Have immutable default values for Debt DAO system external dependencies.
+*/
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
 

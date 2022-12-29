@@ -27,7 +27,7 @@ contract InterestRateCredit is IInterestRateCredit {
         _;
     }
 
-    /// see IInterestRateCredit
+    /// see IInterestRateCredit.accrueInterest
     function accrueInterest(
         bytes32 id,
         uint256 drawnBalance,
@@ -38,6 +38,7 @@ contract InterestRateCredit is IInterestRateCredit {
 
     function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal returns (uint256) {
         Rate memory rate = rates[id];
+        // get time since interest was last accrued iwth these balances
         uint256 timespan = block.timestamp - rate.lastAccrued;
         // update last timestamp in storage
         rates[id].lastAccrued = block.timestamp;
@@ -50,8 +51,8 @@ contract InterestRateCredit is IInterestRateCredit {
      * @notice - total interest to accrue based on apr, balance, and length of time
      * @dev    - r = APR in bps, x = # tokens, t = time
      *         - interest = (r * x * t) / 1yr / 100
-     * @param  bpsRate - interest rate (APR) to charge against balance in bps (4 decimals)
-     * @param  balance - current balance for interest rate tier to charge interest against
+     * @param  bpsRate  - interest rate (APR) to charge against balance in bps (4 decimals)
+     * @param  balance  - current balance for interest rate tier to charge interest against
      * @param  timespan - total amount of time that interest should be charged for
      *
      * @return interestOwed
@@ -64,10 +65,9 @@ contract InterestRateCredit is IInterestRateCredit {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 
-    /// see IInterestRateCredit
+    /// see IInterestRateCredit.setRate
     function setRate(bytes32 id, uint128 dRate, uint128 fRate) external onlyLineContract returns (bool) {
         rates[id] = Rate({dRate: dRate, fRate: fRate, lastAccrued: block.timestamp});
-
         return true;
     }
 }
