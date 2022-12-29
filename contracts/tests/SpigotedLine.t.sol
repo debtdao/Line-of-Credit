@@ -287,6 +287,7 @@ contract SpigotedLineTest is Test {
       vm.expectRevert(
         abi.encodeWithSelector(
          ISpigotedLine.ReservesOverdrawn.selector,
+         address(creditToken),
          0
         )
       );
@@ -798,17 +799,20 @@ contract SpigotedLineTest is Test {
       vm.stopPrank();
 
       vm.expectRevert(ISpigot.CallerAccessDenied.selector);
-      assertEq(0, line.sweep(address(this), address(creditToken))); // no tokens transfered
+      assertEq(0, line.sweep(address(this), address(creditToken), 0)); // no tokens transfered
     }
 
 
-    function test_cant_sweep_empty_tokens() public {
-      vm.expectRevert(abi.encodeWithSelector(
-        SpigotedLineLib.ReservesOverdrawn.selector,
-        address(creditToken),
-        0
-      ));
-      line.sweep(address(this), address(creditToken));
+    function test_can_sweep_empty_tokens() public {
+      // sweeps 0 so no side effects but tx succeeds
+      uint256 preBalance = LineLib.getBalance(address(creditToken));
+
+      vm.warp(ttl+2);
+      hoax(arbiter);
+      line.sweep(address(this), address(creditToken), 0);
+      uint256 postBalance = LineLib.getBalance(address(creditToken));
+      assertEq(preBalance, 0);
+      assertEq(postBalance, 0);
     }
 
     function test_cant_sweep_tokens_when_repaid_as_anon() public {
@@ -832,7 +836,7 @@ contract SpigotedLineTest is Test {
 
       hoax(address(0xdebf));
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
-      assertEq(0, line.sweep(address(this), address(creditToken))); // no tokens transfered
+      assertEq(0, line.sweep(address(this), address(creditToken), 0)); // no tokens transfered
     }
 
     function test_sweep_to_borrower_when_repaid() public {
@@ -866,7 +870,7 @@ contract SpigotedLineTest is Test {
 
       uint unused = line.unused(address(revenueToken)); 
       hoax(borrower);
-      uint swept = line.sweep(address(borrower), address(revenueToken));
+      uint swept = line.sweep(address(borrower), address(revenueToken), 0);
 
       assertEq(unused, 10, '2');     // all unused sent to arbi
       assertEq(swept, unused, '3'); // all unused sent to arbi
@@ -891,7 +895,7 @@ contract SpigotedLineTest is Test {
 
       hoax(address(0xdebf));
       vm.expectRevert(ILineOfCredit.CallerAccessDenied.selector);
-      assertEq(0, line.sweep(address(this), address(creditToken))); // no tokens transfered
+      assertEq(0, line.sweep(address(this), address(creditToken), 0)); // no tokens transfered
     }
 
 
@@ -919,7 +923,7 @@ contract SpigotedLineTest is Test {
 
       vm.warp(ttl+1);          // set to liquidatable
       
-      uint swept = line.sweep(address(this), address(revenueToken));
+      uint swept = line.sweep(address(this), address(revenueToken), 0);
       assertEq(swept, unused); // all unused sent to arbiter
       assertEq(swept, 1);      // untraded revenue
       assertEq(swept, revenueToken.balanceOf(address(arbiter)) - balance); // arbiter balance updates properly
@@ -943,7 +947,7 @@ contract SpigotedLineTest is Test {
      
       vm.warp(ttl+1);
       vm.startPrank(arbiter);
-      line.sweep(arbiter, address(creditToken));
+      line.sweep(arbiter, address(creditToken), 0);
     }
 
     function test_arbiter_sweep_if_status_insolvent() public {
@@ -971,7 +975,7 @@ contract SpigotedLineTest is Test {
       
       assertEq(uint8(line.status()), uint8(LineLib.STATUS.INSOLVENT));
       
-      line.sweep(arbiter, address(creditToken));
+      line.sweep(arbiter, address(creditToken), 0);
       
     }
 

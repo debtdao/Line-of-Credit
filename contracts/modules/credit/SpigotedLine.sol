@@ -102,9 +102,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             revert CallerAccessDenied();
         }
 
-        uint256 newTokens = claimToken == credit.token
-            ? spigot.claimOwnerTokens(claimToken) // same asset. dont trade
-            : _claimAndTrade(claimToken, credit.token, zeroExTradeData); // trade revenue token for debt obligation
+        uint256 newTokens = _claimAndTrade(claimToken, credit.token, zeroExTradeData);
 
         uint256 repaid = newTokens + unusedTokens[credit.token];
         uint256 debt = credit.interestAccrued + credit.principal;
@@ -169,9 +167,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         }
 
         address targetToken = credits[ids[0]].token;
-        uint256 newTokens = claimToken == targetToken
-            ? spigot.claimOwnerTokens(claimToken) // same asset. dont trade
-            : _claimAndTrade(claimToken, targetToken, zeroExTradeData); // trade revenue token for debt obligation
+        uint256 newTokens = _claimAndTrade(claimToken, targetToken, zeroExTradeData);
 
         // add bought tokens to unused balance
         unusedTokens[targetToken] += newTokens;
@@ -194,18 +190,24 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         address targetToken,
         bytes calldata zeroExTradeData
     ) internal returns (uint256) {
-        (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
-            claimToken,
-            targetToken,
-            swapTarget,
-            address(spigot),
-            unusedTokens[claimToken],
-            zeroExTradeData
-        );
+        if( claimToken == targetToken ) {
+            // same asset. dont trade
+            return spigot.claimOwnerTokens(claimToken);
+        } else {
+            // trade revenue token for debt obligation
+            (uint256 tokensBought, uint256 totalUnused) = SpigotedLineLib.claimAndTrade(
+                claimToken,
+                targetToken,
+                swapTarget,
+                address(spigot),
+                unusedTokens[claimToken],
+                zeroExTradeData
+            );
 
-        // we dont use revenue after this so can store now
-        unusedTokens[claimToken] = totalUnused;
-        return tokensBought;
+            // we dont use revenue after this so can store now
+            unusedTokens[claimToken] = totalUnused;
+            return tokensBought;
+        }
     }
 
     //  SPIGOT OWNER FUNCTIONS
@@ -243,9 +245,17 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     }
 
     /// see ISpigotedLine.sweep
-    function sweep(address to, address token) external nonReentrant returns (uint256) {
-        uint256 amount = unusedTokens[token];
-        delete unusedTokens[token];
+    function sweep(address to, address token, uint256 amount) external nonReentrant returns (uint256) {
+        uint256 available = unusedTokens[token];
+        if(amount == 0) {
+            // use all tokens if no amount specified specified
+            amount = available;
+        } else {
+            if (amount > available) {
+                revert ReservesOverdrawn(token, available);
+            }
+        }
+        unusedTokens[token] -= amount;
 
         bool success = SpigotedLineLib.sweep(to, token, amount, _updateStatus(_healthcheck()), borrower, arbiter);
 
