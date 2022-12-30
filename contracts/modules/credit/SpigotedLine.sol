@@ -14,15 +14,18 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 /**
   * @title  - Debt DAO Spigoted Line of Credit
   * @author - Kiba Gateaux
-  * @notice - The SpigotedLine is a LineofCredit contract with additional functionality for integrating with a Spigot.
-            - allows Borrower or Lender to repay debt using collateralized revenue streams
-  * @dev    -  Inherits LineOfCredit functionality
+  * @notice - Line of Credit contract with additional functionality for integrating with a Spigot and revenue based collateral.
+            - Allows Arbiter to repay debt using collateralized revenue streams onbehalf of Borrower and Lender(s)
+  * @dev    - Inherits LineOfCredit functionality
  */
 contract SpigotedLine is ISpigotedLine, LineOfCredit {
     using SafeERC20 for IERC20;
 
-    /// see Spigot
+    /// @notice see Spigot
     ISpigot public immutable spigot;
+
+    /// @notice - maximum revenue we want to be able to take from spigots if Line is in default
+    uint8 constant MAX_SPLIT = 100;
 
     /// @notice exchange aggregator (mainly 0x router) to trade revenue tokens from a Spigot for credit tokens owed to lenders
     address payable public immutable swapTarget;
@@ -57,7 +60,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         uint256 ttl_,
         uint8 defaultRevenueSplit_
     ) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {
-        require(defaultRevenueSplit_ <= SpigotedLineLib.MAX_SPLIT);
+        require(defaultRevenueSplit_ <= MAX_SPLIT);
 
         spigot = ISpigot(spigot_);
         defaultRevenueSplit = defaultRevenueSplit_;

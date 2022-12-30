@@ -16,20 +16,21 @@ import {EscrowState, EscrowLib} from "../../utils/EscrowLib.sol";
  * @title  - Debt DAO Escrow
  * @author - James Senegalli
  * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
- */
+*/
 contract Escrow is IEscrow, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EscrowLib for EscrowState;
 
-    // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
+    /// @notice the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
     uint32 public immutable minimumCollateralRatio;
 
-    // Stakeholders and contracts used in Escrow
+    /// @notice Stakeholders and contracts used in Escrow
     address public immutable oracle;
-    // borrower on line contract
+
+    /// @notice borrower on line contract
     address public immutable borrower;
 
-    // all data around terms for collateral and current deposits
+    /// @notice all data around terms for collateral and current deposits
     EscrowState private state;
 
     /**

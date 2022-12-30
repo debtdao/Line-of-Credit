@@ -159,7 +159,7 @@ contract EscrowTest is Test {
     }
 
     function test_adding_collateral_with_ETH_should_fail() public {
-        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
+        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
         escrow.addCollateral{value: mintAmount}(mintAmount, Denominations.ETH);
     }
 
@@ -394,7 +394,7 @@ contract EscrowTest is Test {
         uint borrowerBalance = borrower.balance;
         uint borrowerTokenBalance = supportedToken1.balanceOf(borrower);
         uint escrowBalance = address(escrow).balance;
-        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
         escrow.addCollateral{value: mintAmount}(mintAmount, address(supportedToken1));
     }
 
