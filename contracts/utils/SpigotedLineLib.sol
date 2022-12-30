@@ -40,7 +40,7 @@ library SpigotedLineLib {
      * @dev                 MUST trade all available claimTokens to targetTokens
      * @dev                 priviliged internal function
      * @param claimToken    - The revenue token escrowed in the Spigot to sell in trade
-     * @param targetToken   - The credit token that needs to be bought in order to pat down debt. Always `credits[ids[0]].token`
+     * @param targetToken   - The credit token that needs to be bought in order to pay down debt. Always `credits[ids[0]].token`
      * @param swapTarget    - The 0x exchange router address to call for trades
      * @param spigot        - The Spigot to claim from. Must be owned by adddress(this)
      * @param unused        - Current amount of unused claimTokens
@@ -109,7 +109,7 @@ library SpigotedLineLib {
     ) public returns (bool) {
         if (sellToken == Denominations.ETH) {
             // if claiming/trading eth send as msg.value to dex
-            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData);
+            (bool success, ) = swapTarget.call{value: amount}(zeroExTradeData); // TODO: test with 0x api data on mainnet fork
             if (!success) {
                 revert TradeFailed();
             }
@@ -233,7 +233,5 @@ library SpigotedLineLib {
         }
 
         revert CallerAccessDenied();
-
-        return false;
     }
 }

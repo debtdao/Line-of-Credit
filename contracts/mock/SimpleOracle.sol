@@ -27,9 +27,12 @@ contract SimpleOracle is IOracle {
         prices[token] = newPrice;
     }
 
-    //TODO add change decimals
-
     function getLatestAnswer(address token) external view returns (int256) {
+        require(prices[token] != 0, "SimpleOracle: unsupported token");
+        return prices[token];
+    }
+
+    function _getLatestAnswer(address token) external view returns (int256) {
         require(prices[token] != 0, "SimpleOracle: unsupported token");
         return prices[token];
     }

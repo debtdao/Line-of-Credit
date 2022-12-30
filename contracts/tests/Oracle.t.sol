@@ -3,6 +3,8 @@ pragma solidity 0.8.9;
 import "forge-std/Test.sol";
 
 import "chainlink/interfaces/FeedRegistryInterface.sol";
+
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 import { Oracle } from "../modules/oracle/Oracle.sol";
 import {MockRegistry} from "../mock/MockRegistry.sol";
@@ -30,14 +32,16 @@ interface Events {
     event NullPrice(address indexed token);
     event NoDecimalData(address indexed token, bytes errData);
     event NoRoundData(address indexed token, bytes errData);
+    event EnableCollateral(address indexed token);
 }
 contract OracleTest is Test, Events {
 
     // Mainnet Tokens
     address constant linkToken = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
     address constant btc = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
-    address constant ampl = 0xD46bA6D942050d489DBd938a2C909A5d5039A161;
-
+    address constant dai = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    
     // Mock Tokens
     RevenueToken tokenA;
     RevenueToken tokenB;
@@ -172,18 +176,54 @@ contract OracleTest is Test, Events {
         assertEq(price, 0);
     }
 
-    // TODO: test mainnet token with less than 8 decimals
-    function test_token_with_less_than_8_decimals() external {
-        uint256 btcDecimals = registry.decimals(btc, Denominations.USD);
-        emit log_named_uint("btc decimals", btcDecimals);
+    function test_stable_coin_with_8_decimals() external {
+        uint256 daiDecimals = registry.decimals(dai, Denominations.USD);
+        emit log_named_uint("daiDecimals", daiDecimals);
+        assertEq(daiDecimals, 8);
+        (,int256 normalPrice,,,) = registry.latestRoundData(dai, Denominations.USD);
+        emit log_named_int("normalPrice", normalPrice);
+        int256 price = forkOracle.getLatestAnswer(dai);
+        emit log_named_int("price", price);
+        assertEq(price, normalPrice);
     }
 
-    function test_token_with_more_than_8_decimals() external {
-        uint256 amplDecimals = registry.decimals(ampl, Denominations.USD);
-        assertEq(amplDecimals, 18);
-        (,int256 normalPrice,,,) = registry.latestRoundData(ampl, Denominations.USD);
-        int256 price = forkOracle.getLatestAnswer(ampl);
-        assertEq(price, normalPrice / 10**10);
+    function test_can_use_WETH_as_collateral(uint256 amount) public {
+        vm.assume(amount > 0 && amount < 100 ether);
+
+        // use the mainnet fork's chainlink feedregistry
+        escrow = new Escrow ( minCollateralRatio, address(forkOracle), address(line), borrower);
+
+        vm.startPrank(arbiter);
+        vm.expectEmit(true,false,false,true, address(escrow));
+        emit EnableCollateral(WETH);
+        escrow.enableCollateral(WETH);
+        vm.stopPrank();
+
+        // deal(WETH, lender, amount * 2);
+
+        // vm.startPrank(borrower);
+        // IERC20(WETH).approve(address(line), type(uint256).max);
+        // line.addCredit(dRate, fRate, amount, WETH, lender);
+        // vm.stopPrank();
+        // vm.startPrank(lender);
+        // IERC20(WETH).approve(address(escrow), type(uint256).max);
+        // line.addCredit(dRate, fRate, amount, WETH, lender);
+        // vm.stopPrank();
+
+
+
+        // vm.startPrank(borrower);
+        // escrow.addCollateral(1 ether, address(WETH));
+        // line.borrow(line.ids(0), 1 ether);
+        // vm.stopPrank();
+    }
+
+    function test_readonly_oracle_matches_oracle() public {
+        int256 btcPrice = forkOracle.getLatestAnswer(btc);
+        int256 readonlyBtcPrice = forkOracle._getLatestAnswer(btc);
+
+        assertEq(btcPrice, readonlyBtcPrice, "pricesShouldMatch");
+        assertTrue(btcPrice > 0);
     }
 
     /*/////////////////////////////////////////////////////////
@@ -230,7 +270,6 @@ contract OracleTest is Test, Events {
         assertEq(tokenAdecimals, 8);
         
         mockRegistry1.updateTokenDecimals(address(tokenA), 0);
-
 
         tokenAdecimals = mockRegistry1.decimals(address(tokenA), address(0));
         assertEq(tokenAdecimals, 0);

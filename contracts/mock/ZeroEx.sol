@@ -6,6 +6,9 @@ import {LineLib} from "../utils/LineLib.sol";
 contract ZeroEx {
     constructor() {}
 
+    event Received(address token, uint256 value);
+    event Sent(address token, uint256 value);
+
     function trade(
         address tokenIn,
         address tokenOut,
@@ -13,7 +16,9 @@ contract ZeroEx {
         uint256 minAmountOut
     ) external payable returns (bool) {
         LineLib.receiveTokenOrETH(tokenIn, msg.sender, amountIn);
+        emit Received(tokenIn, amountIn);
         LineLib.sendOutTokenOrETH(tokenOut, msg.sender, minAmountOut);
+        emit Sent(tokenOut, minAmountOut);
         return true;
     }
 }

@@ -44,6 +44,10 @@ library CreditLib {
 
     error RepayAmountExceedsDebt(uint256 totalAvailable);
 
+    error InvalidTokenDecimals();
+
+    error CreditPositionClosed();
+
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
      * @param line   - The Line of Credit facility concerned
@@ -102,13 +106,13 @@ library CreditLib {
             revert NoTokenPrice();
         }
 
-        uint8 decimals;
-        if (token == Denominations.ETH) {
-            decimals = 18;
-        } else {
-            (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-            decimals = !passed ? 18 : abi.decode(result, (uint8));
+        (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
+
+        if (!passed || result.length == 0) {
+            revert InvalidTokenDecimals();
         }
+
+        uint8 decimals = abi.decode(result, (uint8));
 
         credit = ILineOfCredit.Credit({
             lender: lender,
@@ -147,7 +151,9 @@ library CreditLib {
                 emit RepayInterest(id, amount);
                 return credit;
             } else {
-                require(credit.isOpen);
+                if (!credit.isOpen) {
+                    revert CreditPositionClosed();
+                } // TODO: test this
                 uint256 interest = credit.interestAccrued;
                 uint256 principalPayment = amount - interest;
 
