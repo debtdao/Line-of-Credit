@@ -754,6 +754,9 @@ contract SpigotedLineTest is Test, Events {
       _generateRevenueAndClaim(1 ether);
 
       // claim and repay
+      // in this scenario we want to use unused tokens from the reserve to repay
+      creditTokensPurchased = 1;
+
       bytes memory tradeAndRepayData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
@@ -804,8 +807,6 @@ contract SpigotedLineTest is Test, Events {
   
       // add more revenue to the spigot
       _generateRevenueAndClaim(1 ether);
-
-
 
       // claim and repay
 
