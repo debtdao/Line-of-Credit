@@ -737,7 +737,7 @@ contract SpigotedLineTest is Test, Events {
   
       // use credit tokens already in reserve (-ve val, 1)
     function test_claimAndRepay_ReservedChanges_event_with_tokens_in_reserve(uint256 unusedTokens) public {
-      unusedTokens = bound(unusedTokens, 1, 1_000_000 * 10**18);
+      unusedTokens = bound(unusedTokens, 2, 1_000_000 * 10**18);
       vm.assume(unusedTokens % 2 == 0);
       vm.assume(unusedTokens < type(uint256).max / 2);
 
@@ -846,15 +846,31 @@ contract SpigotedLineTest is Test, Events {
       vm.stopPrank();
     }
 
+    function test_useAndRepay_emits_ReservesChanged_event(uint256 unusedTokens) public {
+      unusedTokens = bound(unusedTokens, 2, 1_000_000 * 10**18);
+      vm.assume(unusedTokens % 2 == 0);
+      vm.assume(unusedTokens < type(uint256).max / 2);
 
-    function test_claimAndRepay_emits_ReservesChanged() public {
-      // TODO: change storage slot for each case
+      uint256 creditTokensPurchased = unusedTokens;
 
-      // use excess revenue tokens (already there) (-ve val, 0)
-      // positive slippage after trade (+ve, 1)
-    }
+      // because the MockZeroEx doesn't account for tokens in vs out, we need to "predict" the number of tokens sent (ie claimed + unused)
+      uint256 claimableRevenue = spigot.getOwnerTokens(address(revenueToken));
+      uint256 unusedClaimTokens = line.unused(address(revenueToken));
+      uint256 revenue = (claimableRevenue + unusedClaimTokens) / 2;
 
-    function test_useAndRepay_emits_ReservesChanged() public {
+      _simulateInitialClaimAndTradeForReserveChanges(creditTokensPurchased,claimableRevenue,revenue);
+
+      ( ,uint256 principal,uint256 interestAccrued , , , , , ) = line.credits(line.ids(0));
+      uint256 debt = principal + interestAccrued;
+
+      vm.startPrank(borrower);
+
+      uint256 payment = creditTokensPurchased < debt ? creditTokensPurchased : debt;
+      
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(creditToken), -int256(payment), 0);
+      line.useAndRepay(payment);
+      vm.stopPrank();
 
     }
 
