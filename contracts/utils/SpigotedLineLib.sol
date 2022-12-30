@@ -38,8 +38,6 @@ library SpigotedLineLib {
         uint256 tokenType       // 0 for revenue token, 1 for credit token
     ); 
 
-    event log_named_uint(string key, uint256 val);
-
     /**
      * @dev                 - priviliged internal function!
      * @notice              - Allows revenue tokens in 'escrowed' to be traded for credit tokens that aren't yet used to repay debt. 
@@ -70,7 +68,6 @@ library SpigotedLineLib {
 
         // snapshot token balances now to diff after trade executes
         uint256 oldClaimTokens = LineLib.getBalance(claimToken);
-        emit log_named_uint("lib oldClaimTokens", oldClaimTokens);
 
         uint256 oldTargetTokens = LineLib.getBalance(targetToken);
 
@@ -88,7 +85,6 @@ library SpigotedLineLib {
         } // ensure tokens bought
 
         uint256 newClaimTokens = LineLib.getBalance(claimToken);
-        emit log_named_uint("lib newClaimTokens", newClaimTokens);
 
         // ideally we could use oracle here to calculate # of tokens to receive
         // but sellToken might not have oracle. buyToken must have oracle
@@ -101,7 +97,7 @@ library SpigotedLineLib {
                 uint256 diff = oldClaimTokens - newClaimTokens;
                 
                 emit ReservesChanged(claimToken, -int256(diff), 0);
-                emit log_named_uint("lib diff o > n", diff);
+
                 // used more tokens than we had in revenue reserves.
                 // prevent borrower from pulling idle lender funds to repay other lenders
                 if (diff > unused) revert ReservesOverdrawn(claimToken, unused);
@@ -114,7 +110,7 @@ library SpigotedLineLib {
                 uint256 diff = newClaimTokens - oldClaimTokens;
                 
                 emit ReservesChanged(claimToken, int256(diff), 0);
-                emit log_named_uint("lib diff o < n", diff);
+
                 return (tokensBought, unused + diff);
             }
         }
