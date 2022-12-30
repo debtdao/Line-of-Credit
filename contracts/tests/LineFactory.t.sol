@@ -116,15 +116,14 @@ contract LineFactoryTest is Test {
         assertEq(address(line.spigot()), address(spigot));
     }
 
-    // TODO: should use some fuzzing here
-    function test_fail_if_revenueSplit_exceeds_100() public {
-        // vm.assume( pct > 100)
+    function test_fail_if_revenueSplit_exceeds_100(uint8 split) public {
+        vm.assume(split > 100);
         ILineFactory.CoreLineParams memory coreParams = ILineFactory
             .CoreLineParams({
                 borrower: borrower,
                 ttl: ttl,
                 cratio: 3000,
-                revenueSplit: 110
+                revenueSplit: split
             });
 
         vm.expectRevert(ILineFactory.InvalidRevenueSplit.selector);
