@@ -190,7 +190,7 @@ library SpigotLib {
         }
 
         self.settings[revenueContract] = setting;
-        emit AddSpigot(revenueContract, setting.ownerSplit);
+        emit AddSpigot(revenueContract, setting.ownerSplit, setting.claimFunction, setting.transferOwnerFunction);
 
         return true;
     }
@@ -284,8 +284,7 @@ library SpigotLib {
     }
 
     // Spigot Events
-// TODO: add claim fn sig and trsfr fnc sig
-    event AddSpigot(address indexed revenueContract, uint256 ownerSplit);
+    event AddSpigot(address indexed revenueContract, uint256 ownerSplit, bytes4 claimFnSig, bytes4 trsfrFnSig);
 
     event RemoveSpigot(address indexed revenueContract);
 

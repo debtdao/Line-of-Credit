@@ -154,8 +154,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // reduce reserves before _repay calls token to prevent reentrancy
         unusedTokens[credit.token] -= amount;
-        emit ReservesChanged(credit.token, -int256(amount), 0); // TODO: test this
-
+        emit ReservesChanged(credit.token, -int256(amount), 0); 
+        
         credits[id] = _repay(_accrue(credit, id), id, amount);
 
         emit RevenuePayment(credit.token, amount);
