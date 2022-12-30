@@ -91,7 +91,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     }
 
     /// see ISpigotedLine.claimAndRepay
-    function claimAndRepay(
+    function claimAndRepay(  
         address claimToken,
         bytes calldata zeroExTradeData
     ) external whileBorrowing nonReentrant returns (uint256) {
@@ -117,7 +117,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             emit ReservesChanged(credit.token, -int256(diff), 1);
             unusedTokens[credit.token] -= diff;
         } else {
-            // else high revenue and bought more than debt, fill reserves
+            // else high revenue and bought more credit tokens than owed, fill reserves
             uint256 diff = newTokens - repaid;
             emit ReservesChanged(credit.token, int256(diff), 1);
             unusedTokens[credit.token] += diff;
@@ -149,6 +149,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // reduce reserves before _repay calls token to prevent reentrancy
         unusedTokens[credit.token] -= amount;
+        emit ReservesChanged(credit.token, -int256(amount), 0); // TODO: test this
 
         credits[id] = _repay(_accrue(credit, id), id, amount);
 
@@ -171,6 +172,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // add bought tokens to unused balance
         unusedTokens[targetToken] += newTokens;
+        emit ReservesChanged(targetToken, int256(newTokens), 1);
+        
         return newTokens;
     }
 
@@ -205,7 +208,10 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             );
 
             // we dont use revenue after this so can store now
+            /// @dev ReservesChanged event for claim token is emitted in SpigotedLineLib.claimAndTrade
             unusedTokens[claimToken] = totalUnused;
+            
+            // the target tokens purchased
             return tokensBought;
         }
     }

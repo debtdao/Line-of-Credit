@@ -18,12 +18,19 @@ import { ISpigot } from '../interfaces/ISpigot.sol';
 import { ISpigotedLine } from '../interfaces/ISpigotedLine.sol';
 import { ILineOfCredit } from '../interfaces/ILineOfCredit.sol';
 
+interface Events {
+      event ReservesChanged (
+        address indexed token,
+        int256 indexed diff,
+        uint256 tokenType       // 0 for revenue token, 1 for credit token
+    ); 
+}
 /**
  * @notice
  * @dev - does not test spigot integration e.g. claimEscrow() since that should already be covered in Spigot tests
  *      - these tests would fail if that assumption was wrong anyway
  */
-contract SpigotedLineTest is Test {
+contract SpigotedLineTest is Test, Events {
     ZeroEx dex;
     SpigotedLine line;
     Spigot spigot;
@@ -78,6 +85,11 @@ contract SpigotedLineTest is Test {
         _createCredit(address(revenueToken), address(creditToken), revenueContract);
         // revenue go brrrrrrr
         spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
+    }
+
+    function _generateRevenueAndClaim(uint256 revenue) internal {
+      revenueToken.mint(address(spigot), revenue);
+      spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
     }
 
     function _createCredit(address revenueT, address creditT, address revenueC) public returns(bytes32 id) {
@@ -166,6 +178,8 @@ contract SpigotedLineTest is Test {
       );
 
       hoax(arbiter);
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(revenueToken), 0, 0);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       // dex balances
@@ -340,6 +354,8 @@ contract SpigotedLineTest is Test {
 
       // make unused tokens available
       vm.startPrank(arbiter);
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(revenueToken), 1, 0);
       line.claimAndTrade(address(revenueToken), tradeData);
 
       assertEq(line.unused(address(revenueToken)), 1);
@@ -355,6 +371,8 @@ contract SpigotedLineTest is Test {
         1
       );
 
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(revenueToken), -1, 0);
       line.claimAndTrade(address(revenueToken), tradeData2);
       assertEq(line.unused(address(revenueToken)), 0);
       vm.stopPrank();
@@ -653,6 +671,125 @@ contract SpigotedLineTest is Test {
       assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");
       
       assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
+    }
+
+    function _caclulateDiff(uint256 a, uint256 b) internal pure returns (int256) {
+      uint256 diff;
+      uint256 sign;
+      if (a > b) {
+        diff = a - b;
+        return (int256(diff) * -1);
+      } else {
+        diff = b - a;
+        return int256(diff);
+      }
+    }
+  
+      // use credit tokens already in reserve (-ve val, 1)
+    function test_can_claimAndRepay_with_tokens_in_reserve(uint256 unusedTokens) public {
+      unusedTokens = bound(unusedTokens, 1, 1_000_000 * 10**18);
+      vm.assume(unusedTokens % 2 == 0);
+      vm.assume(unusedTokens < type(uint256).max / 2);
+
+      _borrow(line.ids(0), lentAmount);
+
+      uint256 preBalance = line.unused(address(creditToken));
+      assertEq(preBalance, 0, "prebalance should be 0");
+      
+      // because the MockZeroEx doesn't account for tokens in vs out, we need to "predict" the number of tokens sent (ie claimed + unused)
+      uint256 claimableRevenue = spigot.getOwnerTokens(address(revenueToken));
+      uint256 unusedClaimTokens = line.unused(address(revenueToken));
+      uint256 revenue = (claimableRevenue + unusedClaimTokens) / 2;
+      uint256 creditTokensPurchased = unusedTokens / 2;
+      emit log_named_uint("revenue",revenue);
+
+      // increase unusedTokens
+      bytes memory tradeAndClaimData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        revenue, // claim tokens sent to dex
+        creditTokensPurchased // target tokens received from dex
+      );
+
+      // claim token balance of the line contract before the trade
+      uint256 oldClaimTokens = revenueToken.balanceOf(address(line));
+       emit log_named_uint("oldClaimTokens",oldClaimTokens);
+
+      // number of claim tokens remaining after the trade ( existing balance + amount claimed from spigot - amount sent to dex)
+      uint256 newClaimTokens = oldClaimTokens + claimableRevenue - revenue;
+      emit log_named_uint("newClaimTokens",newClaimTokens);
+
+      // assertTrue(oldClaimTokens > newClaimTokens, "oldClaimTokens > newClaimTokens");
+      // the difference between old claim (revenue) tokens and new claim (revenue) tokens
+      int256 diff = _caclulateDiff(oldClaimTokens, newClaimTokens);
+
+      emit log_named_int("diff",diff);
+  
+      vm.startPrank(arbiter);
+
+      // SpigotedLineLib.claimAndTrade
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(revenueToken), diff, 0);
+
+      // SpigotedLine.claimAndTrade
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(creditToken), int(creditTokensPurchased), 1);
+
+      line.claimAndTrade(address(revenueToken), tradeAndClaimData);
+      uint256 postBalance = line.unused(address(creditToken));
+      assertEq(postBalance, creditTokensPurchased, "postBalance should equal creditsTokenPurchased");
+      vm.stopPrank();
+
+  
+      // add more revenue to the spigot
+      _generateRevenueAndClaim(1 ether);
+
+      // claim and repay
+      bytes memory tradeAndRepayData = abi.encodeWithSignature(
+        'trade(address,address,uint256,uint256)',
+        address(revenueToken),
+        address(creditToken),
+        revenue / 2,
+        creditTokensPurchased
+      );
+
+      // repaid = newTokens (bought from claimAndTrade) + unusedTokens[credit]
+      // we want repaid > newTokens, ie existing balance of unused, which we have
+      uint256 repaid = creditTokensPurchased + line.unused(address(creditToken));
+      ( ,uint256 principal,uint256 interestAccrued , , , , , ) = line.credits(line.ids(0));
+      uint256 debt = principal + interestAccrued;
+      if (repaid > debt) repaid = debt;
+
+      // we want reaoud < new tokens
+      // assertTrue(repaid > )
+
+      diff = _caclulateDiff(repaid,creditTokensPurchased);
+
+      vm.startPrank(arbiter);
+
+      // SpigotedLineLib.claimAndRepay
+      vm.expectEmit(true,false,false,false);
+      emit ReservesChanged(address(revenueToken), 0, 0);
+
+      // SpigotedLine.claimAndRepay
+      vm.expectEmit(true, true, true, true);
+      emit ReservesChanged(address(creditToken), diff, 1);
+      line.claimAndRepay(address(revenueToken), tradeAndRepayData);
+      vm.stopPrank();
+    }
+
+
+    function test_claimAndRepay_emits_ReservesChanged() public {
+      // TODO: change storage slot for each case
+
+      // credit tokens get added to (excess) (+ve val, 1)
+      // use excess revenue tokens (already there) (-ve val, 0)
+      // positive slippage after trade (+ve, 1)
+    }
+
+    function test_useAndRepay_emits_ReservesChanged() public {
+
     }
 
     function test_cannot_claim_and_repay_if_borrower(uint buyAmount, uint sellAmount, uint timespan) public {
