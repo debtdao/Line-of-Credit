@@ -40,6 +40,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      */
     mapping(address => uint256) private unusedTokens;
 
+    event log_named_uint(string key, uint256 val);
+
     /**
      * @notice - The SpigotedLine is a LineofCredit contract with additional functionality for integrating with a Spigot.
                - allows Borrower or Lender to repay debt using collateralized revenue streams
@@ -109,6 +111,9 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // cap payment to debt value
         if (repaid > debt) repaid = debt;
+
+        emit log_named_uint("line repaid", repaid);
+        emit log_named_uint("line newTokens", newTokens);
 
         // update reserves based on usage
         if (repaid > newTokens) {
