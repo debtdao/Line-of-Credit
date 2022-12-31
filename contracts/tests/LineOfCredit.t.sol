@@ -570,7 +570,7 @@ contract LineTest is Test, Events {
         assertTrue(line.withdraw(id, lentAmount - borrowedAmount));
     }
 
-    function test_position_still_open_after_kender_fully_withdraws() public {
+    function test_position_still_open_after_lender_fully_withdraws() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
 
