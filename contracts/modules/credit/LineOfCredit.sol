@@ -381,13 +381,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        // if lender is pulling all funds AND no debt owed to them then close position
-        if (credit.principal == 0 && credit.interestAccrued == 0 && credit.isOpen) {
-            credits[id] = _close(credit, id);
-        } else {
-            // save to storage if position still exists
-            credits[id] = credit;
-        }
+        credits[id] = credit;
 
         LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
