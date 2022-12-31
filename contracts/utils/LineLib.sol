@@ -72,7 +72,7 @@ library LineLib {
         }
         if (token != Denominations.ETH) {
             // ERC20
-            if (msg.value > 0) {
+            if (msg.value != 0) {
                 revert EthSentWithERC20();
             }
             IERC20(token).safeTransferFrom(sender, address(this), amount);
