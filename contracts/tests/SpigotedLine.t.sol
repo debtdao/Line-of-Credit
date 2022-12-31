@@ -8,6 +8,8 @@ import { ZeroEx } from "../mock/ZeroEx.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 
+import {MutualConsent} from "../utils/MutualConsent.sol";
+
 import { Spigot } from "../modules/spigot/Spigot.sol";
 import { SpigotedLine } from '../modules/credit/SpigotedLine.sol';
 
@@ -47,7 +49,7 @@ contract SpigotedLineTest is Test, Events {
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
-    uint constant MAX_INT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    uint constant MAX_INT = type(uint256).max;
     uint constant MAX_REVENUE = MAX_INT / 100;
 
     // Line access control vars
@@ -94,6 +96,8 @@ contract SpigotedLineTest is Test, Events {
 
     function _createCredit(address revenueT, address creditT, address revenueC) public returns(bytes32 id) {
 
+      if (creditT == Denominations.ETH) revert("Eth not supported");
+
       ISpigot.Setting memory setting = ISpigot.Setting({
         // token: revenueT,
         ownerSplit: ownerSplit,
@@ -108,19 +112,19 @@ contract SpigotedLineTest is Test, Events {
       vm.stopPrank();
       
       startHoax(lender);
-      if(creditT != Denominations.ETH) {
-        deal(creditT, lender, MAX_REVENUE);
-        RevenueToken(creditT).approve(address(line), MAX_INT);
-        id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
-      } else {
-        id = line.addCredit{value: lentAmount}(dRate, fRate, lentAmount, creditT, lender);
-      }
+      deal(creditT, lender, MAX_REVENUE);
+      RevenueToken(creditT).approve(address(line), MAX_INT);
+      id = line.addCredit(dRate, fRate, lentAmount, creditT, lender);
       vm.stopPrank();
 
       // as arbiter
       hoax(arbiter);
       line.addSpigot(revenueC, setting);
       vm.stopPrank();
+    }
+
+    function _createEthRevenue(address revenueC, uint256 revenue) internal {
+      deal(revenueC, revenue);
     }
 
     function _borrow(bytes32 id, uint amount) public {
@@ -488,7 +492,7 @@ contract SpigotedLineTest is Test, Events {
       // also check credit balances;
       assertEq(creditToken.balanceOf((address(line))), buyAmount);
       assertEq(revenueToken.balanceOf((address(line))), MAX_REVENUE + claimable - sellAmount);
-    }
+    } 
 
     function test_cant_claim_and_trade_not_borrowing() public {
       bytes memory tradeData = abi.encodeWithSignature(
@@ -590,26 +594,41 @@ contract SpigotedLineTest is Test, Events {
       assertEq(line.unused(creditT), lentAmount);
     }
 
-    function test_can_trade_for_ETH_debt() public {
-      deal(address(lender), lentAmount + 1 ether);
+    function test_can_trade_ETH_revenue_for_debt()  public {
       deal(address(revenueToken), MAX_REVENUE);
-      address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(Denominations.ETH), Denominations.ETH, revenueC);
+
+      address revenueC = address(0xbeef99); // need new spigot for testing'
+      address creditT = address(new RevenueToken());
+      deal(creditT, address(dex), MAX_INT);
+
+
+      bytes32 id = _createCredit(creditT, creditT, revenueC);
       _borrow(id, lentAmount);
+
+      _createEthRevenue(revenueC, 100 ether);
+
+      hoax(revenueC);
+      (bool success, ) = payable(spigot).call{value: 100 ether}("");
+      assertTrue(success);
+
+      // anyone can claim revenue
+      spigot.claimRevenue(revenueC, Denominations.ETH, "");
+
+      uint claimable = spigot.getOwnerTokens(Denominations.ETH);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
-        address(revenueToken),
-        Denominations.ETH,
-        1 gwei,
-        lentAmount
+        Denominations.ETH,// tokenIn
+        address(creditT), // tokenOut
+        claimable, // amount in
+        lentAmount // minAmountOut
       );
-
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+    
       hoax(arbiter);
-      line.claimAndTrade(address(revenueToken), tradeData);
-      assertEq(line.unused(Denominations.ETH), lentAmount);
+      line.claimAndTrade(Denominations.ETH, tradeData); // claimToken (ETH), tradeData
+      assertEq(line.unused(Denominations.ETH), 0); // used all unusedTokens[Eth]
     }
+
 
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
       if(timespan > ttl) return;
@@ -950,6 +969,15 @@ contract SpigotedLineTest is Test, Events {
       line.depositAndRepay(lentAmount);
     }
 
+    function test_cannot_depositAndRepay_when_sending_ETH() public {
+      _borrow(line.ids(0), lentAmount);
+      creditToken.mint(address(0xdebf), lentAmount);
+      hoax(address(0xdebf));
+      creditToken.approve(address(line), lentAmount);
+      vm.expectRevert(LineLib.EthSentWithERC20.selector);
+      line.depositAndRepay{value: 0.0000000098 ether}(lentAmount);
+    }
+
     // Spigot integration tests
     // results change based on line status (ACTIVE vs LIQUIDATABLE vs INSOLVENT)
     // Only checking that Line functions dont fail. Check `Spigot.t.sol` for expected functionality
@@ -971,6 +999,14 @@ contract SpigotedLineTest is Test, Events {
       assertTrue(line.releaseSpigot(borrower));
 
       assertEq(spigot.owner(), borrower);
+    }
+
+    function test_cannot_close_with_ETH() public {
+      vm.startPrank(borrower);
+        bytes32 id = line.ids(0);
+        vm.expectRevert(LineLib.EthSentWithERC20.selector);
+        line.close{value: 0.00001 ether}(id);
+      vm.stopPrank();
     }
 
     function test_only_borrower_release_spigot_when_repaid() public {  
@@ -1469,24 +1505,26 @@ contract SpigotedLineTest is Test, Events {
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
       address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      bytes32 id = _createCredit(address(revenueToken), address(revenueToken), revenueC);
       _borrow(id, lentAmount);
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
-        address(revenueToken),
-        Denominations.ETH,
-        1 gwei,
-        lentAmount
+        address(revenueToken), // token in
+        Denominations.ETH, // token out
+        1 gwei, //amountIn
+        lentAmount // minAmountOut
       );
 
       hoax(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
 
+
+      (, uint256 principal,uint256 interest,,,,,) = line.credits(line.ids(0));
       vm.prank(lender); // prank lender
-      line.useAndRepay(lentAmount);
-      (, uint256 principal,,,,,,) = line.credits(line.ids(0));
-      assertEq(principal, 0);
+      line.useAndRepay(principal + interest);
+      (, principal,,,,,,) = line.credits(line.ids(0));
+      assertEq(principal, 0, "principal should be zero");
     }
     
     function test_cant_claim_and_repay_if_unauthorized() public {
@@ -1537,8 +1575,9 @@ contract SpigotedLineTest is Test, Events {
 
       deal(address(lender), lentAmount + 1 ether);
       deal(address(revenueToken), MAX_REVENUE);
-      address revenueC = address(0xbeef); // need new spigot for testing
-      bytes32 id = _createCredit(address(revenueToken), Denominations.ETH, revenueC);
+      // address revenueC = address(0xbeef); // need new spigot for testing
+      // bytes32 id = _createCredit(address(revenueToken), address(creditToken), revenueC);
+      bytes32 id = line.ids(0);
 
       // 1. Borrow lentAmount = 1 ether
       _borrow(id, lentAmount);
@@ -1547,7 +1586,7 @@ contract SpigotedLineTest is Test, Events {
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
-        Denominations.ETH,
+        address(creditToken),
         1 gwei,
         largeRevenueAmount
       );
@@ -1570,5 +1609,6 @@ contract SpigotedLineTest is Test, Events {
 
       line.useAndRepay(largeRevenueAmount);
     }
+
 }
 

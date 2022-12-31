@@ -23,6 +23,7 @@ abstract contract MutualConsent {
     error Unauthorized();
     error InvalidConsent();
     error NotUserConsent();
+    error NonZeroEthValue();
 
     // causes revert when the msg.data passed in has more data (ie arguments) than the largest known fn signature
     error UnsupportedMutualConsentFunction();
@@ -94,7 +95,7 @@ abstract contract MutualConsent {
         if (mutualConsents[expectedHash] == address(0)) {
             bytes32 newHash = keccak256(abi.encodePacked(msg.data, msg.sender));
 
-            mutualConsents[newHash] = msg.sender;
+            mutualConsents[newHash] = msg.sender; // save caller's consent for nonCaller to accept
 
             emit MutualConsentRegistered(newHash);
 

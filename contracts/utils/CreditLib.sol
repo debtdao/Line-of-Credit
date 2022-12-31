@@ -14,35 +14,37 @@ import {LineLib} from "./LineLib.sol";
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
 
-    /// @notice Emits data re Lender removes funds (principal) - there is no corresponding function, just withdraw()
+    /// @notice Emitted when Lender withdraws from their initial deposit
     event WithdrawDeposit(bytes32 indexed id, uint256 indexed amount);
 
-    /// @notice Emits data re Lender withdraws interest - there is no corresponding function, just withdraw()
-    // Bob - consider changing event name to WithdrawInterest
+    /// @notice Emitted when Lender withdraws interest paid by borrower
     event WithdrawProfit(bytes32 indexed id, uint256 indexed amount);
 
-    /// @notice After accrueInterest runs, emits the amount of interest added to a Borrower's outstanding balance of interest due
-    // but not yet repaid to the Line of Credit contract
+    /// @notice Emits amount of interest (denominated in credit token) added to a Borrower's outstanding balance
     event InterestAccrued(bytes32 indexed id, uint256 indexed amount);
 
     // Borrower Events
 
+    /// @notice Emits when Borrower has drawn down an amount (denominated in credit.token) on a credit line
     event Borrow(bytes32 indexed id, uint256 indexed amount);
-    // Emits notice that a Borrower has drawn down an amount on a credit line
 
+    /// @notice Emits that a Borrower has repaid some amount of interest (denominated in credit.token) 
     event RepayInterest(bytes32 indexed id, uint256 indexed amount);
-    /** Emits that a Borrower has repaid an amount of interest 
-  (N.B. results in an increase in interestRepaid, i.e. interest not yet withdrawn by a Lender). There is no corresponding function
-  */
 
+    /// @notice Emits that a Borrower has repaid some amount of principal (denominated in credit.token) 
     event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
-    // Emits that a Borrower has repaid an amount of principal - there is no corresponding function
+
+    // Errors
 
     error NoTokenPrice();
 
     error PositionExists();
 
     error RepayAmountExceedsDebt(uint256 totalAvailable);
+
+    error InvalidTokenDecimals();
+
+    error CreditPositionClosed();
 
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
@@ -73,13 +75,13 @@ library CreditLib {
     }
 
     /**
-    * @notice         - Calculates value of tokens.  Used for calculating the USD value of principal and of interest during getOutstandingDebt()
-    * @dev            - Assumes Oracle returns answers in USD with 1e8 decimals
-                      - If price < 0 then we treat it as 0.
-    * @param price    - The Oracle price of the asset. 8 decimals
-    * @param amount   - The amount of tokens being valued.
-    * @param decimals - Token decimals to remove for USD price
-    * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
+     * @notice         - Calculates value of tokens.  Used for calculating the USD value of principal and of interest during getOutstandingDebt()
+     * @dev            - Assumes Oracle returns answers in USD with 1e8 decimals
+     *                 - If price < 0 then we treat it as 0.
+     * @param price    - The Oracle price of the asset. 8 decimals
+     * @param amount   - The amount of tokens being valued.
+     * @param decimals - Token decimals to remove for USD price
+     * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
     */
     function calculateValue(int price, uint256 amount, uint8 decimals) public pure returns (uint256) {
         return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
@@ -89,7 +91,7 @@ library CreditLib {
      * see ILineOfCredit._createCredit
      * @notice called by LineOfCredit._createCredit during every repayment function
      * @param oracle - interset rate contract used by line that will calculate interest owed
-     */
+    */
     function create(
         bytes32 id,
         uint256 amount,
@@ -102,13 +104,13 @@ library CreditLib {
             revert NoTokenPrice();
         }
 
-        uint8 decimals;
-        if (token == Denominations.ETH) {
-            decimals = 18;
-        } else {
-            (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
-            decimals = !passed ? 18 : abi.decode(result, (uint8));
+        (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
+
+        if (!passed || result.length == 0) {
+            revert InvalidTokenDecimals();
         }
+
+        uint8 decimals = abi.decode(result, (uint8));
 
         credit = ILineOfCredit.Credit({
             lender: lender,
@@ -130,7 +132,7 @@ library CreditLib {
      * see ILineOfCredit._repay
      * @notice called by LineOfCredit._repay during every repayment function
      * @param credit - The lender position being repaid
-     */
+    */
     function repay(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
@@ -147,7 +149,9 @@ library CreditLib {
                 emit RepayInterest(id, amount);
                 return credit;
             } else {
-                require(credit.isOpen);
+                if (!credit.isOpen) {
+                    revert CreditPositionClosed();
+                } // TODO: test this
                 uint256 interest = credit.interestAccrued;
                 uint256 principalPayment = amount - interest;
 
@@ -168,7 +172,7 @@ library CreditLib {
      * see ILineOfCredit.withdraw
      * @notice called by LineOfCredit.withdraw during every repayment function
      * @param credit - The lender position that is being bwithdrawn from
-     */
+    */
     function withdraw(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
@@ -203,7 +207,7 @@ library CreditLib {
      * see ILineOfCredit._accrue
      * @notice called by LineOfCredit._accrue during every repayment function
      * @param interest - interset rate contract used by line that will calculate interest owed
-     */
+    */
     function accrue(
         ILineOfCredit.Credit memory credit,
         bytes32 id,

@@ -88,8 +88,8 @@ interface ISpigotedLine {
     /**
      * @notice - Changes the revenue split between the Treasury and the Line (Owner) based upon the status of the Line of Credit
      * @dev    - callable `arbiter` + `borrower`
-     * @param revenueContract - spigot to update
-     * @return didUpdate - whether or not split was updated
+     * @param revenueContract   - spigot to update
+     * @return didUpdate        - whether or not split was updated
      */
     function updateOwnerSplit(address revenueContract) external returns (bool);
 

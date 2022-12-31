@@ -2,7 +2,11 @@ Arguments:
   /Users/craigson/.nvm/versions/node/v16.14.0/bin/node /Users/craigson/.nvm/versions/node/v16.14.0/bin/yarn global bin
 
 PATH: 
+<<<<<<< HEAD
   /Users/craigson/.nvm/versions/node/v16.14.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin
+=======
+  /Users/craigson/.nvm/versions/node/v16.14.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Library/Apple/usr/bin:/Users/craigson/.nvm/versions/node/v16.14.0/bin:/opt/homebrew/bin:/opt/homebrew/sbin:info Visit https://yarnpkg.com/en/docs/cli/global for documentation about this command.:/Users/craigson/.foundry/bin:/Users/craigson/.protostar/dist/protostar
+>>>>>>> 2eb9324e006b2bba92ef7474d6cec4f1794429a6
 
 Yarn version: 
   1.22.19
