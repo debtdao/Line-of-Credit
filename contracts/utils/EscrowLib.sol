@@ -193,6 +193,7 @@ library EscrowLib {
         if (amount == 0) {
             revert InvalidZeroAmount();
         }
+
         if (msg.sender != self.line) {
             revert CallerAccessDenied();
         }

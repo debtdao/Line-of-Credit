@@ -325,7 +325,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         Credit memory credit = _accrue(credits[id], id);
         require(credit.isOpen);
 
-        require(amount <= credit.principal + credit.interestAccrued);
+        if(amount > credit.principal + credit.interestAccrued) {
+            revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
+        }
 
         credits[id] = _repay(credit, id, amount);
 

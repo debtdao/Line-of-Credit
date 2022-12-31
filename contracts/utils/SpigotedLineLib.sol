@@ -9,6 +9,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 
 library SpigotedLineLib {
+    /// @notice - maximum revenue we want to be able to take from spigots if Line is in default
+    uint8 constant MAX_SPLIT = 100;
+
     error NoSpigot();
 
     error TradeFailed();
@@ -66,6 +69,7 @@ library SpigotedLineLib {
 
         // snapshot token balances now to diff after trade executes
         uint256 oldClaimTokens = LineLib.getBalance(claimToken);
+
         uint256 oldTargetTokens = LineLib.getBalance(targetToken);
 
         // @dev claim has to be called after we get balance
@@ -90,17 +94,25 @@ library SpigotedLineLib {
 
         // used reserve revenue to repay debt
         if (oldClaimTokens > newClaimTokens) {
-            uint256 diff = oldClaimTokens - newClaimTokens;
+            unchecked { // we check all values before math so can use unchecked
+                uint256 diff = oldClaimTokens - newClaimTokens;
+                
+                emit ReservesChanged(claimToken, -int256(diff), 0);
 
-            // used more tokens than we had in revenue reserves.
-            // prevent borrower from pulling idle lender funds to repay other lenders
-            if (diff > unused) revert ReservesOverdrawn(claimToken, unused);
-            // reduce reserves by consumed amount
-            else return (tokensBought, unused - diff);
+                // used more tokens than we had in revenue reserves.
+                // prevent borrower from pulling idle lender funds to repay other lenders
+                if (diff > unused) revert ReservesOverdrawn(claimToken, unused);
+                // reduce reserves by consumed amount
+                else return (tokensBought, unused - diff);
+            }
         } else {
             unchecked { // `unused` unlikely to overflow
                 // excess revenue in trade. store in reserves
-                return (tokensBought, unused + (newClaimTokens - oldClaimTokens));
+                uint256 diff = newClaimTokens - oldClaimTokens;
+                
+                emit ReservesChanged(claimToken, int256(diff), 0);
+
+                return (tokensBought, unused + diff);
             }
         }
     }
@@ -182,9 +194,9 @@ library SpigotedLineLib {
         if (status == LineLib.STATUS.ACTIVE && split != defaultSplit) {
             // if Line of Credit is healthy then set the split to the prior agreed default split of revenue tokens
             return ISpigot(spigot).updateOwnerSplit(revenueContract, defaultSplit);
-        } else if (status == LineLib.STATUS.LIQUIDATABLE && split != SpigotLib.MAX_SPLIT) {
+        } else if (status == LineLib.STATUS.LIQUIDATABLE && split != MAX_SPLIT) {
             // if the Line of Credit is in distress then take all revenue to repay debt
-            return ISpigot(spigot).updateOwnerSplit(revenueContract, SpigotLib.MAX_SPLIT);
+            return ISpigot(spigot).updateOwnerSplit(revenueContract, MAX_SPLIT);
         }
 
         return false;
@@ -236,10 +248,6 @@ library SpigotedLineLib {
         address borrower,
         address arbiter
     ) external returns (bool) {
-        if (amount == 0) {
-            revert ReservesOverdrawn(token, 0);
-        }
-
         if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {
             return LineLib.sendOutTokenOrETH(token, to, amount);
         }

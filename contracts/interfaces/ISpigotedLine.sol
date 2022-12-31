@@ -10,7 +10,7 @@ interface ISpigotedLine {
     */
     event RevenuePayment(address indexed token, uint256 indexed amount);
 
-    error ReservesOverdrawn(uint256 totalAvailable);
+    error ReservesOverdrawn(address token, uint256 amountAvailable);
 
     
     /**
@@ -37,8 +37,8 @@ interface ISpigotedLine {
     /**
      * @notice - Directly repays a Lender using unused tokens already held by Line with no trading
      * @dev    - callable by `borrower` or first lender in repayment queue
-     * @param amount    - amount of unused tokens to use to repay Lender
-     * @return - if function executed successfully
+     * @param amount       - amount of unused tokens to use to repay Lender
+     * @return             - if function executed successfully
      */
     function useAndRepay(uint256 amount) external returns (bool);
 
@@ -73,7 +73,7 @@ interface ISpigotedLine {
      * @notice - allow Line (aka Owner on Spigot) to add new revenue streams to repay credit
      * @dev    - see Spigot.addSpigot()
      * @dev    - callable `arbiter` ONLY
-     * @return - if function call was successful
+     * @return            - if function call was successful
      */
     function addSpigot(address revenueContract, ISpigot.Setting calldata setting) external returns (bool);
 
@@ -81,7 +81,7 @@ interface ISpigotedLine {
      * @notice - Sets or resets the whitelisted functions that a Borrower [Operator] is allowed to perform on the revenue generating contracts
      * @dev    - see Spigot.updateWhitelistedFunction()
      * @dev    - callable `arbiter` ONLY
-     * @return - if function call was successful
+     * @return           - if function call was successful
      */
     function updateWhitelist(bytes4 func, bool allowed) external returns (bool);
 
@@ -94,23 +94,23 @@ interface ISpigotedLine {
     function updateOwnerSplit(address revenueContract) external returns (bool);
 
     /**
-     * @notice  - Transfers ownership of the entire Spigot from its then Owner to either the Borrower (if a Line of Credit has been been fully repaid) 
-     *          - or to the Arbiter (if the Line of Credit is liquidatable).
-     * @dev     - callable by borrower + arbiter
-     * @param to          - address that caller wants to transfer Spigot ownership to
-     * @return bool       - whether or not a Spigot was released
+    * @notice  - Transfers ownership of the entire Spigot from its then Owner to either the Borrower (if a Line of Credit has been been fully repaid) 
+    *          - or to the Arbiter (if the Line of Credit is liquidatable).
+    * @dev     - callable by borrower + arbiter
+    * @param to          - address that caller wants to transfer Spigot ownership to
+    * @return bool       - whether or not a Spigot was released
     */
     function releaseSpigot(address to) external returns (bool);
 
     /**
-     * @notice   - sends unused tokens to borrower if REPAID or arbiter if LIQUIDATABLE or INSOLVENT
-     *           -  does not send tokens out if line is ACTIVE
-     * @dev      - callable by `borrower` or `arbiter`
-     * @param to           - address to send swept tokens to
-     * @param token        - revenue or credit token to sweep
-     * @return amount      - amount of tokens swept to caller
-    */
-    function sweep(address to, address token) external returns (uint256);
+   * @notice   - sends unused tokens to borrower if REPAID or arbiter if LIQUIDATABLE or INSOLVENT
+   *           -  does not send tokens out if line is ACTIVE
+   * @dev      - callable by `borrower` or `arbiter`
+   * @param to           - address to send swept tokens to
+   * @param token        - revenue or credit token to sweep
+   * @param amount       - amount of reserve tokens to withdraw/liquidate
+  */
+    function sweep(address to, address token, uint256 amount) external returns (uint256);
 
     // getters
 
