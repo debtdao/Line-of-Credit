@@ -83,9 +83,6 @@ library EscrowLib {
         if (amount == 0) {
             revert InvalidZeroAmount();
         }
-        if (msg.value != 0) {
-            revert EthSupportDisabled();
-        }
         if (!self.enabled[token]) {
             revert InvalidCollateral();
         }
@@ -113,8 +110,9 @@ library EscrowLib {
         if (!isEnabled) {
             (bool passed, bytes memory tokenAddrBytes) = token.call(abi.encodeWithSignature("asset()"));
 
-            bool is4626 = tokenAddrBytes.length > 0 && passed;
+            bool is4626 = tokenAddrBytes.length != 0 && passed;
             deposit.isERC4626 = is4626;
+
             // if 4626 save the underlying token to use for oracle pricing
             deposit.asset = !is4626 ? token : abi.decode(tokenAddrBytes, (address));
 
@@ -195,6 +193,7 @@ library EscrowLib {
         if (amount == 0) {
             revert InvalidZeroAmount();
         }
+
         if (msg.sender != self.line) {
             revert CallerAccessDenied();
         }

@@ -8,6 +8,13 @@ import {LineOfCredit} from "./LineOfCredit.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
+/**
+  * @title  - Debt DAO Secured Line of Credit
+  * @author - Kiba Gateaux
+  * @notice - The SecuredLine combines both collateral modules (SpigotedLine + EscrowedLine) with core lending functionality from LineOfCredit
+  *         - to create a fully secured lending facility backed by revenue via Spigot or tokens via Escrow.
+  * @dev    - modifies _liquidate(), _healthcheck(), _init(), and _declareInsolvent() functionality
+ */
 contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     constructor(
         address oracle_,
@@ -33,7 +40,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         return s;
     }
 
-    /// see IsecuredLine.rollover
+    /// see ISecuredLine.rollover
     function rollover(address newLine) external override onlyBorrower returns (bool) {
         // require all debt successfully paid already
         if (status != LineLib.STATUS.REPAID) {
@@ -55,17 +62,7 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         return true;
     }
 
-    /**
-     * see EscrowedLine._liquidate
-     * @notice - Forcefully take collateral from Escrow and repay debt for lender
-     *          - current implementation just sends "liquidated" tokens to Arbiter to sell off how the deem fit and then manually repay with DepositAndRepay
-     * @dev - only callable by Arbiter
-     * @dev - Line status MUST be LIQUIDATABLE
-     * @dev - callable by `arbiter`
-     * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
-     * @param targetToken - token in escrow that will be sold of to repay position
-     */
-
+    //  see IEscrowedLine.liquidate
     function liquidate(uint256 amount, address targetToken) external returns (uint256) {
         if (msg.sender != arbiter) {
             revert CallerAccessDenied();
@@ -79,11 +76,14 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     }
 
     function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
+        // check core (also cheap & internal) covenants before checking collateral conditions
         LineLib.STATUS s = LineOfCredit._healthcheck();
         if (s != LineLib.STATUS.ACTIVE) {
+            // return early if non-default answer
             return s;
         }
 
+        // check collateral ratio and return ACTIVE
         return EscrowedLine._healthcheck();
     }
 

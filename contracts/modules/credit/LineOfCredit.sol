@@ -14,28 +14,44 @@ import {InterestRateCredit} from "../interest-rate/InterestRateCredit.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
+/**
+  * @title  - Debt DAO Unsecured Line of Credit
+  * @author - Kiba Gateaux
+  * @notice - Core credit facility logic for proposing, depositing, borrowing, and repaying debt.
+  *         - Contains core financial covnenants around term length (`deadline`), collateral ratios, liquidations, etc.
+  * @dev    - contains internal functions overwritten by SecuredLine, SpigotedLine, and EscrowedLine
+ */
 contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     using CreditListLib for bytes32[];
 
+    /// @notice - the timestamp that all creditors must be repaid by
     uint256 public immutable deadline;
 
+    /// @notice - the account that can drawdown and manage debt positions
     address public immutable borrower;
 
+    /// @notice - neutral 3rd party that mediates btw borrower and all lenders
     address public immutable arbiter;
 
+    /// @notice - price feed to use for valuing credit tokens
     IOracle public immutable oracle;
 
+    /// @notice - contract responsible for calculating interest owed on debt positions
     InterestRateCredit public immutable interestRate;
 
-    uint256 private count; // amount of open credit lines on a Line of Credit facility. ids.length includes null items
+    /// @notice - current amount of active positions (aka non-null ids) in `ids` list
+    uint256 private count;
 
-    bytes32[] public ids; // all open credit lines
+    /// @notice - positions ids of all open credit lines.
+    /// @dev    - may contain null elements
+    bytes32[] public ids;
 
-    mapping(bytes32 => Credit) public credits; // id -> Reference ID for a credit line provided by a single Lender for a given token on a Line of Credit
+    /// @notice id -> position data
+    mapping(bytes32 => Credit) public credits;
 
-    // Line Financials aggregated accross all existing  Credit
+    /// @notice - current health status of line
     LineLib.STATUS public status;
 
     /**
@@ -133,7 +149,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         }
 
         // Liquidate if all credit lines aren't closed by deadline
-        if (block.timestamp >= deadline && count > 0) {
+        if (block.timestamp >= deadline && count != 0) {
             emit Default(ids[0]); // can query all defaulted positions offchain once event picked up
             return LineLib.STATUS.LIQUIDATABLE;
         }
@@ -309,7 +325,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         Credit memory credit = _accrue(credits[id], id);
         require(credit.isOpen);
 
-        require(amount <= credit.principal + credit.interestAccrued);
+        if(amount > credit.principal + credit.interestAccrued) {
+            revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
+        }
 
         credits[id] = _repay(credit, id, amount);
 
@@ -363,13 +381,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // accrues interest and transfers to Lender
         credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
 
-        // if lender is pulling all funds AND no debt owed to them then close position
-        if (credit.principal == 0 && credit.interestAccrued == 0 && credit.isOpen) {
-            credits[id] = _close(credit, id);
-        } else {
-            // save to storage if position still exists
-            credits[id] = credit;
-        }
+        credits[id] = credit;
 
         LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
@@ -500,7 +512,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 if (
                     id == bytes32(0) || // deleted element. In the middle of the q because it was closed.
                     nextQSpot != lastSpot || // position already found. skip to find `p` asap
-                    credits[id].principal > 0 //`id` should be placed before `p`
+                    credits[id].principal != 0 //`id` should be placed before `p`
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
             } else {

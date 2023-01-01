@@ -5,6 +5,7 @@ docs
 .env
 lib
 
+*.log
 
 #Hardhat files
 cache

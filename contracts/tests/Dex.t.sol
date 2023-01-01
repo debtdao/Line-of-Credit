@@ -216,7 +216,7 @@ contract EthRevenue is Test {
         uint256 borrowerDaiBalance = IERC20(DAI).balanceOf(borrower);
         vm.startPrank(borrower);
         line.close(line.ids(0));
-        line.sweep(borrower, DAI);
+        line.sweep(borrower, DAI,0);
         uint256 claimedEth = spigot.claimOperatorTokens(Denominations.ETH);
         vm.stopPrank();
 
@@ -324,8 +324,8 @@ contract EthRevenue is Test {
 
         // borrower retrieve the remaining funds from the Line  
         vm.startPrank(borrower);        
-        line.sweep(borrower, DAI);
-        line.sweep(borrower, Denominations.ETH);
+        line.sweep(borrower, DAI,0);
+        line.sweep(borrower, Denominations.ETH,0);
         vm.stopPrank();
 
         assertEq(IERC20(DAI).balanceOf(borrower), borrowerDaiBalance + unusedDai, "borrower DAI balance should have increased");

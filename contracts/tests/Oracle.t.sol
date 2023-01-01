@@ -151,9 +151,9 @@ contract OracleTest is Test, Events {
         uint256 altCollateralValue = escrow.getCollateralValue();
         (uint256 altPrincipal, uint256 altInterest) = line.updateOutstandingDebt();
         
-        assertEq(collateralValue, altCollateralValue);
-        assertEq(principal, altPrincipal);
-        assertEq(interest, altInterest);
+        assertEq(collateralValue, altCollateralValue, "collateral value should equal alt collateral value");
+        assertEq(principal, altPrincipal, "principal value should equal alt principal value");
+        assertEq(interest, altInterest, "interest value should equal alt interest value");
     }
 
 
@@ -186,6 +186,7 @@ contract OracleTest is Test, Events {
         emit log_named_int("price", price);
         assertEq(price, normalPrice);
     }
+
 
     function test_can_use_WETH_as_collateral(uint256 amount) public {
         vm.assume(amount > 0 && amount < 100 ether);
