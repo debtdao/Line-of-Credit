@@ -27,11 +27,11 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     /// @notice - maximum revenue we want to be able to take from spigots if Line is in default
     uint8 constant MAX_SPLIT = 100;
 
+    /// @notice % of revenue tokens to take from Spigot if the Line of Credit is healthy. 0 decimals
+    uint8 public immutable defaultRevenueSplit;
+
     /// @notice exchange aggregator (mainly 0x router) to trade revenue tokens from a Spigot for credit tokens owed to lenders
     address payable public immutable swapTarget;
-
-    /// @notice % of revenue tokens to take from Spigot if the Line of Credit  is healthy. 0 decimals
-    uint8 public immutable defaultRevenueSplit;
 
     /**
      * @notice - excess unsold revenue claimed from Spigot to be sold later or excess credit tokens bought from revenue but not yet used to repay debt
@@ -74,10 +74,6 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function _init() internal virtual override(LineOfCredit) returns (LineLib.STATUS) {
         if (spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
         return LineOfCredit._init();
-    }
-
-    function unused(address token) external view returns (uint256) {
-        return unusedTokens[token];
     }
 
     /**
@@ -267,8 +263,16 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         bool success = SpigotedLineLib.sweep(to, token, amount, _updateStatus(_healthcheck()), borrower, arbiter);
 
-        return success ? amount : 0;
+    /// see ILineOfCredit.tradeable
+    function tradeable(address token) external view returns (uint256) {
+        return unusedTokens[token] + spigot.getOwnerTokens(token);
     }
+
+    /// see ILineOfCredit.unused
+    function unused(address token) external view returns (uint256) {
+        return unusedTokens[token];
+    }
+
 
     // allow claiming/trading in ETH
     receive() external payable {}

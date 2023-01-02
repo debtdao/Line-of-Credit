@@ -133,11 +133,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return _updateStatus(_healthcheck());
     }
 
-    /// see ILineOfCredit.counts
-    function counts() external view returns (uint256, uint256) {
-        return (count, ids.length);
-    }
-
     function _healthcheck() internal virtual returns (LineLib.STATUS) {
         // if line is in a final end state then do not run _healthcheck()
         LineLib.STATUS s = status;
@@ -527,5 +522,24 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 return true;
             }
         }
+    }
+
+
+
+    /* GETTERS */
+    /// see ILineOfCredit.counts
+    function counts() external view returns (uint256, uint256) {
+        return (count, ids.length);
+    }
+
+    /// see ILineOfCredit.available
+    function available(bytes32 id) external view returns (uint256, uint256) {
+        return (credits[id].deposit - credits[id].principal, credits[id].interestRepaid);
+    }
+
+    /// see ILineOfCredit.nextInQ
+    function nextInQ() external view returns (bytes32, address, address, uint256, uint256) {
+        bytes32 next = ids[0];
+        return (next, credits[next].lender, credits[next].token, credits[next].principal, credits[next].interestAccrued);
     }
 }
