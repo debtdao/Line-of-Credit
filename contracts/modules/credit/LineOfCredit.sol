@@ -527,6 +527,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
 
     /* GETTERS */
+
+    /// see ILineOfCredit.interestAccrued
+    function interestAccrued(bytes32 id) external view returns (uint256) {
+        return credits[id].interestAccrued;
+    }
+
     /// see ILineOfCredit.counts
     function counts() external view returns (uint256, uint256) {
         return (count, ids.length);
