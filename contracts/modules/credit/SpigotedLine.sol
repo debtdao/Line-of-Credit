@@ -248,20 +248,15 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
     /// see ISpigotedLine.sweep
     function sweep(address to, address token, uint256 amount) external nonReentrant returns (uint256) {
-        uint256 available = unusedTokens[token];
-        if (available == 0) { return 0; }
-        if(amount == 0) {
-            // use all tokens if no amount specified specified
-            amount = available;
-        } else {
-            if (amount > available) {
-                revert ReservesOverdrawn(token, available);
-            }
-        }
-        unusedTokens[token] -= amount;
-        emit ReservesChanged(token, -int256(amount), 1);
+        uint256 swept = SpigotedLineLib.sweep(to, token, amount, unusedTokens[token], _updateStatus(_healthcheck()), borrower, arbiter);
 
-        bool success = SpigotedLineLib.sweep(to, token, amount, _updateStatus(_healthcheck()), borrower, arbiter);
+        if(swept != 0) {
+            unusedTokens[token] -= swept;
+            emit ReservesChanged(token, -int256(swept), 1);
+        }
+
+        return swept;
+    }
 
     /// see ILineOfCredit.tradeable
     function tradeable(address token) external view returns (uint256) {
