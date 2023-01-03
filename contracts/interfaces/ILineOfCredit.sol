@@ -242,7 +242,24 @@ interface ILineOfCredit {
 
     /**
      * @notice - getter for amount of active ids + total ids in list
-     * @return - (uint, uint) - active credit lines, total length
+     * @return - (uint256, uint256) - active credit lines, total length
      */
     function counts() external view returns (uint256, uint256);
+    /**
+     * @notice - getter for amount of active ids + total ids in list
+     * @return - (uint256, uint256) - active credit lines, total length
+     */
+
+    function interestAccrued(bytes32 id) external returns (uint256);
+       /**
+     * @notice - info on the next lender position that must be repaid
+     * @return - (bytes32, address, address, uint, uint) - id, lender, token, principal, interestAccrued
+     */
+    function nextInQ() external returns (bytes32, address, address, uint256, uint256);
+
+    /**
+     * @notice - how many tokens can be withdrawn from positions by borrower or lender
+     * @return - (uint256, uint256) - remaining deposit, claimable interest 
+     */
+    function available(bytes32 id) external returns (uint256, uint256);
 }
