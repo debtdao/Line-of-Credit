@@ -244,16 +244,29 @@ library SpigotedLineLib {
         address to,
         address token,
         uint256 amount,
+        uint256 available,
         LineLib.STATUS status,
         address borrower,
         address arbiter
-    ) external returns (bool) {
+    ) external returns (uint256) {
+        if (available == 0) { return 0; }
+        if(amount == 0) {
+            // use all tokens if no amount specified specified
+            amount = available;
+        } else {
+            if (amount > available) {
+                revert ReservesOverdrawn(token, available);
+            }
+        }
+
         if (status == LineLib.STATUS.REPAID && msg.sender == borrower) {
-            return LineLib.sendOutTokenOrETH(token, to, amount);
+            LineLib.sendOutTokenOrETH(token, to, amount);
+            return amount;
         }
 
         if ((status == LineLib.STATUS.LIQUIDATABLE || status == LineLib.STATUS.INSOLVENT) && msg.sender == arbiter) {
-            return LineLib.sendOutTokenOrETH(token, to, amount);
+            LineLib.sendOutTokenOrETH(token, to, amount);
+            return amount;
         }
 
         revert CallerAccessDenied();

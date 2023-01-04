@@ -117,9 +117,16 @@ interface ISpigotedLine {
     /**
      * @notice - getter for `unusedTokens` mapping which is a private var
      * @param token      - address for an ERC20
-     * @return amount    - amount of revenue tokens available to trade for fcredit tokens or credit tokens availble to repay debt with
+     * @return amount    - amount of revenue tokens available to trade for credit tokens or credit tokens availble to repay debt with
      */
     function unused(address token) external returns (uint256);
 
+    /**
+     * @notice - Looksup `unusedTokens` + spigot.getOwnerTokens` for how many tokens arbiter must sell in claimAndTrade/Repay
+     * @param token      - address for an ERC20 earned as revenue
+     * @return amount    - amount of unused + claimable revenue tokens available to trade for credit tokens or credit tokens availble to repay debt with
+     */
+    function tradeable(address token) external returns (uint256);
+     
     function spigot() external returns (ISpigot);
 }
