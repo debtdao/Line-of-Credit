@@ -99,6 +99,7 @@ contract LineFactory is ILineFactory {
      *   @dev   The `cratio` in the CoreParams are not used, due to the fact
      *          they're passed in when the Escrow is created separately.
      */
+
     function deploySecuredLineWithModules(
         CoreLineParams calldata coreParams,
         address mSpigot,
@@ -134,6 +135,7 @@ contract LineFactory is ILineFactory {
       @param ttl      - set total term length of line
       @return line - address of newly deployed line with oldLine config
      */
+     
     function rolloverSecuredLine(
         address payable oldLine,
         address borrower,
