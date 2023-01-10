@@ -2,9 +2,14 @@
 
 # make sure the libraries array in the toml file looks like this 'libraries = []' with no spaces inside the brackets
 
+# for mac, install jq with brew
 brew install jq
 
-# apt-get jq
+# for linux, install jq with apt-get
+# sudo apt-get install jq
+
+# for windows, install jq with chocolatey
+# chocolatey install jq
 
 ### DEPLOY LIBS ###
 
