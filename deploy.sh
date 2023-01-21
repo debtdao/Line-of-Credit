@@ -88,3 +88,9 @@ contracts/modules/factories/LineFactory.sol:LineFactory --verify --json)
 # forge create --rpc-url $GOERLI_RPC_URL --constructor-args 0x3730954eC1b5c59246C1fA6a20dD6dE6Ef23aEa6 0x589a0b00a0dD78Fc2C94b8eac676dec4C3Dcd562 \
 # --private-key $GOERLI_PRIVATE_KEY --etherscan-api-key $MAINNET_ETHERSCAN_API_KEY  contracts/mock/SimpleOracle.sol:SimpleOracle  --verify
 
+
+### DEPLOY REV CONTRACT ###
+
+forge create --rpc-url $GOERLI_RPC_URL --constructor-args 0xf44B95991CaDD73ed769454A03b3820997f00873 0x589a0b00a0dD78Fc2C94b8eac676dec4C3Dcd562 \
+ --private-key $GOERLI_PRIVATE_KEY --etherscan-api-key $MAINNET_ETHERSCAN_API_KEY contracts/mock/SimpleRevenueContract.sol:SimpleRevenueContract --verify
+
