@@ -31,4 +31,6 @@ interface IInterestRateCredit {
      * @return - if call was successful or not
      */
     function setRate(bytes32 id, uint128 dRate, uint128 fRate) external returns (bool);
+
+    function getInterestAccrued(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) external view returns (uint256);
 }
