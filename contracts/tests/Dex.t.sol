@@ -291,10 +291,11 @@ contract EthRevenue is Test {
         line.withdraw(line.ids(0), deposit + interestRepaid); //10000.27
         vm.stopPrank();
 
+        vm.startPrank(borrower);
+        line.close(line.ids(0));
+        vm.stopPrank(); 
         (, , , , , , , isOpen) = line.credits(line.ids(0));
         assertFalse(isOpen);
-
-        /*
 
         unusedDai = line.unused(DAI);
         uint256 unusedEth = line.unused(Denominations.ETH);
@@ -342,7 +343,7 @@ contract EthRevenue is Test {
         vm.expectRevert(ILineOfCredit.PositionIsClosed.selector);
         line.close(id);
         vm.stopPrank();
-        */
+        
     }
 
     function test_cannot_claim_and_trade_with_insufficient_balance() public {
