@@ -21,7 +21,7 @@ import {SimpleOracle} from "../mock/SimpleOracle.sol";
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
     event MutualConsentRegistered(bytes32 _consentHash);
-    event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
+    event MutualConsentRevoked(bytes32 _toRevoke);
 }
 
 contract MutualConsentTest is Test, Events {
@@ -161,8 +161,8 @@ contract MutualConsentTest is Test, Events {
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
 
         vm.startPrank(borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
 
         assertEq(line.mutualConsents(expectedHash), address(0));
@@ -242,8 +242,8 @@ contract MutualConsentTest is Test, Events {
         vm.startPrank(borrower);
         line.setRates(id, newFrate, newDrate);
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
 
@@ -371,8 +371,8 @@ contract MutualConsentTest is Test, Events {
         vm.startPrank(borrower);
         line.increaseCredit(id, amount);
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
     }

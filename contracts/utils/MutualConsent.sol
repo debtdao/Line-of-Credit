@@ -31,7 +31,7 @@ abstract contract MutualConsent {
     /* ============ Events ============ */
 
     event MutualConsentRegistered(bytes32 _consentHash);
-    event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
+    event MutualConsentRevoked(bytes32 _toRevoke);
 
     /* ============ Modifiers ============ */
 
@@ -76,7 +76,7 @@ abstract contract MutualConsent {
 
         delete mutualConsents[hashToDelete];
 
-        emit MutualConsentRevoked(msg.sender, hashToDelete);
+        emit MutualConsentRevoked(hashToDelete);
     }
 
     /* ============ Internal Functions ============ */
