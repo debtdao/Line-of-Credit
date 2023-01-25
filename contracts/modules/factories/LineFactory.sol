@@ -23,7 +23,12 @@ contract LineFactory is ILineFactory {
     address public immutable oracle;
     address payable public immutable swapTarget;
 
-    constructor(address moduleFactory, address arbiter_, address oracle_, address payable swapTarget_) {
+    constructor(
+        address moduleFactory,
+        address arbiter_,
+        address oracle_,
+        address payable swapTarget_
+    ) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
@@ -40,7 +45,11 @@ contract LineFactory is ILineFactory {
     }
 
     /// see ModuleFactory.deployEscrow.
-    function deployEscrow(uint32 minCRatio, address owner, address borrower) external returns (address) {
+    function deployEscrow(
+        uint32 minCRatio,
+        address owner,
+        address borrower
+    ) external returns (address) {
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
@@ -90,6 +99,7 @@ contract LineFactory is ILineFactory {
      *   @dev   The `cratio` in the CoreParams are not used, due to the fact
      *          they're passed in when the Escrow is created separately.
      */
+
     function deploySecuredLineWithModules(
         CoreLineParams calldata coreParams,
         address mSpigot,
@@ -125,6 +135,7 @@ contract LineFactory is ILineFactory {
       @param ttl      - set total term length of line
       @return line - address of newly deployed line with oldLine config
      */
+     
     function rolloverSecuredLine(
         address payable oldLine,
         address borrower,

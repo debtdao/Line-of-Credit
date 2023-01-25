@@ -227,4 +227,8 @@ library CreditLib {
             return credit;
         }
     }
+
+    function interestAccrued(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (uint256) {
+        return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
+    }
 }
