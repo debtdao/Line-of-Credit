@@ -141,7 +141,7 @@ contract LineLendsTest is Test {
         assertEq(getInterest, 0);
     }
 
-    function test_get_interest_equals_interest_rate_contract_returns() public {
+    function test_get_interest_accrued_equals_position_and_interest_rate_after_accrued_and_time_warp () public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         i.setRate(id, dRate, fRate);
@@ -164,7 +164,7 @@ contract LineLendsTest is Test {
         assertEq(getInterest, accrued);
     }
 
-    function test_warp_accrue_interest_warp_test_views() public {
+    function test_get_interest_equals_interest_rate_contract_returns () public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         i.setRate(id, dRate, fRate);
