@@ -17,9 +17,11 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleOracle} from "../mock/SimpleOracle.sol";
+import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
 
 contract LineLendsTest is Test {
     SimpleOracle oracle;
+    InterestRateCredit i;
     address borrower;
     address arbiter;
     address lender;
@@ -39,6 +41,7 @@ contract LineLendsTest is Test {
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
+        i = new InterestRateCredit();
 
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
@@ -90,6 +93,7 @@ contract LineLendsTest is Test {
     function test_interest_accrued_vs_interest_viewed_debt_not_updated() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
+        i.setRate(id, dRate, fRate);
 
         vm.warp(30 days);
 
@@ -99,11 +103,15 @@ contract LineLendsTest is Test {
 
         uint256 getInterest = line.interestAccrued(id);
 
-        assertGt(getInterest, 0);
+        uint256 accrued = i.accrueInterest(id, 0, 1 ether);
 
+        console.log(getInterest);
+        console.log(accrued);
+
+        assertEq(getInterest, accrued, "Not the same");
     }
 
-    function test_interest_accrued_vs_interest_viewed_with_time() public {
+    function test_interest_accrued_equals_interest_viewed_after_accrued() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
 
@@ -115,9 +123,8 @@ contract LineLendsTest is Test {
         assertGt(interestAccrued, 0);
 
         uint256 getInterest = line.interestAccrued(id);
-
+        
         assertEq(getInterest, interestAccrued);
-
     }
 
 
@@ -134,4 +141,38 @@ contract LineLendsTest is Test {
         assertEq(getInterest, 0);
     }
 
+    function test_get_interest_equals_interest_rate_contract_returns() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        i.setRate(id, dRate, fRate);
+
+        vm.warp(30 days);
+
+        line.accrueInterest();
+
+         (,,uint256 oldInterest,,,,,) = line.credits(id);
+
+        vm.warp(30 days);
+
+         (,,uint256 interestAccrued,,,,,) = line.credits(id);
+
+        assertEq(oldInterest,  interestAccrued);
+
+        uint256 getInterest = line.interestAccrued(id);
+        uint256 accrued = i.accrueInterest(id, 0, 1 ether);
+
+        assertEq(getInterest, accrued);
+    }
+
+    function test_warp_accrue_interest_warp_test_views() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        i.setRate(id, dRate, fRate);
+
+        vm.warp(30 days);
+
+        uint256 getInterest = line.interestAccrued(id);
+        uint256 accrued = i.accrueInterest(id, 0, 1 ether);
+        assertEq(getInterest, accrued);
+    }
 }
