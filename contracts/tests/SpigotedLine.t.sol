@@ -49,8 +49,8 @@ contract SpigotedLineTest is Test, Events {
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
-    uint constant MAX_INT = type(uint256).max;
-    uint constant MAX_REVENUE = MAX_INT / 100;
+    uint MAX_INT = type(uint256).max;
+    uint MAX_REVENUE = MAX_INT / 10**18;
 
     // Line access control vars
     address private arbiter = address(this);
@@ -460,8 +460,12 @@ contract SpigotedLineTest is Test, Events {
   
     function test_can_trade(uint buyAmount, uint sellAmount) public {
       // oracle prices not relevant to test
-      if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      // if(buyAmount == 0 || sellAmount == 0) return;
+      // if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE - 1);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE - 1);
+      vm.assume(buyAmount < MAX_REVENUE);
+      vm.assume(sellAmount < MAX_REVENUE);
       
       // need to have active position so we can buy asset
       _borrow(line.ids(0), lentAmount);
@@ -628,12 +632,19 @@ contract SpigotedLineTest is Test, Events {
       line.claimAndTrade(Denominations.ETH, tradeData); // claimToken (ETH), tradeData
       assertEq(line.unused(Denominations.ETH), 0); // used all unusedTokens[Eth]
     }
-
-
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
       if(timespan > ttl) return;
       if(buyAmount == 0 || sellAmount == 0) return;
       if(buyAmount >= MAX_REVENUE || sellAmount >= MAX_REVENUE) return;
+
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE - 1);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE - 1);
+      vm.assume(buyAmount < MAX_REVENUE);
+      vm.assume(sellAmount < MAX_REVENUE);
+
+      emit log_named_uint("MAX_REVENU", MAX_REVENUE);
+      emit log_named_uint("buyAmount", buyAmount);
+      emit log_named_uint("sellAmount", sellAmount);
 
       _borrow(line.ids(0), lentAmount);
       
@@ -644,23 +655,50 @@ contract SpigotedLineTest is Test, Events {
       // line.accrueInterest();
       // (,,uint interest,,,,) = line.credits(line.ids(0)) ;
 
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+      uint256 tradable;
+      uint256 expected;
+      if ( sellAmount > claimable ) {
+        // if the fuzzed sell amount is greater than the amount that's claimable, we won't be able to sell it
+        tradable = claimable;
+        expected = 0;
+      } else {
+        // expected difference will be claimable less sell amount
+        tradable = sellAmount;
+        expected = claimable - sellAmount; // ie whats left over after claiming
+      }
+      emit log_named_uint("claimable", claimable);
+      emit log_named_uint("tradable", tradable);
+      emit log_named_uint("expected", expected);
+      
+      // ( tradable,  expected) = sellAmount > claimable ? (claimable, sellAmount - claimable) : (sellAmount, claimable - sellAmount);
+      
+      // if (sellAmount > claimable) sellAmount = claimable;
+    
       // oracle prices not relevant to trading test
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
         address(creditToken),
-        sellAmount,
+        tradable,
         buyAmount
       );
 
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
-
-
       vm.prank(arbiter);
-      console.log(buyAmount);
-      console.log(sellAmount);
       line.claimAndRepay(address(revenueToken), tradeData);
       
+      vm.startPrank(address(line));
+      uint256 lineRevenueTokenBalance = LineLib.getBalance(address(revenueToken));
+      emit log_named_uint("lineRevenueTokenBalance", lineRevenueTokenBalance);
+      vm.stopPrank();
+      // assertEq(expected, lineRevenueTokenBalance);
+
+      // uint256 ownerTokens = spigot.getOwnerTokens(address(revenueToken));
+      // emit log_named_uint("ownerTokens remaining", ownerTokens);
+      // emit log_named_uint("expected", expected);
+      // assertEq(ownerTokens, 0);
+
+
 
       // principal, interest, repaid
       (,uint p, uint i, uint r,,,,) = line.credits(line.ids(0));
