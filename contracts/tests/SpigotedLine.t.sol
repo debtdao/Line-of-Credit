@@ -867,6 +867,8 @@ contract SpigotedLineTest is Test, Events {
       vm.assume(unusedTokens % 2 == 0);
       vm.assume(unusedTokens < type(uint256).max / 2);
 
+      console.log("dex revenue token balance beginning: ", revenueToken.balanceOf(address(dex)));
+
       uint256 creditTokensPurchased = 1;
 
       // because the MockZeroEx doesn't account for tokens in vs out, we need to "predict" the number of tokens sent (ie claimed + unused)
@@ -881,8 +883,8 @@ contract SpigotedLineTest is Test, Events {
 
       // claim and repay
 
-      // in this scenario, we want debt < newTokens
-      creditTokensPurchased = type(uint256).max / 10**8;
+      // in this scenario, we want debt < newTokens ( use all available DEX tokens)
+      creditTokensPurchased = creditToken.balanceOf(address(dex));
 
       // repaid = newTokens (bought from claimAndTrade) + unusedTokens[credit]
       // we want repaid > newTokens, ie existing balance of unused, which we have
@@ -897,7 +899,7 @@ contract SpigotedLineTest is Test, Events {
         address(revenueToken),
         address(creditToken),
         revenue / 2,
-        creditTokensPurchased
+        creditTokensPurchased // this one
       );
 
       int256 diff = _caclulateDiff(repaid,creditTokensPurchased);
@@ -905,6 +907,8 @@ contract SpigotedLineTest is Test, Events {
       emit log_named_int("diff", diff);
 
       vm.startPrank(arbiter);
+
+      console.log("dex revenue token balance: ", revenueToken.balanceOf(address(dex)));
 
       // SpigotedLineLib.claimAndRepay
       vm.expectEmit(true,false,true,true);
