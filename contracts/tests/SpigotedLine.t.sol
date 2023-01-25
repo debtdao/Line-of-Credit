@@ -340,8 +340,9 @@ contract SpigotedLineTest is Test, Events {
     }
 
     function test_decrease_unused_revenue(uint buyAmount, uint sellAmount) public {
-      if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE);
       
       // need to have active position so we can buy asset
       _borrow(line.ids(0), lentAmount);
@@ -364,8 +365,13 @@ contract SpigotedLineTest is Test, Events {
 
       assertEq(line.unused(address(revenueToken)), 1);
 
+      console.log("unused before", line.unused(address(revenueToken)));
       revenueToken.mint(address(spigot), MAX_REVENUE);
       spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
+
+      console.log("unused after", line.unused(address(revenueToken)));
+
+      claimable = spigot.getOwnerTokens(address(revenueToken));
 
       bytes memory tradeData2 = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -378,7 +384,7 @@ contract SpigotedLineTest is Test, Events {
       vm.expectEmit(true, true, true, true);
       emit ReservesChanged(address(revenueToken), -1, 0);
       line.claimAndTrade(address(revenueToken), tradeData2);
-      assertEq(line.unused(address(revenueToken)), 0);
+      assertEq(line.unused(address(revenueToken)), 0, "unused revenue is not zero");
       vm.stopPrank();
     }
 
