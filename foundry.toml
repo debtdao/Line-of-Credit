@@ -34,7 +34,7 @@ ignored_error_codes = [
     1878,
     5574,
 ]
-fuzz_runs = 256
+fuzz_runs = 1024
 invariant_runs = 256
 invariant_depth = 15
 invariant_fail_on_revert = false
@@ -60,8 +60,12 @@ bytecode_hash = 'ipfs'
 sparse_mode = false
 build_info = false
 
+
 [profile.local]
 libraries = []
+
+[profile.ci]
+
 
 [profile.goerli]
 libraries = [

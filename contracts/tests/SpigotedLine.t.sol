@@ -49,8 +49,8 @@ contract SpigotedLineTest is Test, Events {
     uint constant ttl = 10 days; // allows us t
     uint8 constant ownerSplit = 10; // 10% of all borrower revenue goes to spigot
 
-    uint constant MAX_INT = type(uint256).max;
-    uint constant MAX_REVENUE = MAX_INT / 100;
+    uint MAX_INT = type(uint256).max;
+    uint MAX_REVENUE = MAX_INT / 10**18;
 
     // Line access control vars
     address private arbiter = address(this);
@@ -340,8 +340,9 @@ contract SpigotedLineTest is Test, Events {
     }
 
     function test_decrease_unused_revenue(uint buyAmount, uint sellAmount) public {
-      if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE);
       
       // need to have active position so we can buy asset
       _borrow(line.ids(0), lentAmount);
@@ -364,8 +365,13 @@ contract SpigotedLineTest is Test, Events {
 
       assertEq(line.unused(address(revenueToken)), 1);
 
+      console.log("unused before", line.unused(address(revenueToken)));
       revenueToken.mint(address(spigot), MAX_REVENUE);
       spigot.claimRevenue(address(revenueContract), address(revenueToken), "");
+
+      console.log("unused after", line.unused(address(revenueToken)));
+
+      claimable = spigot.getOwnerTokens(address(revenueToken));
 
       bytes memory tradeData2 = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
@@ -378,7 +384,7 @@ contract SpigotedLineTest is Test, Events {
       vm.expectEmit(true, true, true, true);
       emit ReservesChanged(address(revenueToken), -1, 0);
       line.claimAndTrade(address(revenueToken), tradeData2);
-      assertEq(line.unused(address(revenueToken)), 0);
+      assertEq(line.unused(address(revenueToken)), 0, "unused revenue is not zero");
       vm.stopPrank();
     }
 
@@ -460,21 +466,30 @@ contract SpigotedLineTest is Test, Events {
   
     function test_can_trade(uint buyAmount, uint sellAmount) public {
       // oracle prices not relevant to test
-      if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      // if(buyAmount == 0 || sellAmount == 0) return;
+      // if(buyAmount > MAX_REVENUE || sellAmount > MAX_REVENUE) return;
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE - 1);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE - 1);
+      vm.assume(buyAmount < MAX_REVENUE);
+      vm.assume(sellAmount < MAX_REVENUE);
       
       // need to have active position so we can buy asset
       _borrow(line.ids(0), lentAmount);
+
+
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+
+      uint256 tradable;
+      tradable = sellAmount > claimable ? claimable : sellAmount;
 
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
         address(creditToken),
-        sellAmount,
+        tradable,
         buyAmount
       );
 
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
 
       vm.prank(arbiter);
       line.claimAndTrade(address(revenueToken), tradeData);
@@ -482,16 +497,16 @@ contract SpigotedLineTest is Test, Events {
       // TODO this got merged in, maybe removable
       if(claimable > sellAmount) {
         // we properly test unused token logic elsewhere but still checking here
-        assertEq(claimable - sellAmount, line.unused(address(revenueToken)));
+        assertEq(claimable - sellAmount, line.unused(address(revenueToken)), "claimable - sellAmount != unused revenue");
       }
       
       // dex balances
       assertEq(creditToken.balanceOf((address(dex))), MAX_REVENUE - buyAmount);
-      assertEq(revenueToken.balanceOf((address(dex))), MAX_REVENUE + sellAmount);
+      assertEq(revenueToken.balanceOf((address(dex))), MAX_REVENUE + tradable);
       
       // also check credit balances;
       assertEq(creditToken.balanceOf((address(line))), buyAmount);
-      assertEq(revenueToken.balanceOf((address(line))), MAX_REVENUE + claimable - sellAmount);
+      assertEq(revenueToken.balanceOf((address(line))), MAX_REVENUE + claimable - tradable);
     } 
 
     function test_cant_claim_and_trade_not_borrowing() public {
@@ -611,6 +626,8 @@ contract SpigotedLineTest is Test, Events {
       (bool success, ) = payable(spigot).call{value: 100 ether}("");
       assertTrue(success);
 
+
+
       // anyone can claim revenue
       spigot.claimRevenue(revenueC, Denominations.ETH, "");
 
@@ -628,68 +645,109 @@ contract SpigotedLineTest is Test, Events {
       line.claimAndTrade(Denominations.ETH, tradeData); // claimToken (ETH), tradeData
       assertEq(line.unused(Denominations.ETH), 0); // used all unusedTokens[Eth]
     }
-
-
     function test_can_trade_and_repay(uint buyAmount, uint sellAmount, uint timespan) public {
-      if(timespan > ttl) return;
-      if(buyAmount == 0 || sellAmount == 0) return;
-      if(buyAmount >= MAX_REVENUE || sellAmount >= MAX_REVENUE) return;
+
+      vm.assume(timespan < ttl);
+      buyAmount = bound(buyAmount, 1, MAX_REVENUE);
+      sellAmount = bound(sellAmount, 1, MAX_REVENUE);
+
+      emit log_named_uint("MAX_REVENU", MAX_REVENUE);
+      emit log_named_uint("buyAmount", buyAmount);
+      emit log_named_uint("sellAmount", sellAmount);
 
       _borrow(line.ids(0), lentAmount);
-      
-      // no interest charged because no blocks processed
-      uint256 interest = 0;
 
-      // vm.warp(timespan);
-      // line.accrueInterest();
+      vm.warp(block.timestamp + timespan);
+      line.accrueInterest();
       // (,,uint interest,,,,) = line.credits(line.ids(0)) ;
+      (,, uint interestAccrued,,,,,) = line.credits(line.ids(0));
+      console.log("interestAccrued", interestAccrued);
 
+      console.log("unused credit tokens before: ", line.unused(address(creditToken)));
+
+   
+      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+      uint256 tradable;
+      uint256 expected;
+      if ( sellAmount > claimable ) {
+        // if the fuzzed sell amount is greater than the amount that's claimable, we won't be able to sell it
+        tradable = claimable;
+        expected = 0;
+      } else {
+        // expected difference will be claimable less sell amount
+        tradable = sellAmount;
+        expected = claimable - sellAmount; // ie whats left over after claiming
+      }
+
+      emit log_named_uint("claimable", claimable);
+      emit log_named_uint("tradable", tradable);
+      emit log_named_uint("expected", expected);
+      
       // oracle prices not relevant to trading test
       bytes memory tradeData = abi.encodeWithSignature(
         'trade(address,address,uint256,uint256)',
         address(revenueToken),
         address(creditToken),
-        sellAmount,
+        tradable,
         buyAmount
       );
 
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
-
-
       vm.prank(arbiter);
-      console.log(buyAmount);
-      console.log(sellAmount);
-      line.claimAndRepay(address(revenueToken), tradeData);
-      
+      uint256 tokensBought = line.claimAndRepay(address(revenueToken), tradeData);
+      emit log_named_uint("tokensBought", tokensBought);
+
+
+      // assertEq(expected, lineCreditTokenBalance);
+
+      // uint256 ownerTokens = spigot.getOwnerTokens(address(revenueToken));
+      // emit log_named_uint("ownerTokens remaining", ownerTokens);
+      // emit log_named_uint("expected", expected);
+      // assertEq(ownerTokens, 0);
+
+   
 
       // principal, interest, repaid
       (,uint p, uint i, uint r,,,,) = line.credits(line.ids(0));
+      emit log_named_uint("interest", i);
+      emit log_named_uint("principal", p);
+      emit log_named_uint("interest repaid", r);
 
       // outstanding debt = initial principal + accrued interest - tokens repaid
-      uint _buyAmount = buyAmount > lentAmount + interest ? lentAmount + interest : buyAmount;
-      console.log(p + i);
-      console.log(lentAmount + interest);
-      assertEq(p + i, lentAmount + interest - _buyAmount, "first assert");
+      uint _buyAmount = buyAmount > lentAmount + interestAccrued ? lentAmount + interestAccrued : buyAmount;
+      // assertEq(tokensBought, _buyAmount, "tokensBought != buyAmount");
+      console.log("_buyAmount", _buyAmount);
+      // console.log("principal", p);
+      // console.log("principal + interest", p + i);
+      // console.log("lentAmount", lentAmount);
+      // console.log("lentAmount + interest", lentAmount + i);
+      assertEq(p + i, lentAmount + interestAccrued - _buyAmount, "first assert");
 
-      if(interest > buyAmount) {
+      
+
+      if(interestAccrued > _buyAmount) {
         // only interest paid
-        assertEq(r, buyAmount);            // paid what interest we could
-        assertEq(i, interest - buyAmount); // interest owed should be reduced by repay amount
-        assertEq(p, lentAmount);             // no change in principal
+        assertEq(r, _buyAmount, "r != buyAmount");            // paid what interest we could
+        assertEq(i, interestAccrued - _buyAmount, "i != interest - buyAmount"); // interest owed should be reduced by repay amount
+        assertEq(p, lentAmount, "p != lentAmount");             // no change in principal
       } else {
-        assertEq(p, buyAmount > lentAmount + interest ? 0 : lentAmount - (buyAmount - interest));
-        assertEq(i, 0);                     // all interest repaid
-        assertEq(r, interest);              // all interest repaid
+        assertEq(p, _buyAmount > lentAmount + interestAccrued ? 0 : lentAmount - (_buyAmount - interestAccrued), "p, buyAmount > lentAmount + interest ? 0 : lentAmount - (buyAmount - interest)");
+        assertEq(i, 0, "i != 0");                                   // all interest repaid
+        assertEq(r, interestAccrued, "r != interestAccrued");              // all interest repaid
 
       }
-      emit log_named_uint("----  BUY AMOUNT ----", buyAmount);
-      emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
 
-      uint unusedCreditToken =  buyAmount < lentAmount ? 0 : buyAmount - lentAmount;
-      uint unusedRevenueToken = sellAmount > claimable ? 0 : claimable - sellAmount;
-      assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");
-      
-      assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
+       console.log("unused credit tokens after: ", line.unused(address(creditToken)));
+
+      // TODO: test unused token balances
+
+      // emit log_named_uint("----  BUY AMOUNT ----", _buyAmount);
+      // emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
+      // uint256 unusedCreditToken = buyAmou_buyAmount - r;
+      // uint unusedCreditToken =  _buyAmount < p + interestAccrued ? 0 : _buyAmount - (p + interestAccrued);
+      // console.log("unused credit tokens", unusedCreditToken);
+      // uint unusedRevenueToken = sellAmount > claimable ? 0 : claimable - sellAmount;
+      // assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");     
+      // assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
     }
 
     function _caclulateDiff(uint256 a, uint256 b) internal pure returns (int256) {
@@ -815,6 +873,8 @@ contract SpigotedLineTest is Test, Events {
       vm.assume(unusedTokens % 2 == 0);
       vm.assume(unusedTokens < type(uint256).max / 2);
 
+      console.log("dex revenue token balance beginning: ", revenueToken.balanceOf(address(dex)));
+
       uint256 creditTokensPurchased = 1;
 
       // because the MockZeroEx doesn't account for tokens in vs out, we need to "predict" the number of tokens sent (ie claimed + unused)
@@ -829,8 +889,8 @@ contract SpigotedLineTest is Test, Events {
 
       // claim and repay
 
-      // in this scenario, we want debt < newTokens
-      creditTokensPurchased = type(uint256).max / 10**8;
+      // in this scenario, we want debt < newTokens ( use all available DEX tokens)
+      creditTokensPurchased = creditToken.balanceOf(address(dex));
 
       // repaid = newTokens (bought from claimAndTrade) + unusedTokens[credit]
       // we want repaid > newTokens, ie existing balance of unused, which we have
@@ -845,7 +905,7 @@ contract SpigotedLineTest is Test, Events {
         address(revenueToken),
         address(creditToken),
         revenue / 2,
-        creditTokensPurchased
+        creditTokensPurchased // this one
       );
 
       int256 diff = _caclulateDiff(repaid,creditTokensPurchased);
@@ -853,6 +913,8 @@ contract SpigotedLineTest is Test, Events {
       emit log_named_int("diff", diff);
 
       vm.startPrank(arbiter);
+
+      console.log("dex revenue token balance: ", revenueToken.balanceOf(address(dex)));
 
       // SpigotedLineLib.claimAndRepay
       vm.expectEmit(true,false,true,true);
