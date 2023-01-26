@@ -1233,8 +1233,7 @@ contract LineTest is Test, Events {
     }
 
     function test_deposit_and_repay_debt_becomes_repaid(uint256 credit) public {
-        credit = bound(credit, 1 ether, mintAmount);
-        // vm.assume(credit >= 1 ether && credit <= mintAmount);
+        vm.assume(credit >= 1 ether && credit <= mintAmount);
         _addCredit(address(supportedToken1), credit);
         bytes32 id = line.ids(0);
         hoax(borrower);
