@@ -255,7 +255,7 @@ interface ILineOfCredit {
      * @notice - info on the next lender position that must be repaid
      * @return - (bytes32, address, address, uint, uint) - id, lender, token, principal, interestAccrued
      */
-    function nextInQ() external returns (bytes32, address, address, uint256, uint256);
+    function nextInQ() external returns (bytes32, address, address, uint256, uint256, uint128, uint128);
 
     /**
      * @notice - how many tokens can be withdrawn from positions by borrower or lender
