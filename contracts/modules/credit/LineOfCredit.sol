@@ -544,7 +544,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.nextInQ
-    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint128, uint128) {
+    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
         bytes32 next = ids[0];
         (uint128 drawnRate, uint128 facilityRate, ) = interestRate.rates(next);
 
@@ -553,6 +553,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             credits[next].lender,
             credits[next].token,
             credits[next].principal,
+            credits[next].deposit,
             CreditLib.interestAccrued(credits[next], next, address(interestRate)),
             drawnRate,
             facilityRate);

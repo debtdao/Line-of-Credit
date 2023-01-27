@@ -43,6 +43,7 @@ contract QueueTest is Test, Events {
     uint256 minCollateralRatio = 1 ether; // 100%
     uint128 dRate = 100;
     uint128 fRate = 1;
+    InterestRateCredit i;
 
     mapping(bytes32 => string) idLabels;
 
@@ -54,7 +55,7 @@ contract QueueTest is Test, Events {
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
-
+        i = new InterestRateCredit();
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();
@@ -468,24 +469,49 @@ contract QueueTest is Test, Events {
 
     function test_next_position_equals_first_position() public {
         _createCreditLines(3);
-        (bytes32 next,,,,,,) = line.nextInQ();
+        (bytes32 next,,,,,,,) = line.nextInQ();
         assertEq(next, line.ids(0));
     }
 
     function test_next_position_has_same_data_as_first_position() public {
+        _createCreditLines(3);
+        (, address nextLender,,uint256 nextPrincipal, uint256 nextDeposit,,,) = line.nextInQ();
 
+        (uint256 deposit, uint256 principal,,,,,address lender,) = line.credits(line.ids(0));
+
+        assertEq(nextLender, lender);
+        assertEq(nextPrincipal, principal);
+        assertEq(nextDeposit, deposit);
     }
 
     function test_next_position_has_same_interest_accrued_as_first_position() public {
+        _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
+        vm.warp(30 days);
 
+        (,,,,,uint256 nextInterestAccrued,,) = line.nextInQ();
+        uint256 interestAccrued = line.interestAccrued(line.ids(0));
+
+        assertEq(nextInterestAccrued, interestAccrued);
     }
 
     function test_next_position_has_same_interest_rate_as_first_position() public {
+        _createCreditLines(3);
+        bytes32 id = line.ids(0);
+        i.setRate(id, dRate, fRate);
+        (,,,,,,uint128 nextDrawnRate, uint128 nextFacilityRate) = line.nextInQ();
 
+        (uint128 dRate, uint128 fRate,) = i.rates(line.ids(0));
+
+        assertEq(nextDrawnRate, dRate);
+        assertEq(nextFacilityRate, fRate);
     }
 
     function test_returns_null_if_no_position_created() public {
-
+        (bytes32 next,,,,,,,) = line.nextInQ();
+        assertEq(next, bytes32(0));
     }
 
     function test_return_null_if_no_drawn_amount() public {
