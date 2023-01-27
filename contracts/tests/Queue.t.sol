@@ -465,6 +465,35 @@ contract QueueTest is Test, Events {
         assertEq(ids[1], bytes32(0));
     }
 
+
+    function test_next_position_equals_first_position() public {
+        _createCreditLines(3);
+        (bytes32 next,,,,,,) = line.nextInQ();
+        assertEq(next, line.ids(0));
+    }
+
+    function test_next_position_has_same_data_as_first_position() public {
+
+    }
+
+    function test_next_position_has_same_interest_accrued_as_first_position() public {
+
+    }
+
+    function test_next_position_has_same_interest_rate_as_first_position() public {
+
+    }
+
+    function test_returns_null_if_no_position_created() public {
+
+    }
+
+    function test_return_null_if_no_drawn_amount() public {
+
+    }
+
+
+
     /*//////////////////////////////////
                 U T I L S
     //////////////////////////////////*/
