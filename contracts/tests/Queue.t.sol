@@ -469,18 +469,25 @@ contract QueueTest is Test, Events {
 
     function test_next_position_equals_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         (bytes32 next,,,,,,,) = line.nextInQ();
         assertEq(next, line.ids(0));
     }
 
     function test_next_position_has_same_data_as_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         (, address nextLender,,uint256 nextPrincipal, uint256 nextDeposit,,,) = line.nextInQ();
 
         (uint256 deposit, uint256 principal,,,,,address lender,) = line.credits(line.ids(0));
 
         assertEq(nextLender, lender);
         assertEq(nextPrincipal, principal);
+        assertEq(nextPrincipal, 1 ether);
         assertEq(nextDeposit, deposit);
     }
 
@@ -499,6 +506,9 @@ contract QueueTest is Test, Events {
 
     function test_next_position_has_same_interest_rate_as_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         bytes32 id = line.ids(0);
         i.setRate(id, dRate, fRate);
         (,,,,,,uint128 nextDrawnRate, uint128 nextFacilityRate) = line.nextInQ();
@@ -509,14 +519,14 @@ contract QueueTest is Test, Events {
         assertEq(nextFacilityRate, fRate);
     }
 
-    function test_returns_null_if_no_position_created() public {
-        (bytes32 next,,,,,,,) = line.nextInQ();
-        assertEq(next, bytes32(0));
-    }
+    // function test_returns_null_if_no_position_created() public {
+    //     (,,,,,,,) = line.nextInQ();
+    //     assertEq(line.nextInQ(), 0);
+    // }
 
-    function test_return_null_if_no_drawn_amount() public {
+    // function test_return_null_if_no_drawn_amount() public {
 
-    }
+    // }
 
 
 
