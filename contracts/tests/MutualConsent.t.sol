@@ -22,6 +22,7 @@ interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
     event MutualConsentRegistered(bytes32 _consentHash);
     event MutualConsentRevoked(bytes32 _toRevoke);
+    event MutualConsentAccepted(bytes32 _acceptedHash);
 }
 
 contract MutualConsentTest is Test, Events {
@@ -100,6 +101,13 @@ contract MutualConsentTest is Test, Events {
                             addCredit
     /////////////////////////////////////////////////////*/
 
+    function test_addCredit_mutual_consent_accepted_event() public {
+        vm.startPrank(lender);
+        vm.expectEmit(false,false,false,false, address(line)); 
+        emit MutualConsentAccepted(keccak256(abi.encode("none")));
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+    }
     function test_addCredit_revoking_invalid_consent_fails() public {
         // derive the expected consent hash
         bytes
