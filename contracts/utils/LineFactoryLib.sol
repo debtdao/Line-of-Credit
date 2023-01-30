@@ -13,9 +13,7 @@ library LineFactoryLib {
     );
 
     event DeployedSpigot(address indexed deployedAt, address indexed owner, address operator);
-
     event DeployedEscrow(address indexed deployedAt, uint32 indexed minCRatio, address indexed oracle, address owner);
-
     error ModuleTransferFailed(address line, address spigot, address escrow);
     error InitNewLineFailed(address line, address spigot, address escrow);
 
@@ -24,9 +22,8 @@ library LineFactoryLib {
      * @param line    - the line to transfer modules to
      * @param spigot  - the module to be transferred to line
      * @param escrow  - the module to be transferred to line
-     * @return bool   - if modules were transferred sucessfully or not
     */
-    function transferModulesToLine(address line, address spigot, address escrow) external returns (bool) {
+    function transferModulesToLine(address line, address spigot, address escrow) external {
         (bool success, bytes memory returnVal) = spigot.call(
             abi.encodeWithSignature("updateOwner(address)", address(line))
         );
@@ -42,10 +39,7 @@ library LineFactoryLib {
         if (SecuredLine(payable(line)).init() != LineLib.STATUS.ACTIVE) {
             revert InitNewLineFailed(address(line), spigot, escrow);
         }
-
-        return true;
     }
-
     /**
      * @notice  - See SecuredLine.constructor(). Deploys a new SecuredLine contract with params provided by factory.
      * @return line   - address of newly deployed line
