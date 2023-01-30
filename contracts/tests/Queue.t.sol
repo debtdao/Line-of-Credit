@@ -524,9 +524,11 @@ contract QueueTest is Test, Events {
     //     assertEq(line.nextInQ(), 0);
     // }
 
-    // function test_return_null_if_no_drawn_amount() public {
-
-    // }
+    function test_return_null_if_no_drawn_amount() public {
+        _createCreditLines(3);
+        (bytes32 next,,,,,,,) = line.nextInQ();
+        assertEq(next,  bytes32(0));
+    }
 
 
 
