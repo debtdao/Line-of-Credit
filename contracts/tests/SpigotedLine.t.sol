@@ -651,37 +651,33 @@ contract SpigotedLineTest is Test, Events {
       buyAmount = bound(buyAmount, 1, MAX_REVENUE);
       sellAmount = bound(sellAmount, 1, MAX_REVENUE);
 
-      emit log_named_uint("MAX_REVENU", MAX_REVENUE);
-      emit log_named_uint("buyAmount", buyAmount);
-      emit log_named_uint("sellAmount", sellAmount);
-
       _borrow(line.ids(0), lentAmount);
 
       vm.warp(block.timestamp + timespan);
       line.accrueInterest();
-      // (,,uint interest,,,,) = line.credits(line.ids(0)) ;
+
       (,, uint interestAccrued,,,,,) = line.credits(line.ids(0));
       console.log("interestAccrued", interestAccrued);
 
       console.log("unused credit tokens before: ", line.unused(address(creditToken)));
 
-   
+      uint256 unusedCreditTokens = line.unused(address(creditToken));
       uint claimable = spigot.getOwnerTokens(address(revenueToken));
       uint256 tradable;
-      uint256 expected;
+      uint256 expectedRevenueTokens;
       if ( sellAmount > claimable ) {
         // if the fuzzed sell amount is greater than the amount that's claimable, we won't be able to sell it
         tradable = claimable;
-        expected = 0;
+        expectedRevenueTokens = 0;
       } else {
         // expected difference will be claimable less sell amount
         tradable = sellAmount;
-        expected = claimable - sellAmount; // ie whats left over after claiming
+        expectedRevenueTokens = claimable - sellAmount; // ie whats left over after claiming
       }
 
       emit log_named_uint("claimable", claimable);
       emit log_named_uint("tradable", tradable);
-      emit log_named_uint("expected", expected);
+      emit log_named_uint("expected", expectedRevenueTokens);
       
       // oracle prices not relevant to trading test
       bytes memory tradeData = abi.encodeWithSignature(
@@ -694,65 +690,39 @@ contract SpigotedLineTest is Test, Events {
 
       vm.prank(arbiter);
       uint256 tokensBought = line.claimAndRepay(address(revenueToken), tradeData);
-      emit log_named_uint("tokensBought", tokensBought);
-
-
-      // assertEq(expected, lineCreditTokenBalance);
-
-      // uint256 ownerTokens = spigot.getOwnerTokens(address(revenueToken));
-      // emit log_named_uint("ownerTokens remaining", ownerTokens);
-      // emit log_named_uint("expected", expected);
-      // assertEq(ownerTokens, 0);
-
-   
-
+      
       // principal, interest, repaid
       (,uint p, uint i, uint r,,,,) = line.credits(line.ids(0));
-      emit log_named_uint("interest", i);
-      emit log_named_uint("principal", p);
-      emit log_named_uint("interest repaid", r);
 
-      // outstanding debt = initial principal + accrued interest - tokens repaid
-      uint _buyAmount = buyAmount > lentAmount + interestAccrued ? lentAmount + interestAccrued : buyAmount;
-      // assertEq(tokensBought, _buyAmount, "tokensBought != buyAmount");
-      console.log("_buyAmount", _buyAmount);
-      // console.log("principal", p);
-      // console.log("principal + interest", p + i);
-      // console.log("lentAmount", lentAmount);
-      // console.log("lentAmount + interest", lentAmount + i);
-      assertEq(p + i, lentAmount + interestAccrued - _buyAmount, "first assert");
-
-      
-
-      if(interestAccrued > _buyAmount) {
+      if(interestAccrued > buyAmount) {
         // only interest paid
-        assertEq(r, _buyAmount, "r != buyAmount");            // paid what interest we could
-        assertEq(i, interestAccrued - _buyAmount, "i != interest - buyAmount"); // interest owed should be reduced by repay amount
+        assertEq(r, buyAmount, "r != buyAmount");            // paid what interest we could
+        assertEq(i, interestAccrued - buyAmount, "i != interest - buyAmount"); // interest owed should be reduced by repay amount
         assertEq(p, lentAmount, "p != lentAmount");             // no change in principal
       } else {
-        assertEq(p, _buyAmount > lentAmount + interestAccrued ? 0 : lentAmount - (_buyAmount - interestAccrued), "p, buyAmount > lentAmount + interest ? 0 : lentAmount - (buyAmount - interest)");
+        assertEq(p, buyAmount > lentAmount + interestAccrued ? 0 : lentAmount - (buyAmount - interestAccrued), "p, buyAmount > lentAmount + interest ? 0 : lentAmount - (buyAmount - interest)");
         assertEq(i, 0, "i != 0");                                   // all interest repaid
         assertEq(r, interestAccrued, "r != interestAccrued");              // all interest repaid
 
       }
 
-       console.log("unused credit tokens after: ", line.unused(address(creditToken)));
+      // check unused balances
+      if (lentAmount + interestAccrued > buyAmount) {
+        // if we buy less tokens than is needed to repay, then amount decreases (to 0), ie debt has not been repaid
+        assertEq(p + i, lentAmount + interestAccrued - buyAmount, "post-claimAndRepay accounting does not add up");
+        assertEq(line.unused(address(creditToken)), 0, "should have no unused credit tokens");
+      } else {
+        // debt has been repaid
+        assertEq(p + i, 0, "principal and interest should be 0");
+        assertEq(line.unused(address(creditToken)), unusedCreditTokens + tokensBought - lentAmount - interestAccrued, "unused credit tokens does not balance");
+      }
 
-      // TODO: test unused token balances
-
-      // emit log_named_uint("----  BUY AMOUNT ----", _buyAmount);
-      // emit log_named_uint("----  SELL AMOUNT ----", sellAmount);
-      // uint256 unusedCreditToken = buyAmou_buyAmount - r;
-      // uint unusedCreditToken =  _buyAmount < p + interestAccrued ? 0 : _buyAmount - (p + interestAccrued);
-      // console.log("unused credit tokens", unusedCreditToken);
-      // uint unusedRevenueToken = sellAmount > claimable ? 0 : claimable - sellAmount;
-      // assertEq(line.unused(address(creditToken)), unusedCreditToken, "2nd to last assert");     
-      // assertEq(line.unused(address(revenueToken)), unusedRevenueToken, "last assert");
+      assertEq(line.unused(address(revenueToken)), expectedRevenueTokens, "unused revenue does not balance");
+      
     }
 
     function _caclulateDiff(uint256 a, uint256 b) internal pure returns (int256) {
       uint256 diff;
-      uint256 sign;
       if (a > b) {
         diff = a - b;
         return (int256(diff) * -1);

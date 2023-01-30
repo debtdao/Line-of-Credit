@@ -105,7 +105,6 @@ abstract contract MutualConsent {
 
         delete mutualConsents[expectedHash];
 
-        // TODO: test this
         emit MutualConsentAccepted(expectedHash);
 
         return true;
