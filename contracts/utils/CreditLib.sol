@@ -176,8 +176,13 @@ library CreditLib {
     function withdraw(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
+        address caller,
         uint256 amount
     ) external returns (ILineOfCredit.Credit memory) {
+        if (caller != credit.lender) {
+            revert CallerAccessDenied();
+        }
+
         unchecked {
             if (amount > credit.deposit - credit.principal + credit.interestRepaid) {
                 revert ILineOfCredit.NoLiquidity();

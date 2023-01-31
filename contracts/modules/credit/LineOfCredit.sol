@@ -355,16 +355,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
     /// see ILineOfCredit.withdraw
     function withdraw(bytes32 id, uint256 amount) external override nonReentrant returns (bool) {
-        Credit memory credit = credits[id];
-
-        if (msg.sender != credit.lender) {
-            revert CallerAccessDenied();
-        }
-
-        // accrues interest and transfers to Lender
-        credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
-
-        credits[id] = credit;
+        // accrues interest and transfer funds to Lender addres
+        credits[id] = CreditLib.withdraw(_accrue(credits[id], id), id, msg.sender, amount);
 
         LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
