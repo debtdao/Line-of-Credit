@@ -227,6 +227,8 @@ library CreditLib {
         }
 
         credit.principal += amount;
+
+        emit Borrow(id, amount);
         
         return credit;
     }

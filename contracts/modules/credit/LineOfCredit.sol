@@ -346,8 +346,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         LineLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
-        emit Borrow(id, amount);
-
         _sortIntoQ(id);
 
         return true;
