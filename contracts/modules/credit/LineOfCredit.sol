@@ -547,7 +547,19 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
         bytes32 next = ids[0];
         (uint128 drawnRate, uint128 facilityRate, ) = interestRate.rates(next);
-
+        // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
+        if (credits[next].principal == 0){
+            return(
+                bytes32(0),
+                address(0),
+                address(0),
+                0,
+                0,
+                0,
+                0,
+                0
+            );
+        }
         return (
             next, 
             credits[next].lender,
