@@ -229,9 +229,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
       @param id - the position id for credit position
     */
     function _accrue(Credit memory credit, bytes32 id) internal returns (Credit memory) {
-        if (!credit.isOpen) {
-            return credit;
-        }
         return CreditLib.accrue(credit, id, address(interestRate));
     }
 
@@ -339,17 +336,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower returns (bool) {
         Credit memory credit = _accrue(credits[id], id);
 
-        if (!credit.isOpen) {
-            revert PositionIsClosed();
-        }
-
-        if (amount > credit.deposit - credit.principal) {
-            revert NoLiquidity();
-        }
-
-        credit.principal += amount;
-
-        credits[id] = credit; // save new debt before healthcheck and token transfer
+        // borrow and save new debt before healthcheck and token transfer
+        credits[id] = CreditLib.borrow(credit, id, amount);
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
@@ -387,12 +375,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @notice  - Steps the Queue be replacing the first element with the next valid credit line's ID
      * @dev     - Only works if the first element in the queue is null
      */
-    function stepQ() external returns (bool) {
-        if (ids[0] != bytes32(0)) {
-            revert CantStepQ();
-        }
+    function stepQ() external {
         ids.stepQ();
-        return true;
     }
 
     //////////////////////
@@ -461,14 +445,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
-        if (!credit.isOpen) {
-            revert PositionIsClosed();
-        }
-        if (credit.principal != 0) {
-            revert CloseFailedWithPrincipal();
-        }
-
-        credit.isOpen = false;
+        // update position data in state
+        credits[id] = CreditLib.close(credit, id);
 
         // nullify the element for `id`
         ids.removePosition(id);

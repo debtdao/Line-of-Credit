@@ -208,11 +208,59 @@ library CreditLib {
      * @notice called by LineOfCredit._accrue during every repayment function
      * @param interest - interset rate contract used by line that will calculate interest owed
     */
+    function borrow(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        address amount
+    ) public returns (ILineOfCredit.Credit memory) {
+        if (!credit.isOpen) {
+            revert PositionIsClosed();
+        }
+
+        if (amount > credit.deposit - credit.principal) {
+            revert NoLiquidity();
+        }
+
+        credit.principal += amount;
+        
+        return credit;
+    }
+
+
+    /**
+     * see ILineOfCredit._accrue
+     * @notice called by LineOfCredit._accrue during every repayment function
+     * @param interest - interset rate contract used by line that will calculate interest owed
+    */
+    function close(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id
+    ) public returns (ILineOfCredit.Credit memory) {
+        if (!credit.isOpen) {
+            revert PositionIsClosed();
+        }
+        if (credit.principal != 0) {
+            revert CloseFailedWithPrincipal();
+        }
+
+        credit.isOpen = false;
+
+        return credit;
+    }
+
+    /**
+     * see ILineOfCredit._accrue
+     * @notice called by LineOfCredit._accrue during every repayment function
+     * @param interest - interset rate contract used by line that will calculate interest owed
+    */
     function accrue(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
         address interest
     ) public returns (ILineOfCredit.Credit memory) {
+        if (!credit.isOpen) {
+            return credit;
+        }
         unchecked {
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate

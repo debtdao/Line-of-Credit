@@ -39,6 +39,10 @@ library CreditListLib {
      * @return swapped  - returns true if the swap has occurred
      */
     function stepQ(bytes32[] storage ids) external returns (bool) {
+        if (ids[0] != bytes32(0)) {
+            revert CantStepQ();
+        }
+
         uint256 len = ids.length;
         if (len <= 1) return false;
          
