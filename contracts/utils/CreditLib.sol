@@ -231,4 +231,30 @@ library CreditLib {
     function interestAccrued(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (uint256) {
         return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
     }
+
+    function nextInQ(ILineOfCredit.Credit memory credit, bytes32 id, address interest, uint128 drawnRate, uint128 facilityRate) external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
+        
+        // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
+        if (credit.principal == 0){
+            return(
+                bytes32(0),
+                address(0),
+                address(0),
+                0,
+                0,
+                0,
+                0,
+                0
+            );
+        }
+        return (
+            id, 
+            credit.lender,
+            credit.token,
+            credit.principal,
+            credit.deposit,
+            IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit),
+            drawnRate,
+            facilityRate);
+    }
 }
