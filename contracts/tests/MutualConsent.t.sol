@@ -165,7 +165,7 @@ contract MutualConsentTest is Test, Events {
         emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
 
-        assertEq(line.mutualConsents(expectedHash), address(0));
+        assertEq(line.mutualConsentProposals(expectedHash), address(0));
     }
 
     function test_addCredit_calling_function_after_revocation_registers_new_consent() external {

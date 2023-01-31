@@ -18,7 +18,7 @@ abstract contract MutualConsent {
     uint256 constant MIN_DATA_LENGTH_BYTES = 4;
 
     // Mapping of upgradable units and if consent has been initialized by other party
-    mapping(bytes32 => address) public mutualConsents;
+    mapping(bytes32 => address) public mutualConsentProposals;
 
     error Unauthorized();
     error InvalidConsent();
@@ -30,7 +30,7 @@ abstract contract MutualConsent {
 
     /* ============ Events ============ */
 
-    event MutualConsentRegistered(bytes32 _proposalId, address _nonCaller);
+    event MutualConsentRegistered(bytes32 _proposalId, address _taker);
     event MutualConsentRevoked(bytes32 _proposalId);
 
     /* ============ Modifiers ============ */
@@ -65,7 +65,7 @@ abstract contract MutualConsent {
 
         bytes32 proposalIdToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
 
-        address consentor = mutualConsents[proposalIdToDelete];
+        address consentor = mutualConsentProposals[proposalIdToDelete];
 
         if (consentor == address(0)) {
             revert InvalidConsent();
@@ -74,7 +74,7 @@ abstract contract MutualConsent {
             revert NotUserConsent();
         } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision
 
-        delete mutualConsents[proposalIdToDelete];
+        delete mutualConsentProposals[proposalIdToDelete];
 
         emit MutualConsentRevoked(proposalIdToDelete);
     }
@@ -92,17 +92,17 @@ abstract contract MutualConsent {
         // which uniquely identifies the function, arguments, and sender.
         bytes32 expectedProposalId = keccak256(abi.encodePacked(msg.data, nonCaller));
 
-        if (mutualConsents[expectedProposalId] == address(0)) {
+        if (mutualConsentProposals[expectedProposalId] == address(0)) {
             bytes32 newProposalId = keccak256(abi.encodePacked(msg.data, msg.sender));
 
-            mutualConsents[newProposalId] = msg.sender; // save caller's consent for nonCaller to accept
+            mutualConsentProposals[newProposalId] = msg.sender; // save caller's consent for nonCaller to accept
 
             emit MutualConsentRegistered(newProposalId, nonCaller);
 
             return false;
         }
 
-        delete mutualConsents[expectedProposalId];
+        delete mutualConsentProposals[expectedProposalId];
 
         return true;
     }
