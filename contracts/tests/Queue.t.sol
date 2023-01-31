@@ -520,8 +520,9 @@ contract QueueTest is Test, Events {
     }
 
     // function test_returns_null_if_no_position_created() public {
-    //     (,,,,,,,) = line.nextInQ();
-    //     assertEq(line.nextInQ(), 0);
+    //     (bytes32 next,,,,,,,) = line.nextInQ();
+    //     vm.expectRevert();
+    //     line.credits(next);
     // }
 
     function test_return_null_if_no_drawn_amount() public {
