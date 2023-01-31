@@ -11,6 +11,8 @@ import {LineLib} from "./LineLib.sol";
  * @author Kiba Gateaux
  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
+
+
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
 
@@ -45,6 +47,8 @@ library CreditLib {
     error InvalidTokenDecimals();
 
     error CreditPositionClosed();
+    
+    error NoQueue();
 
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
@@ -214,6 +218,9 @@ library CreditLib {
         address interest
     ) public returns (ILineOfCredit.Credit memory) {
         unchecked {
+            if (!credit.isOpen) {
+                return credit;
+            }
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate
 
@@ -232,29 +239,40 @@ library CreditLib {
         return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
     }
 
-    function nextInQ(ILineOfCredit.Credit memory credit, bytes32 id, address interest, uint128 drawnRate, uint128 facilityRate) external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
-        
-        // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
-        if (credit.principal == 0){
-            return(
-                bytes32(0),
-                address(0),
-                address(0),
-                0,
-                0,
-                0,
-                0,
-                0
-            );
+
+    function getNextRateInQ(uint256 principal, bytes32 id, address interest)  external view returns (uint128, uint128) {
+        if(principal == 0) {
+            revert NoQueue();
+        }  else {
+            return IInterestRateCredit(interest).getRates(id);
         }
-        return (
-            id, 
-            credit.lender,
-            credit.token,
-            credit.principal,
-            credit.deposit,
-            IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit),
-            drawnRate,
-            facilityRate);
     }
+
+    // function nextInQ(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
+    //     // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
+    //     if (credit.principal == 0) {
+    //         return (
+    //             bytes32(0),
+    //             address(0),
+    //             address(0),
+    //             0,
+    //             0,
+    //             0,
+    //             0,
+    //             0
+    //         );
+    //     } else {
+    //         (uint128 dRate, uint128 fRate)= IInterestRateCredit(interest).getRates(id);
+    //         return (
+    //             id, 
+    //             credit.lender,
+    //             credit.token,
+    //             credit.principal,
+    //             credit.deposit,
+    //             IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit),
+    //             dRate,
+    //             fRate
+    //         );
+    //     }
+    // }
 }

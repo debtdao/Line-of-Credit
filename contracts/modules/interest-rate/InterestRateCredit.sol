@@ -11,6 +11,7 @@ contract InterestRateCredit is IInterestRateCredit {
     uint256 constant INTEREST_DENOMINATOR = ONE_YEAR * BASE_DENOMINATOR;
 
     address immutable lineContract;
+
     mapping(bytes32 => Rate) public rates; // position id -> lending rates
 
     /**
@@ -74,5 +75,9 @@ contract InterestRateCredit is IInterestRateCredit {
     function setRate(bytes32 id, uint128 dRate, uint128 fRate) external onlyLineContract returns (bool) {
         rates[id] = Rate({dRate: dRate, fRate: fRate, lastAccrued: block.timestamp});
         return true;
+    }
+
+    function getRates(bytes32 id) external view returns (uint128,  uint128) {
+        return (rates[id].dRate, rates[id].fRate);
     }
 }
