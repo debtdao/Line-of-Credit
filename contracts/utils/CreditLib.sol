@@ -50,6 +50,14 @@ library CreditLib {
     
     error NoQueue();
 
+    error PositionIsClosed();
+
+    error NoLiquidity();
+
+    error CloseFailedWithPrincipal();
+
+
+
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
      * @param line   - The Line of Credit facility concerned
@@ -210,13 +218,12 @@ library CreditLib {
     /**
      * see ILineOfCredit._accrue
      * @notice called by LineOfCredit._accrue during every repayment function
-     * @param interest - interset rate contract used by line that will calculate interest owed
     */
     function borrow(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
-        address amount
-    ) public returns (ILineOfCredit.Credit memory) {
+        uint256 amount
+    ) public pure returns (ILineOfCredit.Credit memory) {
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }
@@ -234,12 +241,11 @@ library CreditLib {
     /**
      * see ILineOfCredit._accrue
      * @notice called by LineOfCredit._accrue during every repayment function
-     * @param interest - interset rate contract used by line that will calculate interest owed
     */
     function close(
         ILineOfCredit.Credit memory credit,
         bytes32 id
-    ) public returns (ILineOfCredit.Credit memory) {
+    ) public view returns (ILineOfCredit.Credit memory) {
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }

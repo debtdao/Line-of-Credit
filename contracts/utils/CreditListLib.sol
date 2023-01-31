@@ -11,6 +11,7 @@ import {CreditLib} from "./CreditLib.sol";
 library CreditListLib {
     event QueueCleared();
     event SortedIntoQ(bytes32 indexed id, uint256 indexed newIdx, uint256 indexed oldIdx, bytes32 oldId);
+    error CantStepQ();
 
     /**
      * @notice  - Removes a position id from the active list of open positions.

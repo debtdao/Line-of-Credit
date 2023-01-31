@@ -217,9 +217,8 @@ interface ILineOfCredit {
     /**
      * @notice - Cycles through position ids andselects first position with non-null principal to the zero index
      * @dev - Only works if the first element in the queue is null
-     * @return bool - if call suceeded or not
      */
-    function stepQ() external returns (bool);
+    function stepQ() external;
 
     /**
      * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
