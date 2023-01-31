@@ -527,8 +527,23 @@ contract QueueTest is Test, Events {
 
     function test_return_null_if_no_drawn_amount() public {
         _createCreditLines(3);
-        (bytes32 next,,,,,,,) = line.nextInQ();
+        (bytes32 next, 
+        address lender, 
+        address token,
+        uint256 principal,
+        uint256 deposit,
+        uint256 interest,
+        uint128 drawnRate,
+        uint128 facilityRate) = line.nextInQ();
+
         assertEq(next,  bytes32(0));
+        assertEq(lender,  address(0));
+        assertEq(token,  address(0));
+        assertEq(principal,  uint256(0));
+        assertEq(deposit,  uint256(0));
+        assertEq(interest,  uint256(0));
+        assertEq(drawnRate,  uint128(0));
+        assertEq(facilityRate,  uint128(0));
     }
 
 
