@@ -32,18 +32,25 @@ contract InterestRateCredit is IInterestRateCredit {
         bytes32 id,
         uint256 drawnBalance,
         uint256 facilityBalance
-    ) external override onlyLineContract returns (uint256) {
+    ) external override onlyLineContract returns (uint256 accrued) {
+        accrued = _accrueInterest(id, drawnBalance, facilityBalance);
+        // update last timestamp in storage
+        rates[id].lastAccrued = block.timestamp;
+    }
+
+    function getInterestAccrued(
+        bytes32 id,
+        uint256 drawnBalance,
+        uint256 facilityBalance
+    ) external view returns (uint256){
         return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
-    function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal returns (uint256) {
+    function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal view returns (uint256) {
         Rate memory rate = rates[id];
 
         // get time since interest was last accrued iwth these balances
         uint256 timespan = block.timestamp - rate.lastAccrued;
-
-        // update last timestamp in storage
-        rates[id].lastAccrued = block.timestamp;
 
         return (_calculateInterestOwed(rate.dRate, drawnBalance, timespan) +
             _calculateInterestOwed(rate.fRate, (facilityBalance - drawnBalance), timespan));
@@ -59,7 +66,7 @@ contract InterestRateCredit is IInterestRateCredit {
      *
      * @return interestOwed
      */
-    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal returns (uint256) {
+    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal pure returns (uint256) {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 

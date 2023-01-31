@@ -28,7 +28,7 @@ gas_reports_ignore = []
 auto_detect_solc = true
 offline = false
 optimizer = true
-optimizer_runs = 200
+optimizer_runs = 100
 verbosity = 0
 ignored_error_codes = [
     1878,
@@ -60,19 +60,25 @@ bytecode_hash = 'ipfs'
 sparse_mode = false
 build_info = false
 
+
 [profile.ci]
 fuzz_runs = 65536
 
+[profile.local]
+libraries = []
+
+
 [profile.goerli]
 libraries = [
-    "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
-    "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
-    "contracts/utils/LineLib.sol:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66",
-    "contracts/utils/EscrowLib.sol:EscrowLib:0xfaffe74894e36C6534Cc13b73af015b5666b4EA9",
-    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x910116b3FB14D968eAF69292F23EA52A456F4183",
-    "contracts/utils/SpigotLib.sol:SpigotLib:0xD40bf1DC5c9Ed959642443876d79fdE2Ff81196a",
-    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xF3562A8970e5a4DE823D32AC11b761DDb9a167a3"
-]
+    "contracts/utils/LineLib.sol:LineLib:0xec6e736d8774f9949Cb0985cB4cc1ec9224a601c",
+    "contracts/utils/CreditLib.sol:CreditLib:0xDb19FCFe818493ee84Ce33137b0851DE88c9fF13",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0x627A8B08F7d0F10F6BDC4Ef668841fb10B3B2b1d",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0x78064A7b6259BcE045d377593288273D22459dfe",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0x20b7C07AF032C3a999D9CECf804f4D3b9Fac6a3F",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x09d811eEab9893d2285b38728574c55401Ea6A9B",
+    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xC6805c0B1Ba484128cE97e92CF5ca09d82B3D51e",
+    "contracts/modules/factories/ModuleFactory.sol:ModuleFactory:0x70a951E2D2Ee4Fc6D38325AB0e0ED1a789Eb2D8E"
+    ]
 
 [profile.mainnet]
 libraries = [
