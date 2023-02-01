@@ -527,6 +527,7 @@ contract QueueTest is Test, Events {
 
     function test_return_null_if_no_drawn_amount() public {
         _createCreditLines(3);
+        vm.expectRevert();
         (bytes32 next, 
         address lender, 
         address token,
@@ -535,6 +536,8 @@ contract QueueTest is Test, Events {
         uint256 interest,
         uint128 drawnRate,
         uint128 facilityRate) = line.nextInQ();
+
+        
 
         assertEq(next,  bytes32(0));
         assertEq(lender,  address(0));

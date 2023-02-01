@@ -301,32 +301,4 @@ library CreditLib {
             return IInterestRateCredit(interest).getRates(id);
         }
     }
-
-    // function nextInQ(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
-    //     // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
-    //     if (credit.principal == 0) {
-    //         return (
-    //             bytes32(0),
-    //             address(0),
-    //             address(0),
-    //             0,
-    //             0,
-    //             0,
-    //             0,
-    //             0
-    //         );
-    //     } else {
-    //         (uint128 dRate, uint128 fRate)= IInterestRateCredit(interest).getRates(id);
-    //         return (
-    //             id, 
-    //             credit.lender,
-    //             credit.token,
-    //             credit.principal,
-    //             credit.deposit,
-    //             IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit),
-    //             dRate,
-    //             fRate
-    //         );
-    //     }
-    // }
 }
