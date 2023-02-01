@@ -120,9 +120,8 @@ interface ILineOfCredit {
      * @param id         - position id that we are updating
      * @param drate      - new drawn rate. In bps, 4 decimals
      * @param frate      - new facility rate. In bps, 4 decimals
-     * @return - if function executed successfully
      */
-    function setRates(bytes32 id, uint128 drate, uint128 frate) external returns (bool);
+    function setRates(bytes32 id, uint128 drate, uint128 frate) external;
 
     /**
      * @notice           - Lets a Lender and a Borrower increase the credit limit on a position
@@ -131,9 +130,8 @@ interface ILineOfCredit {
      * @dev              - The function retains the `payable` designation, despite not accepting Eth via mutualConsent modifier, as a gas-optimization
      * @param id         - position id that we are updating
      * @param amount     - amount to deposit by the Lender
-     * @return - if function executed successfully
      */
-    function increaseCredit(bytes32 id, uint256 amount) external payable returns (bool);
+    function increaseCredit(bytes32 id, uint256 amount) external payable;
 
     // Borrower functions
 
@@ -142,9 +140,8 @@ interface ILineOfCredit {
      * @dev          - callable by borrower
      * @param id     - the position to draw down on
      * @param amount - amount of tokens the borrower wants to withdraw
-     * @return - if function executed successfully
      */
-    function borrow(bytes32 id, uint256 amount) external returns (bool);
+    function borrow(bytes32 id, uint256 amount) external;
 
     /**
      * @notice       - Transfers token used in position id from msg.sender to Line contract.
@@ -152,17 +149,15 @@ interface ILineOfCredit {
      * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
      * @notice       - see LineOfCredit._repay() for more details
      * @param amount - amount of `token` in `id` to pay back
-     * @return - if function executed successfully
      */
-    function depositAndRepay(uint256 amount) external payable returns (bool);
+    function depositAndRepay(uint256 amount) external payable;
 
     /**
      * @notice       - A Borrower deposits enough tokens to repay and close a credit line.
      * @dev          - callable by borrower
      * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
-     * @return - if function executed successfully
      */
-    function depositAndClose() external payable returns (bool);
+    function depositAndClose() external payable;
 
     /**
      * @notice - Removes and deletes a position, preventing any more borrowing or interest.
@@ -171,9 +166,8 @@ interface ILineOfCredit {
      * @dev - callable by `borrower` or Lender
      * @dev          - The function retains the `payable` designation, despite reverting with a non-zero msg.value, as a gas-optimization
      * @param id -the position id to be closed
-     * @return - if function executed successfully
      */
-    function close(bytes32 id) external payable returns (bool);
+    function close(bytes32 id) external payable;
 
     // Lender functions
 
@@ -185,9 +179,8 @@ interface ILineOfCredit {
      * @dev - callable by Lender on `id`
      * @param id - the position id that Lender is withdrawing from
      * @param amount - amount of tokens the Lender would like to withdraw (withdrawn amount may be lower)
-     * @return - if function executed successfully
      */
-    function withdraw(bytes32 id, uint256 amount) external returns (bool);
+    function withdraw(bytes32 id, uint256 amount) external;
 
     // Arbiter functions
     /**
@@ -196,9 +189,8 @@ interface ILineOfCredit {
      * @dev    - Needed for onchain impairment accounting e.g. updating ERC4626 share price
      *         - MUST NOT have collateral left for call to succeed. Any collateral must already have been liquidated.
      * @dev    - Callable only by Arbiter.
-     * @return bool - If Borrower has been declared insolvent or not
      */
-    function declareInsolvent() external returns (bool);
+    function declareInsolvent() external;
 
     /**
      *
@@ -208,18 +200,16 @@ interface ILineOfCredit {
      * @dev    - The related internal function _accrue() is called by other functions any time the balance on an individual
      *           credit line changes or if the interest rates of a credit line are changed by mutual consent
      *           between a Borrower and a Lender.
-     * @return - if function executed successfully
      */
-    function accrueInterest() external returns (bool);
+    function accrueInterest() external;
 
     function healthcheck() external returns (LineLib.STATUS);
 
     /**
      * @notice - Cycles through position ids andselects first position with non-null principal to the zero index
      * @dev - Only works if the first element in the queue is null
-     * @return bool - if call suceeded or not
      */
-    function stepQ() external returns (bool);
+    function stepQ() external;
 
     /**
      * @notice - Returns the total debt of a Borrower across all positions for all Lenders.

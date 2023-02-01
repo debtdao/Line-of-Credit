@@ -119,7 +119,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             unusedTokens[credit.token] += diff;
         }
 
-        credits[id] = _repay(credit, id, repaid);
+        credits[id] = _repay(credit, id, repaid, address(0)); // no payer, we already have funds
 
         emit RevenuePayment(claimToken, repaid);
 
@@ -147,7 +147,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         unusedTokens[credit.token] -= amount;
         emit ReservesChanged(credit.token, -int256(amount), 0); 
 
-        credits[id] = _repay(_accrue(credit, id), id, amount);
+        credits[id] = _repay(_accrue(credit, id), id, amount, address(0)); // no payer, we already have funds
 
         emit RevenuePayment(credit.token, amount);
 

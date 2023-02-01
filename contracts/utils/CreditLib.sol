@@ -46,6 +46,9 @@ library CreditLib {
 
     error CreditPositionClosed();
 
+    error CallerAccessDenied();
+
+
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
      * @param line   - The Line of Credit facility concerned
@@ -136,8 +139,13 @@ library CreditLib {
     function repay(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
-        uint256 amount
+        uint256 amount,
+        address payer
     ) external returns (ILineOfCredit.Credit memory) {
+        if(!credit.isOpen) {
+            revert CreditPositionClosed();
+        }
+
         unchecked {
             if (amount > credit.principal + credit.interestAccrued) {
                 revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
@@ -147,7 +155,6 @@ library CreditLib {
                 credit.interestAccrued -= amount;
                 credit.interestRepaid += amount;
                 emit RepayInterest(id, amount);
-                return credit;
             } else {
                 if (!credit.isOpen) {
                     revert CreditPositionClosed();
@@ -162,10 +169,14 @@ library CreditLib {
 
                 emit RepayInterest(id, interest);
                 emit RepayPrincipal(id, principalPayment);
-
-                return credit;
             }
         }
+
+        if(payer != address(0)) {
+            LineLib.receiveTokenOrETH(credit.token, payer, amount);
+        }
+
+        return credit;
     }
 
     /**
@@ -198,59 +209,13 @@ library CreditLib {
                 // emit events before seeting to 0
                 emit WithdrawDeposit(id, amount);
                 emit WithdrawProfit(id, interest);
-
-                return credit;
             } else {
                 credit.interestRepaid -= amount;
                 emit WithdrawProfit(id, amount);
-                return credit;
             }
         }
-    }
 
-    /**
-     * see ILineOfCredit._accrue
-     * @notice called by LineOfCredit._accrue during every repayment function
-     * @param interest - interset rate contract used by line that will calculate interest owed
-    */
-    function borrow(
-        ILineOfCredit.Credit memory credit,
-        bytes32 id,
-        address amount
-    ) public returns (ILineOfCredit.Credit memory) {
-        if (!credit.isOpen) {
-            revert PositionIsClosed();
-        }
-
-        if (amount > credit.deposit - credit.principal) {
-            revert NoLiquidity();
-        }
-
-        credit.principal += amount;
-
-        emit Borrow(id, amount);
-        
-        return credit;
-    }
-
-
-    /**
-     * see ILineOfCredit._accrue
-     * @notice called by LineOfCredit._accrue during every repayment function
-     * @param interest - interset rate contract used by line that will calculate interest owed
-    */
-    function close(
-        ILineOfCredit.Credit memory credit,
-        bytes32 id
-    ) public returns (ILineOfCredit.Credit memory) {
-        if (!credit.isOpen) {
-            revert PositionIsClosed();
-        }
-        if (credit.principal != 0) {
-            revert CloseFailedWithPrincipal();
-        }
-
-        credit.isOpen = false;
+        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
 
         return credit;
     }
@@ -258,6 +223,7 @@ library CreditLib {
     /**
      * see ILineOfCredit._accrue
      * @notice called by LineOfCredit._accrue during every repayment function
+     * @dev public to use in `getOutstandingDebt`
      * @param interest - interset rate contract used by line that will calculate interest owed
     */
     function accrue(

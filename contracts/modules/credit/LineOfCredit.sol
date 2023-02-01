@@ -154,7 +154,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.declareInsolvent
-    function declareInsolvent() external returns (bool) {
+    function declareInsolvent() external {
         if (arbiter != msg.sender) {
             revert CallerAccessDenied();
         }
@@ -164,9 +164,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         if (_canDeclareInsolvent()) {
             _updateStatus(LineLib.STATUS.INSOLVENT);
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -210,7 +207,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.accrueInterest
-    function accrueInterest() external override returns (bool) {
+    function accrueInterest() external override {
         uint256 len = ids.length;
         bytes32 id;
         for (uint256 i; i < len; ++i) {
@@ -219,7 +216,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             credits[id] = _accrue(credit, id);
         }
 
-        return true;
     }
 
     /**
@@ -241,10 +237,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         address lender
     ) external payable override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
         bytes32 id = _createCredit(lender, token, amount);
-
-        require(interestRate.setRate(id, drate, frate));
-
-        emit SetRates(id, drate, frate);
+        
+        _setRates(id, drate, frate);
 
         LineLib.receiveTokenOrETH(token, lender, amount);
 
@@ -252,18 +246,22 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.setRates
-    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) returns (bool) {
+    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) {
         credits[id] = _accrue(credits[id], id);
-        require(interestRate.setRate(id, drate, frate));
+        _setRates(id, drate, frate);
+    }
+
+        /// see ILineOfCredit.setRates
+    function _setRates(bytes32 id, uint128 drate, uint128 frate) internal {
+        interestRate.setRate(id, drate, frate);
         emit SetRates(id, drate, frate);
-        return true;
     }
 
     /// see ILineOfCredit.increaseCredit
     function increaseCredit(
         bytes32 id,
         uint256 amount
-    ) external payable override nonReentrant whileActive mutualConsentById(id) returns (bool) {
+    ) external payable override nonReentrant whileActive mutualConsentById(id) {
         Credit memory credit = _accrue(credits[id], id);
 
         credit.deposit += amount;
@@ -273,8 +271,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         LineLib.receiveTokenOrETH(credit.token, credit.lender, amount);
 
         emit IncreaseCredit(id, amount);
-
-        return true;
     }
 
     ///////////////
@@ -282,7 +278,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ///////////////
 
     /// see ILineOfCredit.depositAndClose
-    function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower returns (bool) {
+    function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
@@ -290,42 +286,34 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         uint256 totalOwed = credit.principal + credit.interestAccrued;
 
         // Borrower clears the debt then closes the credit line
-        credits[id] = _close(_repay(credit, id, totalOwed), id);
+        credits[id] = _close(_repay(credit, id, totalOwed, borrower), id);
+        // LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
 
-        LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
-
-        return true;
     }
 
     /// see ILineOfCredit.close
-    function close(bytes32 id) external payable override nonReentrant onlyBorrower returns (bool) {
+    function close(bytes32 id) external payable override nonReentrant onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
         uint256 facilityFee = credit.interestAccrued;
 
         // clear facility fees and close position
-        credits[id] = _close(_repay(credit, id, facilityFee), id);
+        credits[id] = _close(_repay(credit, id, facilityFee, borrower), id);
+        // LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
 
-        LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-
-        return true;
     }
 
     /// see ILineOfCredit.depositAndRepay
-    function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
+    function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
-        require(credit.isOpen);
 
         if(amount > credit.principal + credit.interestAccrued) {
             revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
         }
 
-        credits[id] = _repay(credit, id, amount);
-
-        LineLib.receiveTokenOrETH(credit.token, msg.sender, amount);
-
-        return true;
+        credits[id] = _repay(credit, id, amount, msg.sender);
+        // LineLib.receiveTokenOrETH(credit.token, msg.sender, amount);
     }
 
     ////////////////////
@@ -333,11 +321,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ////////////////////
 
     /// see ILineOfCredit.borrow
-    function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower returns (bool) {
+    function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
-        // borrow and save new debt before healthcheck and token transfer
-        credits[id] = CreditLib.borrow(credit, id, amount);
+        if (!credit.isOpen) {
+            revert PositionIsClosed();
+        }
+
+        if (amount > credit.deposit - credit.principal) {
+            revert NoLiquidity();
+        }
+
+        credit.principal += amount;
+
+        // save new debt before healthcheck and token transfer
+        credits[id] = credit;
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
@@ -346,19 +344,15 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         LineLib.sendOutTokenOrETH(credit.token, borrower, amount);
 
-        _sortIntoQ(id);
+        emit Borrow(id, amount);
 
-        return true;
+        _sortIntoQ(id);
     }
 
     /// see ILineOfCredit.withdraw
-    function withdraw(bytes32 id, uint256 amount) external override nonReentrant returns (bool) {
+    function withdraw(bytes32 id, uint256 amount) external override nonReentrant {
         // accrues interest and transfer funds to Lender addres
         credits[id] = CreditLib.withdraw(_accrue(credits[id], id), id, msg.sender, amount);
-
-        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
-
-        return true;
     }
 
     /**
@@ -421,10 +415,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
    * @param amount - amount of Credit Token being repaid on credit line
    * @return credit - position struct in memory with updated values
   */
-    function _repay(Credit memory credit, bytes32 id, uint256 amount) internal returns (Credit memory) {
-        credit = CreditLib.repay(credit, id, amount);
-
-        return credit;
+    function _repay(Credit memory credit, bytes32 id, uint256 amount, address payer) internal returns (Credit memory) {
+        return CreditLib.repay(credit, id, amount, payer);
     }
 
     /**
@@ -436,7 +428,16 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
         // update position data in state
-        credits[id] = CreditLib.close(credit, id);
+        if (!credit.isOpen) {
+            revert PositionIsClosed();
+        }
+        if (credit.principal != 0) {
+            revert CloseFailedWithPrincipal();
+        }
+
+        credit.isOpen = false;
+
+        credits[id] = credit;
 
         // nullify the element for `id`
         ids.removePosition(id);
@@ -463,9 +464,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                - once earliest slot is found, swap places with `p` and position in slot.
      * @dev - privileged internal function. MUST check params and logic flow before calling
      * @param p - position id that we are trying to find appropriate place for
-     * @return - if function executed successfully
      */
-    function _sortIntoQ(bytes32 p) internal returns (bool) {
+    function _sortIntoQ(bytes32 p) internal {
         uint256 lastSpot = ids.length - 1;
         uint256 nextQSpot = lastSpot;
         bytes32 id;
@@ -478,8 +478,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                     credits[id].principal != 0 //`id` should be placed before `p`
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
-            } else {
-                if (nextQSpot == lastSpot) return true; // nothing to update
+            } else { // nothing to update
+                if (nextQSpot == lastSpot) return; // nothing to update
                 // get id value being swapped with `p`
                 bytes32 oldPositionId = ids[nextQSpot];
                 // swap positions
@@ -487,7 +487,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 ids[nextQSpot] = p; // p put at target index
 
                 emit SortedIntoQ(p, nextQSpot, i, oldPositionId);
-                return true;
             }
         }
     }
