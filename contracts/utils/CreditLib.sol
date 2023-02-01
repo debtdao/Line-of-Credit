@@ -11,6 +11,8 @@ import {LineLib} from "./LineLib.sol";
  * @author Kiba Gateaux
  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
+
+
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
 
@@ -45,6 +47,16 @@ library CreditLib {
     error InvalidTokenDecimals();
 
     error CreditPositionClosed();
+    
+    error NoQueue();
+
+    error PositionIsClosed();
+
+    error NoLiquidity();
+
+    error CloseFailedWithPrincipal();
+
+
 
     error CallerAccessDenied();
 
@@ -235,6 +247,9 @@ library CreditLib {
             return credit;
         }
         unchecked {
+            if (!credit.isOpen) {
+                return credit;
+            }
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate
 
@@ -251,5 +266,14 @@ library CreditLib {
 
     function interestAccrued(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (uint256) {
         return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
+    }
+
+
+    function getNextRateInQ(uint256 principal, bytes32 id, address interest)  external view returns (uint128, uint128) {
+        if(principal == 0) {
+            revert NoQueue();
+        }  else {
+            return IInterestRateCredit(interest).getRates(id);
+        }
     }
 }

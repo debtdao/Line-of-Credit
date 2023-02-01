@@ -11,7 +11,6 @@ import {CreditLib} from "./CreditLib.sol";
 library CreditListLib {
     event QueueCleared();
     event SortedIntoQ(bytes32 indexed id, uint256 indexed newIdx, uint256 indexed oldIdx, bytes32 oldId);
-
     error CantStepQ();
 
     /**

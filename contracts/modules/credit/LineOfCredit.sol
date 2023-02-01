@@ -510,31 +510,21 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return (credits[id].deposit - credits[id].principal, credits[id].interestRepaid);
     }
 
-    /// see ILineOfCredit.nextInQ
-    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
+
+    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128)  {
         bytes32 next = ids[0];
-        (uint128 drawnRate, uint128 facilityRate, ) = interestRate.rates(next);
-        // If no debt has been drawn, there is no 'next' position to get paid back, so should return null
-        if (credits[next].principal == 0){
-            return(
-                bytes32(0),
-                address(0),
-                address(0),
-                0,
-                0,
-                0,
-                0,
-                0
-            );
-        }
+        // Add to docs that this view revertts if no queue
+        (uint128 dRate, uint128 fRate) = CreditLib.getNextRateInQ(credits[next].principal, next, address(interestRate));
         return (
             next, 
             credits[next].lender,
             credits[next].token,
             credits[next].principal,
             credits[next].deposit,
-            CreditLib.interestAccrued(credits[next], next, address(interestRate)),
-            drawnRate,
-            facilityRate);
+            interestRate.getInterestAccrued(next, credits[next].principal, credits[next].deposit),
+            dRate,
+            fRate
+        );
     }
+
 }
