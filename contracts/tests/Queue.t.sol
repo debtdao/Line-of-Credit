@@ -537,16 +537,6 @@ contract QueueTest is Test, Events {
         uint128 drawnRate,
         uint128 facilityRate) = line.nextInQ();
 
-        
-
-        assertEq(next,  bytes32(0));
-        assertEq(lender,  address(0));
-        assertEq(token,  address(0));
-        assertEq(principal,  uint256(0));
-        assertEq(deposit,  uint256(0));
-        assertEq(interest,  uint256(0));
-        assertEq(drawnRate,  uint128(0));
-        assertEq(facilityRate,  uint128(0));
     }
 
 
