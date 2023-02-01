@@ -63,7 +63,8 @@ contract LineTest is Test, Events {
         );
 
         line = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
-        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         _mintAndApprove();
     }
 
@@ -1227,7 +1228,7 @@ contract LineTest is Test, Events {
         vm.warp(line.deadline());
 
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.ACTIVE));
-        
+
         line.declareInsolvent();
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.INSOLVENT));
         // assertTrue(isSolvent);

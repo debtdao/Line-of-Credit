@@ -71,9 +71,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      * see LineOfCredit._init and Securedline.init
      * @notice requires this Line is owner of the Escrowed collateral else Line will not init
      */
-    function _init() internal virtual override(LineOfCredit) returns (LineLib.STATUS) {
-        if (spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
-        return LineOfCredit._init();
+    function _init() internal virtual override(LineOfCredit) {
+        if (spigot.owner() != address(this)) revert BadModule(address(spigot));
     }
 
     /**

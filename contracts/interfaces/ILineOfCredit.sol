@@ -86,7 +86,12 @@ interface ILineOfCredit {
 
     // Fully public functions
 
-    function init() external returns (LineLib.STATUS);
+    /**
+     * @notice - Runs logic to ensure Line owns all modules are configured properly - collateral, interest rates, arbiter, etc.
+    *          - Changes `status` from UNINITIALIZED to ACTIVE
+     * @dev     - Reverts on failure to update status
+    */
+    function init() external;
 
     // MutualConsent functions
 

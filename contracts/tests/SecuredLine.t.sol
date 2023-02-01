@@ -63,7 +63,8 @@ contract SecuredLineTest is Test {
         escrow.updateLine(address(line));
         spigot.updateOwner(address(line));
         
-        assertEq(uint(line.init()), uint(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint(line.init()), uint(LineLib.STATUS.ACTIVE));
 
         _mintAndApprove();
         escrow.enableCollateral( address(supportedToken1));
@@ -144,7 +145,11 @@ contract SecuredLineTest is Test {
             150 days,
             0
         );
-        assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        
+        // spigot fails first because we need it more
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(s)));
+        l.init();
     }
 
     function invariant_position_count_equals_non_null_ids() public {
@@ -175,7 +180,9 @@ contract SecuredLineTest is Test {
         // configure other modules
         s.updateOwner(address(l));
         
-        assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(e)));
+        l.init();
     }
 
     function test_line_is_uninitilized_if_spigot_not_owned() public {
@@ -195,7 +202,9 @@ contract SecuredLineTest is Test {
         // configure other modules
         e.updateLine(address(l));
         
-        assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(s)));
+        l.init();
     }
 
 

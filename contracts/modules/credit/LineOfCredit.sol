@@ -73,16 +73,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         emit DeployLine(oracle_, arbiter_, borrower_);
     }
 
-    function init() external virtual returns (LineLib.STATUS) {
+    function init() external virtual {
         if (status != LineLib.STATUS.UNINITIALIZED) {
             revert AlreadyInitialized();
         }
-        return _updateStatus(_init());
+        _init();
+        _updateStatus(LineLib.STATUS.ACTIVE);
     }
 
-    function _init() internal virtual returns (LineLib.STATUS) {
+    function _init() internal virtual {
         // If no collateral or Spigot then Line of Credit is immediately active
-        return LineLib.STATUS.ACTIVE;
+        return;
     }
 
     ///////////////
@@ -490,8 +491,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             }
         }
     }
-
-
 
     /* GETTERS */
 
