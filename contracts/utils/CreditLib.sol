@@ -11,6 +11,8 @@ import {LineLib} from "./LineLib.sol";
  * @author Kiba Gateaux
  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
+
+
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
 
@@ -45,6 +47,19 @@ library CreditLib {
     error InvalidTokenDecimals();
 
     error CreditPositionClosed();
+    
+    error NoQueue();
+
+    error PositionIsClosed();
+
+    error NoLiquidity();
+
+    error CloseFailedWithPrincipal();
+
+
+
+    error CallerAccessDenied();
+
 
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
@@ -136,8 +151,13 @@ library CreditLib {
     function repay(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
-        uint256 amount
+        uint256 amount,
+        address payer
     ) external returns (ILineOfCredit.Credit memory) {
+        if(!credit.isOpen) {
+            revert CreditPositionClosed();
+        }
+
         unchecked {
             if (amount > credit.principal + credit.interestAccrued) {
                 revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
@@ -147,7 +167,6 @@ library CreditLib {
                 credit.interestAccrued -= amount;
                 credit.interestRepaid += amount;
                 emit RepayInterest(id, amount);
-                return credit;
             } else {
                 if (!credit.isOpen) {
                     revert CreditPositionClosed();
@@ -162,10 +181,14 @@ library CreditLib {
 
                 emit RepayInterest(id, interest);
                 emit RepayPrincipal(id, principalPayment);
-
-                return credit;
             }
         }
+
+        if(payer != address(0)) {
+            LineLib.receiveTokenOrETH(credit.token, payer, amount);
+        }
+
+        return credit;
     }
 
     /**
@@ -176,8 +199,13 @@ library CreditLib {
     function withdraw(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
+        address caller,
         uint256 amount
     ) external returns (ILineOfCredit.Credit memory) {
+        if (caller != credit.lender) {
+            revert CallerAccessDenied();
+        }
+
         unchecked {
             if (amount > credit.deposit - credit.principal + credit.interestRepaid) {
                 revert ILineOfCredit.NoLiquidity();
@@ -193,19 +221,21 @@ library CreditLib {
                 // emit events before seeting to 0
                 emit WithdrawDeposit(id, amount);
                 emit WithdrawProfit(id, interest);
-
-                return credit;
             } else {
                 credit.interestRepaid -= amount;
                 emit WithdrawProfit(id, amount);
-                return credit;
             }
         }
+
+        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
+
+        return credit;
     }
 
     /**
      * see ILineOfCredit._accrue
      * @notice called by LineOfCredit._accrue during every repayment function
+     * @dev public to use in `getOutstandingDebt`
      * @param interest - interset rate contract used by line that will calculate interest owed
     */
     function accrue(
@@ -213,7 +243,13 @@ library CreditLib {
         bytes32 id,
         address interest
     ) public returns (ILineOfCredit.Credit memory) {
+        if (!credit.isOpen) {
+            return credit;
+        }
         unchecked {
+            if (!credit.isOpen) {
+                return credit;
+            }
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate
 
@@ -230,5 +266,14 @@ library CreditLib {
 
     function interestAccrued(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (uint256) {
         return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
+    }
+
+
+    function getNextRateInQ(uint256 principal, bytes32 id, address interest)  external view returns (uint128, uint128) {
+        if(principal == 0) {
+            revert NoQueue();
+        }  else {
+            return IInterestRateCredit(interest).getRates(id);
+        }
     }
 }

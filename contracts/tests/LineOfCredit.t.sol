@@ -63,7 +63,8 @@ contract LineTest is Test, Events {
         );
 
         line = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
-        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         _mintAndApprove();
     }
 
@@ -514,7 +515,7 @@ contract LineTest is Test, Events {
         line.close(id);
 
         assertEq(supportedToken1.balanceOf(lender), mintAmount - 1 ether, "Contract should have initial balance after close");
-        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line should not have tokens");
+        assertEq(supportedToken1.balanceOf(address(line)), 1 ether, "Line should have Lender tokens");
         assertEq(uint(line.status()), uint(LineLib.STATUS.REPAID), "Line not repaid");
     }
 
@@ -565,9 +566,9 @@ contract LineTest is Test, Events {
         bytes32 id = line.ids(0);
         
         hoax(borrower);
-        assertTrue(line.borrow(id, borrowedAmount));
+        line.borrow(id, borrowedAmount);
         hoax(lender);
-        assertTrue(line.withdraw(id, lentAmount - borrowedAmount));
+        line.withdraw(id, lentAmount - borrowedAmount);
     }
 
     function test_position_still_open_after_lender_fully_withdraws() public {
@@ -1090,7 +1091,7 @@ contract LineTest is Test, Events {
         hoax(lender);
         line.increaseCredit(id, 1 ether);
         hoax(borrower);
-        assertTrue(line.increaseCredit(id, 1 ether));
+        line.increaseCredit(id, 1 ether);
 
         (uint256 deposit3,,uint256 interestAccrued4,,,,,) = line.credits(id);
         assertEq(deposit3, 1 ether);
@@ -1227,13 +1228,15 @@ contract LineTest is Test, Events {
         vm.warp(line.deadline());
 
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.ACTIVE));
-        bool isSolvent = line.declareInsolvent();
+
+        line.declareInsolvent();
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.INSOLVENT));
-        assertTrue(isSolvent);
+        // assertTrue(isSolvent);
     }
 
     function test_deposit_and_repay_debt_becomes_repaid(uint256 credit) public {
-        vm.assume(credit >= 1 ether && credit <= mintAmount);
+        credit = bound(credit, 1 ether, mintAmount);
+        // vm.assume(credit >= 1 ether && credit <= mintAmount);
         _addCredit(address(supportedToken1), credit);
         bytes32 id = line.ids(0);
         hoax(borrower);

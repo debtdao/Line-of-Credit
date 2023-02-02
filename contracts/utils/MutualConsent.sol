@@ -30,8 +30,9 @@ abstract contract MutualConsent {
 
     /* ============ Events ============ */
 
-    event MutualConsentRegistered(bytes32 _proposalId, address _taker);
-    event MutualConsentRevoked(bytes32 _proposalId);
+    event MutualConsentRegistered(bytes32 proposalId, address taker);
+    event MutualConsentRevoked(bytes32 proposalId);
+    event MutualConsentAccepted(bytes32 proposalId);
 
     /* ============ Modifiers ============ */
 
@@ -103,6 +104,8 @@ abstract contract MutualConsent {
         }
 
         delete mutualConsentProposals[expectedProposalId];
+
+        emit MutualConsentAccepted(expectedProposalId);
 
         return true;
     }
