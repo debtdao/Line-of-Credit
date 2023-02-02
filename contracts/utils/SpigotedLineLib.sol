@@ -167,8 +167,6 @@ library SpigotedLineLib {
         if (address(this) == owner_ || arbiter == owner_) {
             revert NotInsolvent(spigot);
         }
-
-        // no additional logic from LineOfCredit to include
         
         return true;
     }

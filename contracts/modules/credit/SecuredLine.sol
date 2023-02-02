@@ -30,18 +30,13 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     /**
      * @dev requires both Spigot and Escrow to pass _init to succeed
      */
-    function _init() internal virtual override(SpigotedLine, EscrowedLine) returns (LineLib.STATUS) {
-        LineLib.STATUS s = LineLib.STATUS.ACTIVE;
-
-        if (SpigotedLine._init() != s || EscrowedLine._init() != s) {
-            return LineLib.STATUS.UNINITIALIZED;
-        }
-
-        return s;
+    function _init() internal virtual override(SpigotedLine, EscrowedLine) {
+        SpigotedLine._init();
+        EscrowedLine._init();
     }
 
     /// see ISecuredLine.rollover
-    function rollover(address newLine) external override onlyBorrower returns (bool) {
+    function rollover(address newLine) external override onlyBorrower {
         // require all debt successfully paid already
         if (status != LineLib.STATUS.REPAID) {
             revert DebtOwed();
@@ -55,11 +50,10 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         SpigotedLineLib.rollover(address(spigot), newLine);
 
         // ensure that line we are sending can accept them. There is no recovery option.
-        if (ILineOfCredit(newLine).init() != LineLib.STATUS.ACTIVE) {
+        try ILineOfCredit(newLine).init() {}
+        catch {
             revert BadRollover();
         }
-
-        return true;
     }
 
     //  see IEscrowedLine.liquidate

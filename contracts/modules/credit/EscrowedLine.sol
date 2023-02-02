@@ -22,9 +22,8 @@ abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
      * see LineOfCredit._init and SecuredLine.init
      * @notice requires this Line is owner of the Escrowed collateral else Line will not init
      */
-    function _init() internal virtual returns (LineLib.STATUS) {
-        if (escrow.line() != address(this)) return LineLib.STATUS.UNINITIALIZED;
-        return LineLib.STATUS.ACTIVE;
+    function _init() internal virtual {
+        if (escrow.line() != address(this)) revert BadModule(address(escrow));
     }
 
     /**

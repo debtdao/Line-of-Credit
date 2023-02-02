@@ -71,9 +71,8 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
      * see LineOfCredit._init and Securedline.init
      * @notice requires this Line is owner of the Escrowed collateral else Line will not init
      */
-    function _init() internal virtual override(LineOfCredit) returns (LineLib.STATUS) {
-        if (spigot.owner() != address(this)) return LineLib.STATUS.UNINITIALIZED;
-        return LineOfCredit._init();
+    function _init() internal virtual override(LineOfCredit) {
+        if (spigot.owner() != address(this)) revert BadModule(address(spigot));
     }
 
     /**
@@ -119,7 +118,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             unusedTokens[credit.token] += diff;
         }
 
-        credits[id] = _repay(credit, id, repaid);
+        credits[id] = _repay(credit, id, repaid, address(0)); // no payer, we already have funds
 
         emit RevenuePayment(claimToken, repaid);
 
@@ -147,7 +146,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         unusedTokens[credit.token] -= amount;
         emit ReservesChanged(credit.token, -int256(amount), 0); 
 
-        credits[id] = _repay(_accrue(credit, id), id, amount);
+        credits[id] = _repay(_accrue(credit, id), id, amount, address(0)); // no payer, we already have funds
 
         emit RevenuePayment(credit.token, amount);
 
