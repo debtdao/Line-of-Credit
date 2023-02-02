@@ -211,12 +211,11 @@ library CreditLib {
 
             if (amount > credit.interestRepaid) {
                 uint256 interest = credit.interestRepaid;
-                amount -= interest;
 
-                credit.deposit -= amount;
+                credit.deposit -= amount - interest;
                 credit.interestRepaid = 0;
 
-                // emit events before seeting to 0
+                // emit events before setting to 0
                 emit WithdrawDeposit(id, amount);
                 emit WithdrawProfit(id, interest);
             } else {
