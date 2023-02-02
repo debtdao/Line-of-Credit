@@ -288,8 +288,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         // Borrower clears the debt then closes the credit line
         credits[id] = _close(_repay(credit, id, totalOwed, borrower), id);
-        // LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
-
     }
 
     /// see ILineOfCredit.close
@@ -300,8 +298,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee, borrower), id);
-        // LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-
     }
 
     /// see ILineOfCredit.depositAndRepay
@@ -314,7 +310,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         }
 
         credits[id] = _repay(credit, id, amount, msg.sender);
-        // LineLib.receiveTokenOrETH(credit.token, msg.sender, amount);
     }
 
     ////////////////////
@@ -325,9 +320,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
-        if (!credit.isOpen) {
-            revert PositionIsClosed();
-        }
+        // _accrue ensures position is valid
 
         if (amount > credit.deposit - credit.principal) {
             revert NoLiquidity();
@@ -437,8 +430,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         }
 
         credit.isOpen = false;
-
-        credits[id] = credit;
 
         // nullify the element for `id`
         ids.removePosition(id);
