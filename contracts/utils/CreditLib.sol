@@ -216,7 +216,7 @@ library CreditLib {
                 credit.interestRepaid = 0;
 
                 // emit events before setting to 0
-                emit WithdrawDeposit(id, amount);
+                emit WithdrawDeposit(id, amount - interest);
                 emit WithdrawProfit(id, interest);
             } else {
                 credit.interestRepaid -= amount;
