@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {CreditLib} from "./CreditLib.sol";
@@ -46,12 +46,12 @@ library CreditListLib {
 
         uint256 len = ids.length;
         if (len <= 1) return false;
-         
-         // skip the loop if we don't need
+
+        // skip the loop if we don't need
         if (len == 2 && ids[1] != bytes32(0)) {
             (ids[0], ids[1]) = (ids[1], ids[0]);
             emit SortedIntoQ(ids[0], 0, 1, ids[1]);
-            return true; 
+            return true;
         }
 
         // we never check the first id, because we already know it's null
