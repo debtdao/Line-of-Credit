@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {SecuredLine} from "../modules/credit/SecuredLine.sol";
 import {LineLib} from "./LineLib.sol";
@@ -12,7 +12,7 @@ library LineFactoryLib {
      * @param line    - the line to transfer modules to
      * @param spigot  - the module to be transferred to line
      * @param escrow  - the module to be transferred to line
-    */
+     */
     function transferModulesToLine(address line, address spigot, address escrow) external {
         (bool success, bytes memory returnVal) = spigot.call(
             abi.encodeWithSignature("updateOwner(address)", address(line))
@@ -33,7 +33,7 @@ library LineFactoryLib {
      * @notice  - See SecuredLine.constructor(). Deploys a new SecuredLine contract with params provided by factory.
      * @dev     - Deploy from lib not factory so we can have multiple factories (aka marketplaces) built on same Line contracts
      * @return line   - address of newly deployed line
-    */
+     */
     function deploySecuredLine(
         address oracle,
         address arbiter,

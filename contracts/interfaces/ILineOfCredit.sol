@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {LineLib} from "../utils/LineLib.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
@@ -88,9 +88,9 @@ interface ILineOfCredit {
 
     /**
      * @notice - Runs logic to ensure Line owns all modules are configured properly - collateral, interest rates, arbiter, etc.
-    *          - Changes `status` from UNINITIALIZED to ACTIVE
+     *          - Changes `status` from UNINITIALIZED to ACTIVE
      * @dev     - Reverts on failure to update status
-    */
+     */
     function init() external;
 
     // MutualConsent functions
@@ -240,13 +240,15 @@ interface ILineOfCredit {
      * @return - (uint256, uint256) - active credit lines, total length
      */
     function counts() external view returns (uint256, uint256);
+
     /**
      * @notice - getter for amount of active ids + total ids in list
      * @return - (uint256, uint256) - active credit lines, total length
      */
 
     function interestAccrued(bytes32 id) external returns (uint256);
-       /**
+
+    /**
      * @notice - info on the next lender position that must be repaid
      * @return - (bytes32, address, address, uint, uint) - id, lender, token, principal, interestAccrued
      */
@@ -254,7 +256,7 @@ interface ILineOfCredit {
 
     /**
      * @notice - how many tokens can be withdrawn from positions by borrower or lender
-     * @return - (uint256, uint256) - remaining deposit, claimable interest 
+     * @return - (uint256, uint256) - remaining deposit, claimable interest
      */
     function available(bytes32 id) external returns (uint256, uint256);
 }

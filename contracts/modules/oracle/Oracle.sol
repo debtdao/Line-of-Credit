@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import "chainlink/interfaces/FeedRegistryInterface.sol";
 import {Denominations} from "chainlink/Denominations.sol";

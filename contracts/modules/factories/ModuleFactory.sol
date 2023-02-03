@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
 
@@ -9,7 +9,7 @@ import {Escrow} from "../escrow/Escrow.sol";
  * @title   - Debt DAO Module Factory
  * @author  - Mom
  * @notice  - Facotry contract to deploy Spigot, and Escrow contracts.
-*/
+ */
 contract ModuleFactory is IModuleFactory {
     /**
      * see Spigot.constructor
