@@ -45,8 +45,6 @@ library CreditLib {
     error RepayAmountExceedsDebt(uint256 totalAvailable);
 
     error InvalidTokenDecimals();
-
-    error CreditPositionClosed();
     
     error NoQueue();
 
@@ -146,6 +144,7 @@ library CreditLib {
     /**
      * see ILineOfCredit._repay
      * @notice called by LineOfCredit._repay during every repayment function
+     * @dev uses uncheckd math. assumes checks have been done in caller
      * @param credit - The lender position being repaid
     */
     function repay(
@@ -154,8 +153,8 @@ library CreditLib {
         uint256 amount,
         address payer
     ) external returns (ILineOfCredit.Credit memory) {
-        if(!credit.isOpen) {
-            revert CreditPositionClosed();
+        if (!credit.isOpen) {
+            revert PositionIsClosed();
         }
 
         unchecked {
@@ -168,9 +167,6 @@ library CreditLib {
                 credit.interestRepaid += amount;
                 emit RepayInterest(id, amount);
             } else {
-                if (!credit.isOpen) {
-                    revert CreditPositionClosed();
-                } // TODO: test this
                 uint256 interest = credit.interestAccrued;
                 uint256 principalPayment = amount - interest;
 
@@ -183,7 +179,8 @@ library CreditLib {
                 emit RepayPrincipal(id, principalPayment);
             }
         }
-
+        
+        // if we arent using funds from reserves to repay then pull tokens from target
         if(payer != address(0)) {
             LineLib.receiveTokenOrETH(credit.token, payer, amount);
         }
@@ -194,6 +191,7 @@ library CreditLib {
     /**
      * see ILineOfCredit.withdraw
      * @notice called by LineOfCredit.withdraw during every repayment function
+     * @dev uses uncheckd math. assumes checks have been done in caller
      * @param credit - The lender position that is being bwithdrawn from
     */
     function withdraw(
@@ -213,13 +211,12 @@ library CreditLib {
 
             if (amount > credit.interestRepaid) {
                 uint256 interest = credit.interestRepaid;
-                amount -= interest;
 
-                credit.deposit -= amount;
+                credit.deposit -= amount - interest;
                 credit.interestRepaid = 0;
 
-                // emit events before seeting to 0
-                emit WithdrawDeposit(id, amount);
+                // emit events before setting to 0
+                emit WithdrawDeposit(id, amount - interest);
                 emit WithdrawProfit(id, interest);
             } else {
                 credit.interestRepaid -= amount;
@@ -247,9 +244,6 @@ library CreditLib {
             return credit;
         }
         unchecked {
-            if (!credit.isOpen) {
-                return credit;
-            }
             // interest will almost always be less than deposit
             // low risk of overflow unless extremely high interest rate
 
