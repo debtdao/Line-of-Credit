@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 interface IInterestRateCredit {
     struct Rate {
@@ -33,7 +33,11 @@ interface IInterestRateCredit {
      */
     function setRate(bytes32 id, uint128 dRate, uint128 fRate) external returns (bool);
 
-    function getInterestAccrued(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) external view returns (uint256);
+    function getInterestAccrued(
+        bytes32 id,
+        uint256 drawnBalance,
+        uint256 facilityBalance
+    ) external view returns (uint256);
 
-    function getRates(bytes32 id) external view returns (uint128,  uint128);
+    function getRates(bytes32 id) external view returns (uint128, uint128);
 }

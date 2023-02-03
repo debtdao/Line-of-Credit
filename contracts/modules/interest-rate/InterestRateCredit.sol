@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import {IInterestRateCredit} from "../../interfaces/IInterestRateCredit.sol";
 
@@ -43,11 +43,15 @@ contract InterestRateCredit is IInterestRateCredit {
         bytes32 id,
         uint256 drawnBalance,
         uint256 facilityBalance
-    ) external view returns (uint256){
+    ) external view returns (uint256) {
         return _accrueInterest(id, drawnBalance, facilityBalance);
     }
 
-    function _accrueInterest(bytes32 id, uint256 drawnBalance, uint256 facilityBalance) internal view returns (uint256) {
+    function _accrueInterest(
+        bytes32 id,
+        uint256 drawnBalance,
+        uint256 facilityBalance
+    ) internal view returns (uint256) {
         Rate memory rate = rates[id];
 
         // get time since interest was last accrued iwth these balances
@@ -67,7 +71,11 @@ contract InterestRateCredit is IInterestRateCredit {
      *
      * @return interestOwed
      */
-    function _calculateInterestOwed(uint256 bpsRate, uint256 balance, uint256 timespan) internal pure returns (uint256) {
+    function _calculateInterestOwed(
+        uint256 bpsRate,
+        uint256 balance,
+        uint256 timespan
+    ) internal pure returns (uint256) {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 
@@ -77,7 +85,7 @@ contract InterestRateCredit is IInterestRateCredit {
         return true;
     }
 
-    function getRates(bytes32 id) external view returns (uint128,  uint128) {
+    function getRates(bytes32 id) external view returns (uint128, uint128) {
         return (rates[id].dRate, rates[id].fRate);
     }
 }

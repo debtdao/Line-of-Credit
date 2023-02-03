@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {Denominations} from "chainlink/Denominations.sol";
 

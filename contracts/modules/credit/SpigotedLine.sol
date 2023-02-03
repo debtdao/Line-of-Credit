@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import {Denominations} from "chainlink/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
@@ -86,7 +86,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     }
 
     /// see ISpigotedLine.claimAndRepay
-    function claimAndRepay(  
+    function claimAndRepay(
         address claimToken,
         bytes calldata zeroExTradeData
     ) external whileBorrowing nonReentrant returns (uint256) {
@@ -134,7 +134,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             revert CallerAccessDenied();
         }
 
-        if(amount > credit.principal + credit.interestAccrued) {
+        if (amount > credit.principal + credit.interestAccrued) {
             revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
         }
 
@@ -144,7 +144,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
         // reduce reserves before _repay calls token to prevent reentrancy
         unusedTokens[credit.token] -= amount;
-        emit ReservesChanged(credit.token, -int256(amount), 0); 
+        emit ReservesChanged(credit.token, -int256(amount), 0);
 
         credits[id] = _repay(_accrue(credit, id), id, amount, address(0)); // no payer, we already have funds
 
@@ -168,7 +168,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         // add bought tokens to unused balance
         unusedTokens[targetToken] += newTokens;
         emit ReservesChanged(targetToken, int256(newTokens), 1);
-        
+
         return newTokens;
     }
 
@@ -188,7 +188,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
         address targetToken,
         bytes calldata zeroExTradeData
     ) internal returns (uint256) {
-        if( claimToken == targetToken ) {
+        if (claimToken == targetToken) {
             // same asset. dont trade
             return spigot.claimOwnerTokens(claimToken);
         } else {
@@ -205,7 +205,7 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
             // we dont use revenue after this so can store now
             /// @dev ReservesChanged event for claim token is emitted in SpigotedLineLib.claimAndTrade
             unusedTokens[claimToken] = totalUnused;
-            
+
             // the target tokens purchased
             return tokensBought;
         }
@@ -247,9 +247,17 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
 
     /// see ISpigotedLine.sweep
     function sweep(address to, address token, uint256 amount) external nonReentrant returns (uint256) {
-        uint256 swept = SpigotedLineLib.sweep(to, token, amount, unusedTokens[token], _updateStatus(_healthcheck()), borrower, arbiter);
+        uint256 swept = SpigotedLineLib.sweep(
+            to,
+            token,
+            amount,
+            unusedTokens[token],
+            _updateStatus(_healthcheck()),
+            borrower,
+            arbiter
+        );
 
-        if(swept != 0) {
+        if (swept != 0) {
             unusedTokens[token] -= swept;
             emit ReservesChanged(token, -int256(swept), 1);
         }
@@ -266,7 +274,6 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     function unused(address token) external view returns (uint256) {
         return unusedTokens[token];
     }
-
 
     // allow claiming/trading in ETH
     receive() external payable {}

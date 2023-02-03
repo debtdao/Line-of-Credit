@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 import {Denominations} from "chainlink/Denominations.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
@@ -11,7 +11,6 @@ import {LineLib} from "./LineLib.sol";
  * @author Kiba Gateaux
  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
-
 
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
@@ -30,10 +29,10 @@ library CreditLib {
     /// @notice Emits when Borrower has drawn down an amount (denominated in credit.token) on a credit line
     event Borrow(bytes32 indexed id, uint256 indexed amount);
 
-    /// @notice Emits that a Borrower has repaid some amount of interest (denominated in credit.token) 
+    /// @notice Emits that a Borrower has repaid some amount of interest (denominated in credit.token)
     event RepayInterest(bytes32 indexed id, uint256 indexed amount);
 
-    /// @notice Emits that a Borrower has repaid some amount of principal (denominated in credit.token) 
+    /// @notice Emits that a Borrower has repaid some amount of principal (denominated in credit.token)
     event RepayPrincipal(bytes32 indexed id, uint256 indexed amount);
 
     // Errors
@@ -47,7 +46,7 @@ library CreditLib {
     error InvalidTokenDecimals();
 
     error CreditPositionClosed();
-    
+
     error NoQueue();
 
     error PositionIsClosed();
@@ -56,10 +55,7 @@ library CreditLib {
 
     error CloseFailedWithPrincipal();
 
-
-
     error CallerAccessDenied();
-
 
     /**
      * @dev          - Creates a deterministic hash id for a credit line provided by a single Lender for a given token on a Line of Credit facility
@@ -96,8 +92,8 @@ library CreditLib {
      * @param price    - The Oracle price of the asset. 8 decimals
      * @param amount   - The amount of tokens being valued.
      * @param decimals - Token decimals to remove for USD price
-     * @return         - The total USD value of the amount of tokens being valued in 8 decimals 
-    */
+     * @return         - The total USD value of the amount of tokens being valued in 8 decimals
+     */
     function calculateValue(int price, uint256 amount, uint8 decimals) public pure returns (uint256) {
         return price <= 0 ? 0 : (amount * uint(price)) / (1 * 10 ** decimals);
     }
@@ -106,7 +102,7 @@ library CreditLib {
      * see ILineOfCredit._createCredit
      * @notice called by LineOfCredit._createCredit during every repayment function
      * @param oracle - interset rate contract used by line that will calculate interest owed
-    */
+     */
     function create(
         bytes32 id,
         uint256 amount,
@@ -147,14 +143,14 @@ library CreditLib {
      * see ILineOfCredit._repay
      * @notice called by LineOfCredit._repay during every repayment function
      * @param credit - The lender position being repaid
-    */
+     */
     function repay(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
         uint256 amount,
         address payer
     ) external returns (ILineOfCredit.Credit memory) {
-        if(!credit.isOpen) {
+        if (!credit.isOpen) {
             revert CreditPositionClosed();
         }
 
@@ -184,7 +180,7 @@ library CreditLib {
             }
         }
 
-        if(payer != address(0)) {
+        if (payer != address(0)) {
             LineLib.receiveTokenOrETH(credit.token, payer, amount);
         }
 
@@ -195,7 +191,7 @@ library CreditLib {
      * see ILineOfCredit.withdraw
      * @notice called by LineOfCredit.withdraw during every repayment function
      * @param credit - The lender position that is being bwithdrawn from
-    */
+     */
     function withdraw(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
@@ -237,7 +233,7 @@ library CreditLib {
      * @notice called by LineOfCredit._accrue during every repayment function
      * @dev public to use in `getOutstandingDebt`
      * @param interest - interset rate contract used by line that will calculate interest owed
-    */
+     */
     function accrue(
         ILineOfCredit.Credit memory credit,
         bytes32 id,
@@ -264,15 +260,20 @@ library CreditLib {
         }
     }
 
-    function interestAccrued(ILineOfCredit.Credit memory credit, bytes32 id, address interest) external view returns (uint256) {
-        return credit.interestAccrued + IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
+    function interestAccrued(
+        ILineOfCredit.Credit memory credit,
+        bytes32 id,
+        address interest
+    ) external view returns (uint256) {
+        return
+            credit.interestAccrued +
+            IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
     }
 
-
-    function getNextRateInQ(uint256 principal, bytes32 id, address interest)  external view returns (uint128, uint128) {
-        if(principal == 0) {
+    function getNextRateInQ(uint256 principal, bytes32 id, address interest) external view returns (uint128, uint128) {
+        if (principal == 0) {
             revert NoQueue();
-        }  else {
+        } else {
             return IInterestRateCredit(interest).getRates(id);
         }
     }

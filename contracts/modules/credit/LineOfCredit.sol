@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import {Denominations} from "chainlink/Denominations.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
@@ -15,11 +15,11 @@ import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
 /**
-  * @title  - Debt DAO Unsecured Line of Credit
-  * @author - Kiba Gateaux
-  * @notice - Core credit facility logic for proposing, depositing, borrowing, and repaying debt.
-  *         - Contains core financial covnenants around term length (`deadline`), collateral ratios, liquidations, etc.
-  * @dev    - contains internal functions overwritten by SecuredLine, SpigotedLine, and EscrowedLine
+ * @title  - Debt DAO Unsecured Line of Credit
+ * @author - Kiba Gateaux
+ * @notice - Core credit facility logic for proposing, depositing, borrowing, and repaying debt.
+ *         - Contains core financial covnenants around term length (`deadline`), collateral ratios, liquidations, etc.
+ * @dev    - contains internal functions overwritten by SecuredLine, SpigotedLine, and EscrowedLine
  */
 contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -216,7 +216,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             Credit memory credit = credits[id];
             credits[id] = _accrue(credit, id);
         }
-
     }
 
     /**
@@ -238,7 +237,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         address lender
     ) external payable override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
         bytes32 id = _createCredit(lender, token, amount);
-        
+
         _setRates(id, drate, frate);
 
         LineLib.receiveTokenOrETH(token, lender, amount);
@@ -252,7 +251,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         _setRates(id, drate, frate);
     }
 
-        /// see ILineOfCredit.setRates
+    /// see ILineOfCredit.setRates
     function _setRates(bytes32 id, uint128 drate, uint128 frate) internal {
         interestRate.setRate(id, drate, frate);
         emit SetRates(id, drate, frate);
@@ -289,7 +288,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // Borrower clears the debt then closes the credit line
         credits[id] = _close(_repay(credit, id, totalOwed, borrower), id);
         // LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
-
     }
 
     /// see ILineOfCredit.close
@@ -301,7 +299,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // clear facility fees and close position
         credits[id] = _close(_repay(credit, id, facilityFee, borrower), id);
         // LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-
     }
 
     /// see ILineOfCredit.depositAndRepay
@@ -309,7 +306,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
-        if(amount > credit.principal + credit.interestAccrued) {
+        if (amount > credit.principal + credit.interestAccrued) {
             revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
         }
 
@@ -479,7 +476,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                     credits[id].principal != 0 //`id` should be placed before `p`
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
-            } else { // nothing to update
+            } else {
+                // nothing to update
                 if (nextQSpot == lastSpot) return; // nothing to update
                 // get id value being swapped with `p`
                 bytes32 oldPositionId = ids[nextQSpot];
@@ -509,13 +507,12 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return (credits[id].deposit - credits[id].principal, credits[id].interestRepaid);
     }
 
-
-    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128)  {
+    function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
         bytes32 next = ids[0];
         // Add to docs that this view revertts if no queue
         (uint128 dRate, uint128 fRate) = CreditLib.getNextRateInQ(credits[next].principal, next, address(interestRate));
         return (
-            next, 
+            next,
             credits[next].lender,
             credits[next].token,
             credits[next].principal,
@@ -525,5 +522,4 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             fRate
         );
     }
-
 }

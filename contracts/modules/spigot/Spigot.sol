@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
 import {LineLib} from "../../utils/LineLib.sol";
@@ -49,14 +49,14 @@ contract Spigot is ISpigot, ReentrancyGuard {
      *          - Accepts both push (tokens sent directly to Spigot) and pull payments (Spigot calls revenue contract to claim tokens)
      *          - Calls predefined function in contract settings to claim revenue.
      *          - Automatically sends portion to Treasury and then stores Owner and Operator shares
-     *          - There is no conversion or trade of revenue tokens. 
+     *          - There is no conversion or trade of revenue tokens.
      * @dev     - Assumes the only side effect of calling claimFunc on revenueContract is we receive new tokens.
      *          - Any other side effects could be dangerous to the Spigot or upstream contracts.
      * @dev     - callable by anyone
      * @param revenueContract   - Contract with registered settings to claim revenue from
      * @param data              - Transaction data, including function signature, to properly claim revenue on revenueContract
      * @return claimed          -  The amount of revenue tokens claimed from revenueContract and split between `owner` and `treasury`
-    */
+     */
     function claimRevenue(
         address revenueContract,
         address token,
@@ -70,16 +70,17 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @dev     - callable by `owner`
      * @param token     - address of revenue token that is being escrowed by spigot
      * @return claimed  -  The amount of tokens claimed by the `owner`
-    */
+     */
     function claimOwnerTokens(address token) external nonReentrant returns (uint256 claimed) {
         return state.claimOwnerTokens(token);
     }
+
     /**
      * @notice - Allows Spigot Operqtor to claim escrowed revenue tokens
      * @dev - callable by `operator`
      * @param token - address of revenue token that is being escrowed by spigot
      * @return claimed -  The amount of tokens claimed by the `operator`
-    */
+     */
     function claimOperatorTokens(address token) external nonReentrant returns (uint256 claimed) {
         return state.claimOperatorTokens(token);
     }

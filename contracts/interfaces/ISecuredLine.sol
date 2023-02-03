@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {IEscrowedLine} from "./IEscrowedLine.sol";
 import {ISpigotedLine} from "./ISpigotedLine.sol";
