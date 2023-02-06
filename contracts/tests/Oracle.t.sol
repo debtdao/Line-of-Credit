@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 
@@ -117,7 +117,8 @@ contract OracleTest is Test, Events {
         lender = address(20);
 
         line = new LineOfCredit(address(oracle1), arbiter, borrower, ttl);
-        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         
         // deploy and save escrow
         escrow = new Escrow ( minCollateralRatio, address(oracle2), address(line), borrower);

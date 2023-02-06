@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {IEscrowedLine} from "./IEscrowedLine.sol";
 import {ISpigotedLine} from "./ISpigotedLine.sol";
@@ -16,7 +16,6 @@ interface ISecuredLine is IEscrowedLine, ISpigotedLine {
      *         - usefull after ttl has expired and want to renew Line with minimal effort
      * @dev    - transfers Spigot and Escrow ownership to newLine. Arbiter functions on this Line will no longer work
      * @param newLine - the new, uninitialized Line deployed by borrower
-     * @return success - if
      */
-    function rollover(address newLine) external returns (bool);
+    function rollover(address newLine) external;
 }

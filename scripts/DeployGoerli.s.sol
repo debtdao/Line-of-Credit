@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import "./DeployBase.s.sol";
 import {SimpleOracle} from "../contracts/mock/SimpleOracle.sol";

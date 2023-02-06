@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import {Denominations} from "chainlink/Denominations.sol";
@@ -66,7 +66,8 @@ contract QueueTest is Test, Events {
         );
 
         line = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
-        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         _mintAndApprove();
     }
 
@@ -469,18 +470,25 @@ contract QueueTest is Test, Events {
 
     function test_next_position_equals_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         (bytes32 next,,,,,,,) = line.nextInQ();
         assertEq(next, line.ids(0));
     }
 
     function test_next_position_has_same_data_as_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         (, address nextLender,,uint256 nextPrincipal, uint256 nextDeposit,,,) = line.nextInQ();
 
         (uint256 deposit, uint256 principal,,,,,address lender,) = line.credits(line.ids(0));
 
         assertEq(nextLender, lender);
         assertEq(nextPrincipal, principal);
+        assertEq(nextPrincipal, 1 ether);
         assertEq(nextDeposit, deposit);
     }
 
@@ -499,6 +507,9 @@ contract QueueTest is Test, Events {
 
     function test_next_position_has_same_interest_rate_as_first_position() public {
         _createCreditLines(3);
+        vm.startPrank(borrower);
+        line.borrow(line.ids(0),  1 ether);
+        vm.stopPrank();
         bytes32 id = line.ids(0);
         i.setRate(id, dRate, fRate);
         (,,,,,,uint128 nextDrawnRate, uint128 nextFacilityRate) = line.nextInQ();
@@ -509,12 +520,23 @@ contract QueueTest is Test, Events {
         assertEq(nextFacilityRate, fRate);
     }
 
-    function test_returns_null_if_no_position_created() public {
-        (bytes32 next,,,,,,,) = line.nextInQ();
-        assertEq(next, bytes32(0));
-    }
+    // function test_returns_null_if_no_position_created() public {
+    //     (bytes32 next,,,,,,,) = line.nextInQ();
+    //     vm.expectRevert();
+    //     line.credits(next);
+    // }
 
     function test_return_null_if_no_drawn_amount() public {
+        _createCreditLines(3);
+        vm.expectRevert();
+        (bytes32 next, 
+        address lender, 
+        address token,
+        uint256 principal,
+        uint256 deposit,
+        uint256 interest,
+        uint128 drawnRate,
+        uint128 facilityRate) = line.nextInQ();
 
     }
 

@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {EscrowedLine} from "./EscrowedLine.sol";
@@ -9,11 +9,11 @@ import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
 /**
-  * @title  - Debt DAO Secured Line of Credit
-  * @author - Kiba Gateaux
-  * @notice - The SecuredLine combines both collateral modules (SpigotedLine + EscrowedLine) with core lending functionality from LineOfCredit
-  *         - to create a fully secured lending facility backed by revenue via Spigot or tokens via Escrow.
-  * @dev    - modifies _liquidate(), _healthcheck(), _init(), and _declareInsolvent() functionality
+ * @title  - Debt DAO Secured Line of Credit
+ * @author - Kiba Gateaux
+ * @notice - The SecuredLine combines both collateral modules (SpigotedLine + EscrowedLine) with core lending functionality from LineOfCredit
+ *         - to create a fully secured lending facility backed by revenue via Spigot or tokens via Escrow.
+ * @dev    - modifies _liquidate(), _healthcheck(), _init(), and _declareInsolvent() functionality
  */
 contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     constructor(
@@ -30,18 +30,13 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
     /**
      * @dev requires both Spigot and Escrow to pass _init to succeed
      */
-    function _init() internal virtual override(SpigotedLine, EscrowedLine) returns (LineLib.STATUS) {
-        LineLib.STATUS s = LineLib.STATUS.ACTIVE;
-
-        if (SpigotedLine._init() != s || EscrowedLine._init() != s) {
-            return LineLib.STATUS.UNINITIALIZED;
-        }
-
-        return s;
+    function _init() internal virtual override(SpigotedLine, EscrowedLine) {
+        SpigotedLine._init();
+        EscrowedLine._init();
     }
 
     /// see ISecuredLine.rollover
-    function rollover(address newLine) external override onlyBorrower returns (bool) {
+    function rollover(address newLine) external override onlyBorrower {
         // require all debt successfully paid already
         if (status != LineLib.STATUS.REPAID) {
             revert DebtOwed();
@@ -55,11 +50,9 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         SpigotedLineLib.rollover(address(spigot), newLine);
 
         // ensure that line we are sending can accept them. There is no recovery option.
-        if (ILineOfCredit(newLine).init() != LineLib.STATUS.ACTIVE) {
+        try ILineOfCredit(newLine).init() {} catch {
             revert BadRollover();
         }
-
-        return true;
     }
 
     //  see IEscrowedLine.liquidate

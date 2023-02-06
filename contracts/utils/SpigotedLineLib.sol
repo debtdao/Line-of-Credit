@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {ISpigotedLine} from "../interfaces/ISpigotedLine.sol";
@@ -33,11 +33,11 @@ library SpigotedLineLib {
         uint256 indexed debtTokensBought
     );
 
-    event ReservesChanged (
+    event ReservesChanged(
         address indexed token,
         int256 indexed diff,
-        uint256 tokenType       // 0 for revenue token, 1 for credit token
-    ); 
+        uint256 tokenType // 0 for revenue token, 1 for credit token
+    );
 
     /**
      * @dev                 - priviliged internal function!
@@ -94,9 +94,10 @@ library SpigotedLineLib {
 
         // used reserve revenue to repay debt
         if (oldClaimTokens > newClaimTokens) {
-            unchecked { // we check all values before math so can use unchecked
+            unchecked {
+                // we check all values before math so can use unchecked
                 uint256 diff = oldClaimTokens - newClaimTokens;
-                
+
                 emit ReservesChanged(claimToken, -int256(diff), 0);
 
                 // used more tokens than we had in revenue reserves.
@@ -106,10 +107,11 @@ library SpigotedLineLib {
                 else return (tokensBought, unused - diff);
             }
         } else {
-            unchecked { // `unused` unlikely to overflow
+            unchecked {
+                // `unused` unlikely to overflow
                 // excess revenue in trade. store in reserves
                 uint256 diff = newClaimTokens - oldClaimTokens;
-                
+
                 emit ReservesChanged(claimToken, int256(diff), 0);
 
                 return (tokensBought, unused + diff);
@@ -119,7 +121,7 @@ library SpigotedLineLib {
 
     /**
      * @dev                     - priviliged internal function!
-     * @notice                  - dumb func that executes arbitry code against a target contract 
+     * @notice                  - dumb func that executes arbitry code against a target contract
      * @param amount            - amount of revenue tokens to sell
      * @param sellToken         - revenue token being sold
      * @param swapTarget        - exchange aggregator to trade against
@@ -168,8 +170,6 @@ library SpigotedLineLib {
             revert NotInsolvent(spigot);
         }
 
-        // no additional logic from LineOfCredit to include
-        
         return true;
     }
 
@@ -202,7 +202,7 @@ library SpigotedLineLib {
         return false;
     }
 
-  /**
+    /**
    * @notice - Transfers ownership of the entire Spigot and its revenuw streams from its then Owner to either 
              - the Borrower (if a Line of Credit has been been fully repaid) or 
              - to the Arbiter (if the Line of Credit is liquidatable).
@@ -249,8 +249,10 @@ library SpigotedLineLib {
         address borrower,
         address arbiter
     ) external returns (uint256) {
-        if (available == 0) { return 0; }
-        if(amount == 0) {
+        if (available == 0) {
+            return 0;
+        }
+        if (amount == 0) {
             // use all tokens if no amount specified specified
             amount = available;
         } else {

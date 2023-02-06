@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import {Denominations} from "chainlink/Denominations.sol";
@@ -53,7 +53,8 @@ contract LineLendsTest is Test {
         );
 
         line = new LineOfCredit(address(oracle), arbiter, borrower, ttl);
-        assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint256(line.init()), uint256(LineLib.STATUS.ACTIVE));
         _mintAndApprove();
     }
 

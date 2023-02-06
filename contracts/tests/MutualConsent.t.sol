@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 
@@ -20,8 +20,10 @@ import {SimpleOracle} from "../mock/SimpleOracle.sol";
 
 interface Events {
     event Borrow(bytes32 indexed id, uint256 indexed amount);
-    event MutualConsentRegistered(bytes32 _consentHash);
-    event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
+
+    event MutualConsentRegistered(bytes32 proposalId, address taker);
+    event MutualConsentRevoked(bytes32 proposalId);
+    event MutualConsentAccepted(bytes32 proposalId);
 }
 
 contract MutualConsentTest is Test, Events {
@@ -100,6 +102,13 @@ contract MutualConsentTest is Test, Events {
                             addCredit
     /////////////////////////////////////////////////////*/
 
+    function test_addCredit_mutual_consent_accepted_event() public {
+        vm.startPrank(lender);
+        vm.expectEmit(false,false,false,false, address(line)); 
+        emit MutualConsentAccepted(keccak256(abi.encode("none")));
+        line.addCredit(dRate, fRate, amount, token, lender);
+        vm.stopPrank();
+    }
     function test_addCredit_revoking_invalid_consent_fails() public {
         // derive the expected consent hash
         bytes
@@ -161,11 +170,11 @@ contract MutualConsentTest is Test, Events {
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
 
         vm.startPrank(borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
 
-        assertEq(line.mutualConsents(expectedHash), address(0));
+        assertEq(line.mutualConsentProposals(expectedHash), address(0));
     }
 
     function test_addCredit_calling_function_after_revocation_registers_new_consent() external {
@@ -184,9 +193,9 @@ contract MutualConsentTest is Test, Events {
         vm.stopPrank();
 
         vm.startPrank(lender);
-        vm.expectEmit(true,false,false,true, address(line));
+        vm.expectEmit(true,true,false,true, address(line));
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, lender);
-        emit MutualConsentRegistered(expectedHash);
+        emit MutualConsentRegistered(expectedHash, borrower);
         line.addCredit(dRate, fRate, amount, token, lender);
         vm.stopPrank();
 
@@ -242,16 +251,16 @@ contract MutualConsentTest is Test, Events {
         vm.startPrank(borrower);
         line.setRates(id, newFrate, newDrate);
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
 
         // now set rates and register mutual consent as lender
         vm.startPrank(lender);
         expectedHash = _simulateMutualConstentHash(msgData, lender);
-        vm.expectEmit(true, false, false, true, address(line));
-        emit MutualConsentRegistered(expectedHash);
+        vm.expectEmit(true, true, false, true, address(line));
+        emit MutualConsentRegistered(expectedHash, borrower);
         line.setRates(id, newFrate, newDrate);
         vm.stopPrank();
 
@@ -371,8 +380,8 @@ contract MutualConsentTest is Test, Events {
         vm.startPrank(borrower);
         line.increaseCredit(id, amount);
         bytes32 expectedHash = _simulateMutualConstentHash(msgData, borrower);
-        vm.expectEmit(true, true, false, true, address(line));
-        emit MutualConsentRevoked(borrower, expectedHash);
+        vm.expectEmit(true, false, false, true, address(line));
+        emit MutualConsentRevoked(expectedHash);
         line.revokeConsent(msgData);
         vm.stopPrank();
     }

@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
 import {LineLib} from "../utils/LineLib.sol";
@@ -10,9 +10,9 @@ struct SpigotState {
     /// @notice account in charge of running onchain ops of spigoted contracts on behalf of owner
     address operator;
     /// @notice Total amount of revenue tokens help by the Spigot and available to be claimed by owner
-    mapping(address => uint256) ownerTokens;      // token -> claimable
+    mapping(address => uint256) ownerTokens; // token -> claimable
     /// @notice Total amount of revenue tokens help by the Spigot and available to be claimed by operator
-    mapping(address => uint256) operatorTokens;   // token -> claimable
+    mapping(address => uint256) operatorTokens; // token -> claimable
     /// @notice Functions that the operator is allowed to run on all revenue contracts controlled by the Spigot
     mapping(bytes4 => bool) whitelistedFunctions; // function -> allowed
     /// @notice Configurations for revenue contracts related to the split of revenue, access control to claiming revenue tokens and transfer of Spigot ownership
@@ -99,7 +99,7 @@ library SpigotLib {
         return claimed;
     }
 
-        /** see Spigot.operate */
+    /** see Spigot.operate */
     function operate(SpigotState storage self, address revenueContract, bytes calldata data) external returns (bool) {
         if (msg.sender != self.operator) {
             revert CallerAccessDenied();

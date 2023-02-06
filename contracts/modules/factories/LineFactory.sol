@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {ILineFactory} from "../../interfaces/ILineFactory.sol";
 import {IModuleFactory} from "../../interfaces/IModuleFactory.sol";
@@ -11,7 +11,7 @@ import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
  * @author  - Mom
  * @notice  - Facotry contract to deploy SecuredLine, Spigot, and Escrow contracts.
  * @dev     - Have immutable default values for Debt DAO system external dependencies.
-*/
+ */
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;
 
@@ -23,12 +23,7 @@ contract LineFactory is ILineFactory {
     address public immutable oracle;
     address payable public immutable swapTarget;
 
-    constructor(
-        address moduleFactory,
-        address arbiter_,
-        address oracle_,
-        address payable swapTarget_
-    ) {
+    constructor(address moduleFactory, address arbiter_, address oracle_, address payable swapTarget_) {
         factory = IModuleFactory(moduleFactory);
         if (arbiter_ == address(0)) {
             revert InvalidArbiterAddress();
@@ -45,11 +40,7 @@ contract LineFactory is ILineFactory {
     }
 
     /// see ModuleFactory.deployEscrow.
-    function deployEscrow(
-        uint32 minCRatio,
-        address owner,
-        address borrower
-    ) external returns (address) {
+    function deployEscrow(uint32 minCRatio, address owner, address borrower) external returns (address) {
         return factory.deployEscrow(minCRatio, oracle, owner, borrower);
     }
 
@@ -135,7 +126,7 @@ contract LineFactory is ILineFactory {
       @param ttl      - set total term length of line
       @return line - address of newly deployed line with oldLine config
      */
-     
+
     function rolloverSecuredLine(
         address payable oldLine,
         address borrower,

@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import {EscrowedLine} from "../modules/credit/EscrowedLine.sol";
 import {IEscrowedLine} from "../interfaces/IEscrowedLine.sol";
@@ -17,8 +17,8 @@ contract MockEscrowedLine is EscrowedLine, LineOfCredit {
         uint ttl_
     ) EscrowedLine(_escrow) LineOfCredit(oracle_, arbiter_, borrower_, ttl_) {}
 
-    function _init() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
-        return EscrowedLine._init();
+    function _init() internal override(EscrowedLine, LineOfCredit) {
+        EscrowedLine._init();
     }
 
     /** @dev see BaseLine._healthcheck */

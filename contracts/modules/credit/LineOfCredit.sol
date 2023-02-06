@@ -1,4 +1,4 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.16;
 
 import {Denominations} from "chainlink/Denominations.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
@@ -15,11 +15,11 @@ import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
 
 /**
-  * @title  - Debt DAO Unsecured Line of Credit
-  * @author - Kiba Gateaux
-  * @notice - Core credit facility logic for proposing, depositing, borrowing, and repaying debt.
-  *         - Contains core financial covnenants around term length (`deadline`), collateral ratios, liquidations, etc.
-  * @dev    - contains internal functions overwritten by SecuredLine, SpigotedLine, and EscrowedLine
+ * @title  - Debt DAO Unsecured Line of Credit
+ * @author - Kiba Gateaux
+ * @notice - Core credit facility logic for proposing, depositing, borrowing, and repaying debt.
+ *         - Contains core financial covnenants around term length (`deadline`), collateral ratios, liquidations, etc.
+ * @dev    - contains internal functions overwritten by SecuredLine, SpigotedLine, and EscrowedLine
  */
 contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -73,16 +73,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         emit DeployLine(oracle_, arbiter_, borrower_);
     }
 
-    function init() external virtual returns (LineLib.STATUS) {
+    function init() external virtual {
         if (status != LineLib.STATUS.UNINITIALIZED) {
             revert AlreadyInitialized();
         }
-        return _updateStatus(_init());
+        _init();
+        _updateStatus(LineLib.STATUS.ACTIVE);
     }
 
-    function _init() internal virtual returns (LineLib.STATUS) {
+    function _init() internal virtual {
         // If no collateral or Spigot then Line of Credit is immediately active
-        return LineLib.STATUS.ACTIVE;
+        return;
     }
 
     ///////////////
@@ -154,7 +155,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.declareInsolvent
-    function declareInsolvent() external returns (bool) {
+    function declareInsolvent() external {
         if (arbiter != msg.sender) {
             revert CallerAccessDenied();
         }
@@ -164,9 +165,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         if (_canDeclareInsolvent()) {
             _updateStatus(LineLib.STATUS.INSOLVENT);
-            return true;
-        } else {
-            return false;
         }
     }
 
@@ -210,7 +208,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.accrueInterest
-    function accrueInterest() external override returns (bool) {
+    function accrueInterest() external override {
         uint256 len = ids.length;
         bytes32 id;
         for (uint256 i; i < len; ++i) {
@@ -218,21 +216,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             Credit memory credit = credits[id];
             credits[id] = _accrue(credit, id);
         }
-
-        return true;
-    }
-
-    /**
-      @notice - accrues token demoninated interest on a lender's position.
-      @dev MUST call any time a position balance or interest rate changes
-      @param credit - the lender position that is accruing interest
-      @param id - the position id for credit position
-    */
-    function _accrue(Credit memory credit, bytes32 id) internal returns (Credit memory) {
-        if (!credit.isOpen) {
-            return credit;
-        }
-        return CreditLib.accrue(credit, id, address(interestRate));
     }
 
     /// see ILineOfCredit.addCredit
@@ -245,9 +228,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ) external payable override nonReentrant whileActive mutualConsent(lender, borrower) returns (bytes32) {
         bytes32 id = _createCredit(lender, token, amount);
 
-        require(interestRate.setRate(id, drate, frate));
-
-        emit SetRates(id, drate, frate);
+        _setRates(id, drate, frate);
 
         LineLib.receiveTokenOrETH(token, lender, amount);
 
@@ -255,18 +236,22 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.setRates
-    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) returns (bool) {
+    function setRates(bytes32 id, uint128 drate, uint128 frate) external override mutualConsentById(id) {
         credits[id] = _accrue(credits[id], id);
-        require(interestRate.setRate(id, drate, frate));
+        _setRates(id, drate, frate);
+    }
+
+    /// see ILineOfCredit.setRates
+    function _setRates(bytes32 id, uint128 drate, uint128 frate) internal {
+        interestRate.setRate(id, drate, frate);
         emit SetRates(id, drate, frate);
-        return true;
     }
 
     /// see ILineOfCredit.increaseCredit
     function increaseCredit(
         bytes32 id,
         uint256 amount
-    ) external payable override nonReentrant whileActive mutualConsentById(id) returns (bool) {
+    ) external payable override nonReentrant whileActive mutualConsentById(id) {
         Credit memory credit = _accrue(credits[id], id);
 
         credit.deposit += amount;
@@ -276,8 +261,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         LineLib.receiveTokenOrETH(credit.token, credit.lender, amount);
 
         emit IncreaseCredit(id, amount);
-
-        return true;
     }
 
     ///////////////
@@ -285,7 +268,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ///////////////
 
     /// see ILineOfCredit.depositAndClose
-    function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower returns (bool) {
+    function depositAndClose() external payable override nonReentrant whileBorrowing onlyBorrower {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
 
@@ -293,42 +276,29 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         uint256 totalOwed = credit.principal + credit.interestAccrued;
 
         // Borrower clears the debt then closes the credit line
-        credits[id] = _close(_repay(credit, id, totalOwed), id);
-
-        LineLib.receiveTokenOrETH(credit.token, borrower, totalOwed);
-
-        return true;
+        credits[id] = _close(_repay(credit, id, totalOwed, borrower), id);
     }
 
     /// see ILineOfCredit.close
-    function close(bytes32 id) external payable override nonReentrant onlyBorrower returns (bool) {
+    function close(bytes32 id) external payable override nonReentrant onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
         uint256 facilityFee = credit.interestAccrued;
 
         // clear facility fees and close position
-        credits[id] = _close(_repay(credit, id, facilityFee), id);
-
-        LineLib.receiveTokenOrETH(credit.token, borrower, facilityFee);
-
-        return true;
+        credits[id] = _close(_repay(credit, id, facilityFee, borrower), id);
     }
 
     /// see ILineOfCredit.depositAndRepay
-    function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing returns (bool) {
+    function depositAndRepay(uint256 amount) external payable override nonReentrant whileBorrowing {
         bytes32 id = ids[0];
         Credit memory credit = _accrue(credits[id], id);
-        require(credit.isOpen);
 
-        if(amount > credit.principal + credit.interestAccrued) {
+        if (amount > credit.principal + credit.interestAccrued) {
             revert RepayAmountExceedsDebt(credit.principal + credit.interestAccrued);
         }
 
-        credits[id] = _repay(credit, id, amount);
-
-        LineLib.receiveTokenOrETH(credit.token, msg.sender, amount);
-
-        return true;
+        credits[id] = _repay(credit, id, amount, msg.sender);
     }
 
     ////////////////////
@@ -336,10 +306,10 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     ////////////////////
 
     /// see ILineOfCredit.borrow
-    function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower returns (bool) {
+    function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
-        if (!credit.isOpen) {
+        if(!credit.isOpen) {
             revert PositionIsClosed();
         }
 
@@ -349,7 +319,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
 
         credit.principal += amount;
 
-        credits[id] = credit; // save new debt before healthcheck and token transfer
+        // save new debt before healthcheck and token transfer
+        credits[id] = credit;
 
         // ensure that borrowing doesnt cause Line to be LIQUIDATABLE
         if (_updateStatus(_healthcheck()) != LineLib.STATUS.ACTIVE) {
@@ -361,38 +332,20 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         emit Borrow(id, amount);
 
         _sortIntoQ(id);
-
-        return true;
     }
 
     /// see ILineOfCredit.withdraw
-    function withdraw(bytes32 id, uint256 amount) external override nonReentrant returns (bool) {
-        Credit memory credit = credits[id];
-
-        if (msg.sender != credit.lender) {
-            revert CallerAccessDenied();
-        }
-
-        // accrues interest and transfers to Lender
-        credit = CreditLib.withdraw(_accrue(credit, id), id, amount);
-
-        credits[id] = credit;
-
-        LineLib.sendOutTokenOrETH(credit.token, credit.lender, amount);
-
-        return true;
+    function withdraw(bytes32 id, uint256 amount) external override nonReentrant {
+        // accrues interest and transfer funds to Lender addres
+        credits[id] = CreditLib.withdraw(_accrue(credits[id], id), id, msg.sender, amount);
     }
 
     /**
      * @notice  - Steps the Queue be replacing the first element with the next valid credit line's ID
      * @dev     - Only works if the first element in the queue is null
      */
-    function stepQ() external returns (bool) {
-        if (ids[0] != bytes32(0)) {
-            revert CantStepQ();
-        }
+    function stepQ() external {
         ids.stepQ();
-        return true;
     }
 
     //////////////////////
@@ -439,18 +392,29 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /**
-   * @dev - Reduces `principal` and/or `interestAccrued` on a credit line.
-            Expects checks for conditions of repaying and param sanitizing before calling
-            e.g. early repayment of principal, tokens have actually been paid by borrower, etc.
-   * @dev - privileged internal function. MUST check params and logic flow before calling
-   * @param id - position id with all data pertaining to line
-   * @param amount - amount of Credit Token being repaid on credit line
-   * @return credit - position struct in memory with updated values
-  */
-    function _repay(Credit memory credit, bytes32 id, uint256 amount) internal returns (Credit memory) {
-        credit = CreditLib.repay(credit, id, amount);
+    * @dev - Reduces `principal` and/or `interestAccrued` on a credit line.
+                Expects checks for conditions of repaying and param sanitizing before calling
+                e.g. early repayment of principal, tokens have actually been paid by borrower, etc.
+    * @dev - privileged internal function. MUST check params and logic flow before calling
+    * @dev syntatic sugar
+    * @param id - position id with all data pertaining to line
+    * @param amount - amount of Credit Token being repaid on credit line
+    * @return credit - position struct in memory with updated values
+    */
+    function _repay(Credit memory credit, bytes32 id, uint256 amount, address payer) internal returns (Credit memory) {
+        return CreditLib.repay(credit, id, amount, payer);
+    }
 
-        return credit;
+
+    /**
+    * @notice - accrues token demoninated interest on a lender's position.
+    * @dev MUST call any time a position balance or interest rate changes
+    * @dev syntatic sugar
+    * @param credit - the lender position that is accruing interest
+    * @param id - the position id for credit position
+    */
+    function _accrue(Credit memory credit, bytes32 id) internal returns (Credit memory) {
+        return CreditLib.accrue(credit, id, address(interestRate));
     }
 
     /**
@@ -461,6 +425,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @return credit - position struct in memory with updated values
      */
     function _close(Credit memory credit, bytes32 id) internal virtual returns (Credit memory) {
+        // update position data in state
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }
@@ -495,9 +460,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                - once earliest slot is found, swap places with `p` and position in slot.
      * @dev - privileged internal function. MUST check params and logic flow before calling
      * @param p - position id that we are trying to find appropriate place for
-     * @return - if function executed successfully
      */
-    function _sortIntoQ(bytes32 p) internal returns (bool) {
+    function _sortIntoQ(bytes32 p) internal {
         uint256 lastSpot = ids.length - 1;
         uint256 nextQSpot = lastSpot;
         bytes32 id;
@@ -511,7 +475,8 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 ) continue;
                 nextQSpot = i; // index of first undrawn line found
             } else {
-                if (nextQSpot == lastSpot) return true; // nothing to update
+                // nothing to update
+                if (nextQSpot == lastSpot) return; // nothing to update
                 // get id value being swapped with `p`
                 bytes32 oldPositionId = ids[nextQSpot];
                 // swap positions
@@ -519,12 +484,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
                 ids[nextQSpot] = p; // p put at target index
 
                 emit SortedIntoQ(p, nextQSpot, i, oldPositionId);
-                return true;
             }
         }
     }
-
-
 
     /* GETTERS */
 
@@ -543,19 +505,20 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return (credits[id].deposit - credits[id].principal, credits[id].interestRepaid);
     }
 
-    /// see ILineOfCredit.nextInQ
     function nextInQ() external view returns (bytes32, address, address, uint256, uint256, uint256, uint128, uint128) {
         bytes32 next = ids[0];
-        (uint128 drawnRate, uint128 facilityRate, ) = interestRate.rates(next);
-
+        Credit memory credit = credits[next];
+        // Add to docs that this view revertts if no queue
+        (uint128 dRate, uint128 fRate) = CreditLib.getNextRateInQ(credit.principal, next, address(interestRate));
         return (
             next, 
-            credits[next].lender,
-            credits[next].token,
-            credits[next].principal,
-            credits[next].deposit,
-            CreditLib.interestAccrued(credits[next], next, address(interestRate)),
-            drawnRate,
-            facilityRate);
+            credit.lender,
+            credit.token,
+            credit.principal,
+            credit.deposit,
+            CreditLib.interestAccrued(credit, next, address(interestRate)),
+            dRate,
+            fRate
+        );
     }
 }

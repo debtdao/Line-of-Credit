@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import { IEscrow } from "../interfaces/IEscrow.sol";
@@ -15,8 +15,6 @@ import { MockLine } from "../mock/MockLine.sol";
 
 
 contract EscrowedLineTest is Test {
-
-    
     MockEscrowedLine line;
     Escrow escrow;
     
@@ -62,7 +60,8 @@ contract EscrowedLineTest is Test {
         );
 
         escrow.updateLine(address(line));
-        assertEq(uint(line.init()), uint(LineLib.STATUS.ACTIVE));
+        line.init();
+        // assertEq(uint(line.init()), uint(LineLib.STATUS.ACTIVE));
 
         _mintAndApprove();
         escrow.enableCollateral( address(supportedToken1));
@@ -161,7 +160,10 @@ contract EscrowedLineTest is Test {
         // configure other modules
        
         
-        assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
+
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(escrow)));
+        l.init();
     }
 
     function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {

@@ -1,6 +1,6 @@
 // forked from https://github.com/IndexCoop/index-coop-smart-contracts/blob/master/contracts/lib/MutualConsent.sol
 
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 /**
  * @title MutualConsent
@@ -18,7 +18,7 @@ abstract contract MutualConsent {
     uint256 constant MIN_DATA_LENGTH_BYTES = 4;
 
     // Mapping of upgradable units and if consent has been initialized by other party
-    mapping(bytes32 => address) public mutualConsents;
+    mapping(bytes32 => address) public mutualConsentProposals;
 
     error Unauthorized();
     error InvalidConsent();
@@ -30,8 +30,9 @@ abstract contract MutualConsent {
 
     /* ============ Events ============ */
 
-    event MutualConsentRegistered(bytes32 _consentHash);
-    event MutualConsentRevoked(address indexed user, bytes32 _toRevoke);
+    event MutualConsentRegistered(bytes32 proposalId, address taker);
+    event MutualConsentRevoked(bytes32 proposalId);
+    event MutualConsentAccepted(bytes32 proposalId);
 
     /* ============ Modifiers ============ */
 
@@ -63,9 +64,9 @@ abstract contract MutualConsent {
             revert UnsupportedMutualConsentFunction();
         }
 
-        bytes32 hashToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
+        bytes32 proposalIdToDelete = keccak256(abi.encodePacked(_reconstrucedMsgData, msg.sender));
 
-        address consentor = mutualConsents[hashToDelete];
+        address consentor = mutualConsentProposals[proposalIdToDelete];
 
         if (consentor == address(0)) {
             revert InvalidConsent();
@@ -74,9 +75,9 @@ abstract contract MutualConsent {
             revert NotUserConsent();
         } // note: cannot test, as no way to know what data (+msg.sender) would cause hash collision
 
-        delete mutualConsents[hashToDelete];
+        delete mutualConsentProposals[proposalIdToDelete];
 
-        emit MutualConsentRevoked(msg.sender, hashToDelete);
+        emit MutualConsentRevoked(proposalIdToDelete);
     }
 
     /* ============ Internal Functions ============ */
@@ -90,19 +91,21 @@ abstract contract MutualConsent {
 
         // The consent hash is defined by the hash of the transaction call data and sender of msg,
         // which uniquely identifies the function, arguments, and sender.
-        bytes32 expectedHash = keccak256(abi.encodePacked(msg.data, nonCaller));
+        bytes32 expectedProposalId = keccak256(abi.encodePacked(msg.data, nonCaller));
 
-        if (mutualConsents[expectedHash] == address(0)) {
-            bytes32 newHash = keccak256(abi.encodePacked(msg.data, msg.sender));
+        if (mutualConsentProposals[expectedProposalId] == address(0)) {
+            bytes32 newProposalId = keccak256(abi.encodePacked(msg.data, msg.sender));
 
-            mutualConsents[newHash] = msg.sender; // save caller's consent for nonCaller to accept
+            mutualConsentProposals[newProposalId] = msg.sender; // save caller's consent for nonCaller to accept
 
-            emit MutualConsentRegistered(newHash);
+            emit MutualConsentRegistered(newProposalId, nonCaller);
 
             return false;
         }
 
-        delete mutualConsents[expectedHash];
+        delete mutualConsentProposals[expectedProposalId];
+
+        emit MutualConsentAccepted(expectedProposalId);
 
         return true;
     }
