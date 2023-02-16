@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 
@@ -42,7 +42,7 @@ contract LineFactoryTest is Test {
             address(moduleFactory),
             arbiter,
             oracle,
-            swapTarget
+            payable(swapTarget)
         );
 
         line_address = lineFactory.deploySecuredLine(borrower, ttl);
@@ -67,7 +67,7 @@ contract LineFactoryTest is Test {
             address(moduleFactory),
             address(0),
             oracle,
-            swapTarget
+            payable(swapTarget)
         );
     }
 
@@ -75,7 +75,6 @@ contract LineFactoryTest is Test {
         // owner, treasury, operator
         address moduleSpigot = moduleFactory.deploySpigot(
             address(this), // owner
-            borrower,
             borrower
         );
 
@@ -117,15 +116,14 @@ contract LineFactoryTest is Test {
         assertEq(address(line.spigot()), address(spigot));
     }
 
-    // TODO: should use some fuzzing here
-    function test_fail_if_revenueSplit_exceeds_100() public {
-        // vm.assume( pct > 100)
+    function test_fail_if_revenueSplit_exceeds_100(uint8 split) public {
+        vm.assume(split > 100);
         ILineFactory.CoreLineParams memory coreParams = ILineFactory
             .CoreLineParams({
                 borrower: borrower,
                 ttl: ttl,
                 cratio: 3000,
-                revenueSplit: 110
+                revenueSplit: split
             });
 
         vm.expectRevert(ILineFactory.InvalidRevenueSplit.selector);

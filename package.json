@@ -1,0 +1,30 @@
+{
+  "name": "Line-of-Credit",
+  "version": "1.0.0",
+  "description": "DebtDAO",
+  "main": "index.js",
+  "repository": "git@github.com:debtdao/Line-of-Credit.git",
+  "author": "DebtDAO",
+  "scripts": {
+    "prepare": "husky install",
+    "prettier": "prettier --write **.sol",
+    "prettier:list": "prettier --list-different **.sol",
+    "prettier:check": "prettier --check **.sol",
+    "deploy:local": "FOUNDRY_PROFILE=local && source .env && forge script scripts/DeployLocal.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast",
+    "deploy:goerli:libs": "source .env && forge script scripts/DeployLibs.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast",
+    "deploy:goerli:contracts": "FOUNDRY_PROFILE=goerli && source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast",
+    "deploy:mainnet:libs": "source .env && forge script scripts/DeployLibs.s.sol -vvvv --rpc-url $MAINNET_RPC_URL --verify --etherscan-api-key $MAINNET_ETHERSCAN_API_KEY --broadcast",
+    "deploy:mainnet:contracts": "FOUNDRY_PROFILE=mainnet && source .env && forge script contracts/scripts/DeployMainnet.s.sol -vvvv --rpc-url $MAINNET_RPC_URL --verify --etherscan-api-key $MAINNET_ETHERSCAN_API_KEY --broadcast"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged --pattern \"**/*.sol\" && git add -A ."
+    }
+  },
+  "devDependencies": {
+    "husky": "^8.0.0",
+    "prettier": "^2.8.0",
+    "prettier-plugin-solidity": "^1.0.0",
+    "pretty-quick": "^3.1.3"
+  }
+}

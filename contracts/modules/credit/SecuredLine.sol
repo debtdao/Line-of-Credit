@@ -1,15 +1,21 @@
-pragma solidity ^0.8.9;
-import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
-import { LineLib } from "../../utils/LineLib.sol";
-import { EscrowedLine } from "./EscrowedLine.sol";
-import { SpigotedLine } from "./SpigotedLine.sol";
-import { SpigotedLineLib } from "../../utils/SpigotedLineLib.sol";
-import { LineOfCredit } from "./LineOfCredit.sol";
-import { ILineOfCredit } from "../../interfaces/ILineOfCredit.sol";
-import { ISecuredLine } from "../../interfaces/ISecuredLine.sol";
+pragma solidity 0.8.16;
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {LineLib} from "../../utils/LineLib.sol";
+import {EscrowedLine} from "./EscrowedLine.sol";
+import {SpigotedLine} from "./SpigotedLine.sol";
+import {SpigotedLineLib} from "../../utils/SpigotedLineLib.sol";
+import {LineOfCredit} from "./LineOfCredit.sol";
+import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
+import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
+/**
+ * @title  - Debt DAO Secured Line of Credit
+ * @author - Kiba Gateaux
+ * @notice - The SecuredLine combines both collateral modules (SpigotedLine + EscrowedLine) with core lending functionality from LineOfCredit
+ *         - to create a fully secured lending facility backed by revenue via Spigot or tokens via Escrow.
+ * @dev    - modifies _liquidate(), _healthcheck(), _init(), and _declareInsolvent() functionality
+ */
 contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
-
     constructor(
         address oracle_,
         address arbiter_,
@@ -19,106 +25,67 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         address escrow_,
         uint ttl_,
         uint8 defaultSplit_
-    ) SpigotedLine(
-        oracle_,
-        arbiter_,
-        borrower_,
-        spigot_,
-        swapTarget_,
-        ttl_,
-        defaultSplit_
-    ) EscrowedLine(escrow_) {
+    ) SpigotedLine(oracle_, arbiter_, borrower_, spigot_, swapTarget_, ttl_, defaultSplit_) EscrowedLine(escrow_) {}
 
+    /**
+     * @dev requires both Spigot and Escrow to pass _init to succeed
+     */
+    function _init() internal virtual override(SpigotedLine, EscrowedLine) {
+        SpigotedLine._init();
+        EscrowedLine._init();
     }
 
-  /**
-    * @dev requires both Spigot and Escrow to pass _init to succeed
-  */
-  function _init() internal override(SpigotedLine, EscrowedLine) virtual returns(LineLib.STATUS) {
-     LineLib.STATUS s =  LineLib.STATUS.ACTIVE;
-    
-    if(SpigotedLine._init() != s || EscrowedLine._init() != s) {
-      return LineLib.STATUS.UNINITIALIZED;
-    }
-    
-    return s;
-  }
+    /// see ISecuredLine.rollover
+    function rollover(address newLine) external override onlyBorrower {
+        // require all debt successfully paid already
+        if (status != LineLib.STATUS.REPAID) {
+            revert DebtOwed();
+        }
+        // require new line isn't activated yet
+        if (ILineOfCredit(newLine).status() != LineLib.STATUS.UNINITIALIZED) {
+            revert BadNewLine();
+        }
+        // we dont check borrower is same on both lines because borrower might want new address managing new line
+        EscrowedLine._rollover(newLine);
+        SpigotedLineLib.rollover(address(spigot), newLine);
 
-  /// see IsecuredLine.rollover
-  function rollover(address newLine)
-    external
-    onlyBorrower
-    override
-    returns(bool)
-  {
-    // require all debt successfully paid already
-    if(status != LineLib.STATUS.REPAID) { revert DebtOwed(); }
-    // require new line isn't activated yet
-    if(ILineOfCredit(newLine).status() != LineLib.STATUS.UNINITIALIZED) { revert BadNewLine(); }
-    // we dont check borrower is same on both lines because borrower might want new address managing new line
-    EscrowedLine._rollover(newLine);
-    SpigotedLineLib.rollover(address(spigot), newLine);
-
-    // ensure that line we are sending can accept them. There is no recovery option.
-    if(ILineOfCredit(newLine).init() != LineLib.STATUS.ACTIVE) { revert BadRollover(); }
-
-    return true;
-  }
-
-
-  /**
-   * see EscrowedLine._liquidate
-   * @notice - Forcefully take collateral from Escrow and repay debt for lender
-   *          - current implementation just sends "liquidated" tokens to Arbiter to sell off how the deem fit and then manually repay with DepositAndRepay
-   * @dev - only callable by Arbiter
-   * @dev - Line status MUST be LIQUIDATABLE
-   * @dev - callable by `arbiter`
-   * @param amount - amount of `targetToken` expected to be sold off in  _liquidate
-   * @param targetToken - token in escrow that will be sold of to repay position
-   */
-
-  function liquidate(
-    uint256 amount,
-    address targetToken
-  )
-    external
-    whileBorrowing
-    returns(uint256)
-  {
-    if(msg.sender != arbiter) { revert CallerAccessDenied(); }
-    if(_updateStatus(_healthcheck()) != LineLib.STATUS.LIQUIDATABLE) {
-      revert NotLiquidatable();
+        // ensure that line we are sending can accept them. There is no recovery option.
+        try ILineOfCredit(newLine).init() {} catch {
+            revert BadRollover();
+        }
     }
 
-    // send tokens to arbiter for OTC sales
-    return _liquidate(ids[0], amount, targetToken, msg.sender);
-  }
+    //  see IEscrowedLine.liquidate
+    function liquidate(uint256 amount, address targetToken) external returns (uint256) {
+        if (msg.sender != arbiter) {
+            revert CallerAccessDenied();
+        }
+        if (_updateStatus(_healthcheck()) != LineLib.STATUS.LIQUIDATABLE) {
+            revert NotLiquidatable();
+        }
 
-  function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns(LineLib.STATUS) {
-    LineLib.STATUS s = LineOfCredit._healthcheck();
-    if(s != LineLib.STATUS.ACTIVE) {
-      return s;
+        // send tokens to arbiter for OTC sales
+        return _liquidate(ids[0], amount, targetToken, msg.sender);
     }
 
-    return EscrowedLine._healthcheck();
-  }
+    function _healthcheck() internal override(EscrowedLine, LineOfCredit) returns (LineLib.STATUS) {
+        // check core (also cheap & internal) covenants before checking collateral conditions
+        LineLib.STATUS s = LineOfCredit._healthcheck();
+        if (s != LineLib.STATUS.ACTIVE) {
+            // return early if non-default answer
+            return s;
+        }
 
+        // check collateral ratio and return ACTIVE
+        return EscrowedLine._healthcheck();
+    }
 
-  /**
-    * @notice Wrapper for SpigotedLine and EscrowedLine internal functions
-    * @dev - both underlying calls MUST return true for Line status to change to INSOLVENT
-    * @return isInsolvent - if the entire Line including all collateral sources is fuly insolvent.
-  */
-  function _canDeclareInsolvent()
-    internal
-    virtual
-    override(EscrowedLine, SpigotedLine)
-    returns(bool)
-  {
-    return (
-      EscrowedLine._canDeclareInsolvent() &&
-      SpigotedLine._canDeclareInsolvent()
-    );
-  }
-
+    /**
+     * @notice Wrapper for SpigotedLine and EscrowedLine internal functions
+     * @dev - both underlying calls MUST return true for Line status to change to INSOLVENT
+     * @return isInsolvent - if the entire Line including all collateral sources is fuly insolvent.
+     */
+    function _canDeclareInsolvent() internal virtual override(EscrowedLine, SpigotedLine) returns (bool) {
+        return (EscrowedLine._canDeclareInsolvent() && SpigotedLine._canDeclareInsolvent());
+    }
 }

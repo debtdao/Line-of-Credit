@@ -1,8 +1,10 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
-import { Denominations } from "chainlink/Denominations.sol";
-import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20}  from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {Denominations} from "chainlink/Denominations.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
+import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
@@ -10,25 +12,25 @@ import {CreditLib} from "../../utils/CreditLib.sol";
 import {LineLib} from "../../utils/LineLib.sol";
 import {EscrowState, EscrowLib} from "../../utils/EscrowLib.sol";
 
-
 /**
-  * @title  - Debt DAO Escrow
-  * @author - James Senegalli
-  * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
+ * @title  - Debt DAO Escrow
+ * @author - James Senegalli
+ * @notice - Ownable contract that allows someone to deposit ERC20 and ERC4626 tokens as collateral to back a Line of Credit
  */
-contract Escrow is IEscrow {
+contract Escrow is IEscrow, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using EscrowLib for EscrowState;
 
-    // the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
+    /// @notice the minimum value of the collateral in relation to the outstanding debt e.g. 10% of outstanding debt
     uint32 public immutable minimumCollateralRatio;
 
-    // Stakeholders and contracts used in Escrow
+    /// @notice Stakeholders and contracts used in Escrow
     address public immutable oracle;
-    // borrower on line contract
+
+    /// @notice borrower on line contract
     address public immutable borrower;
 
-    // all data around terms for collateral and current deposits
+    /// @notice all data around terms for collateral and current deposits
     EscrowState private state;
 
     /**
@@ -39,12 +41,7 @@ contract Escrow is IEscrow {
                           - also is the oracle providing current total outstanding debt value.
       * @param _borrower  - borrower on the _line contract. Cannot pull from _line because _line might not be a Line at construction.
     */
-    constructor(
-        uint32 _minimumCollateralRatio,
-        address _oracle,
-        address _line,
-        address _borrower
-    ) {
+    constructor(uint32 _minimumCollateralRatio, address _oracle, address _line, address _borrower) {
         minimumCollateralRatio = _minimumCollateralRatio;
         oracle = _oracle;
         borrower = _borrower;
@@ -52,27 +49,27 @@ contract Escrow is IEscrow {
     }
 
     /**
-    * @notice the current controller of the Escrow contract.
-    */
-    function line() external view override returns(address) {
-      return state.line;
+     * @notice the current controller of the Escrow contract.
+     */
+    function line() external view override returns (address) {
+        return state.line;
     }
 
     /**
-    * @notice - Checks Line's outstanding debt value and current Escrow collateral value to compute collateral ratio and checks that against minimum.
-    * @return isLiquidatable - returns true if Escrow.getCollateralRatio is lower than minimumCollateralRatio else false
-    */
-    function isLiquidatable() external returns(bool) {
-      return state.isLiquidatable(oracle, minimumCollateralRatio);
+     * @notice - Checks Line's outstanding debt value and current Escrow collateral value to compute collateral ratio and checks that against minimum.
+     * @return isLiquidatable - returns true if Escrow.getCollateralRatio is lower than minimumCollateralRatio else false
+     */
+    function isLiquidatable() external returns (bool) {
+        return state.isLiquidatable(oracle, minimumCollateralRatio);
     }
 
     /**
-    * @notice - Allows current owner to transfer ownership to another address
-    * @dev    - Used if we setup Escrow before Line exists. Line has no way to interface with this function so once transfered `line` is set forever
-    * @return didUpdate - if function successfully executed or not
-    */
-    function updateLine(address _line) external returns(bool) {
-      return state.updateLine(_line);
+     * @notice - Allows current owner to transfer ownership to another address
+     * @dev    - Used if we setup Escrow before Line exists. Line has no way to interface with this function so once transfered `line` is set forever
+     * @return didUpdate - if function successfully executed or not
+     */
+    function updateLine(address _line) external returns (bool) {
+        return state.updateLine(_line);
     }
 
     /**
@@ -83,10 +80,7 @@ contract Escrow is IEscrow {
      * @param token - the token address of the deposited token
      * @return - the updated cratio
      */
-    function addCollateral(uint256 amount, address token)
-        external payable
-        returns (uint256)
-    {
+    function addCollateral(uint256 amount, address token) external payable nonReentrant returns (uint256) {
         return state.addCollateral(oracle, amount, token);
     }
 
@@ -110,11 +104,7 @@ contract Escrow is IEscrow {
      * @param to - who should receive the funds
      * @return - the updated cratio
      */
-    function releaseCollateral(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (uint256) {
+    function releaseCollateral(uint256 amount, address token, address to) external nonReentrant returns (uint256) {
         return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
     }
 
@@ -146,11 +136,7 @@ contract Escrow is IEscrow {
      * @param to - the address to receive the funds
      * @return - true if successful
      */
-    function liquidate(
-        uint256 amount,
-        address token,
-        address to
-    ) external returns (bool) {
+    function liquidate(uint256 amount, address token, address to) external nonReentrant returns (bool) {
         return state.liquidate(amount, token, to);
     }
 }

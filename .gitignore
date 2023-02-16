@@ -5,6 +5,9 @@ docs
 .env
 lib
 
+*.log
+
+.DS_Store
 
 #Hardhat files
 cache

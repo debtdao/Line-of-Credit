@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 import {Denominations} from "chainlink/Denominations.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
@@ -14,13 +14,7 @@ contract SimpleRevenueContract {
     function claimPullPayment() external returns (bool) {
         require(msg.sender == owner, "Revenue: Only owner can claim");
         if (address(revenueToken) != Denominations.ETH) {
-            require(
-                revenueToken.transfer(
-                    owner,
-                    revenueToken.balanceOf(address(this))
-                ),
-                "Revenue: bad transfer"
-            );
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
         }
@@ -29,13 +23,7 @@ contract SimpleRevenueContract {
 
     function sendPushPayment() external returns (bool) {
         if (address(revenueToken) != Denominations.ETH) {
-            require(
-                revenueToken.transfer(
-                    owner,
-                    revenueToken.balanceOf(address(this))
-                ),
-                "Revenue: bad transfer"
-            );
+            require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
         } else {
             payable(owner).transfer(address(this).balance);
         }

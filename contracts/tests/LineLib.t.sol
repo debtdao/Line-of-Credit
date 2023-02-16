@@ -1,11 +1,11 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 
 import "forge-std/Test.sol";
 
 import { Denominations } from "chainlink/Denominations.sol";
 
-import { MockReceivables } from "../mock/MockReceivables.sol";
+import { MockReceivables, MockStatefulReceivables } from "../mock/MockReceivables.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { RevenueToken4626 } from "../mock/RevenueToken4626.sol";
 
@@ -94,11 +94,34 @@ contract LineLibTest is Test {
       receivables.accept(Denominations.ETH, address(this), 1 ether);
     }
 
+    function test_sending_eth_fails_if_sending_to_contract_without_receivable_function() external {
+      MockStatefulReceivables statefulReceivables = new MockStatefulReceivables();
+      statefulReceivables.setReceiveableState(false);
+  
+      vm.deal(address(receivables), 1 ether); 
+      
+      vm.expectRevert(LineLib.SendingEthFailed.selector);
+      receivables.send(Denominations.ETH, address(statefulReceivables), 0.5 ether);
+
+    }
+
+    function test_overpaying_sends_refund_to_caller() public {
+      address user = makeAddr("user");
+      vm.deal(user, 1 ether);
+
+      vm.startPrank(user);
+      vm.expectEmit(true, true, false, true);
+      emit LineLib.RefundIssued(user, 0.5 ether);
+      receivables.accept{value: 1 ether}(Denominations.ETH, user, 0.5 ether);
+      assertEq(user.balance, 0.5 ether);
+    }
 
     function test_can_receive_ETH_via_msgValue() public {
       deal(address(this), 1 ether);
       receivables.accept{value: 1 ether}(Denominations.ETH, address(this), 1 ether);
     }
+
+
 
     function test_can_transfer_tokens_from_sender_to_recieve()  public {
       token.mint(address(this), 1 ether);
@@ -137,6 +160,9 @@ contract LineLibTest is Test {
       // no change. minted then transfered
       assertEq(thatBal,  receivables.balance(tkn));
     }
+
+    // Test refunding overpaid
+
 
     function test_send_out_4626() public {
       RevenueToken4626 token4626 = new RevenueToken4626(tkn);
@@ -184,7 +210,6 @@ contract LineLibTest is Test {
         assert(ids[1] == bytes32(0)); // ensure deleted
     }
 
-
     function test_cannot_remove_non_existent_position() public {
         bytes32 id = CreditLib.computeId(line, lender, tkn);
         ids.push(id);
@@ -194,41 +219,6 @@ contract LineLibTest is Test {
         assertEq(ids[0], id);
     }
 
-
-    function test_can_properly_step_queue(uint256 length) public {
-        uint l = 10;
-        ids = new bytes32[](l);
-        // ensure array is within reasonable bounds
-        vm.assume(length != 0 && length < ids.length);
-        if(length == 1) {
-            ids[0] = bytes32(0);
-            ids.stepQ();
-            assertEq(ids[0], ids[0]);
-            return;
-        }
-
-        if(length == 2) {
-            ids[0] = bytes32(0);
-            ids[1] = bytes32(uint(1));
-
-            ids.stepQ();
-            assertEq(ids[0], bytes32(uint(1)));
-            assertEq(ids[1], bytes32(0));
-            return;
-        }
-
-        for(uint256 i = 0; i < length; i++) {
-          ids[i] == bytes32(i);
-        }
-        ids.stepQ();
-        
-        assertEq(ids.length, l);
-        
-        for(uint256 i = 0; i < l; i++) {
-          if(i == 0) assertEq(ids[i], ids[l - 1]); // first -> last
-          else assertEq(ids[i], ids[i - 1]);      // all others move one index down
-        }
-    }
 
     
 

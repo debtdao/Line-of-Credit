@@ -1,4 +1,4 @@
-pragma solidity 0.8.9;
+pragma solidity 0.8.16;
 
 interface ILineFactory {
     struct CoreLineParams {
@@ -24,25 +24,13 @@ interface ILineFactory {
     error InvalidEscrowAddress();
     error InvalidSpigotAddress();
 
-    function deployEscrow(
-        uint32 minCRatio,
-        address owner,
-        address borrower
-    ) external returns (address);
+    function deployEscrow(uint32 minCRatio, address owner, address borrower) external returns (address);
 
-    function deploySpigot(
-        address owner,
-        address borrower,
-        address operator
-    ) external returns (address);
+    function deploySpigot(address owner, address operator) external returns (address);
 
-    function deploySecuredLine(address borrower, uint256 ttl)
-        external
-        returns (address);
+    function deploySecuredLine(address borrower, uint256 ttl) external returns (address);
 
-    function deploySecuredLineWithConfig(CoreLineParams calldata coreParams)
-        external
-        returns (address);
+    function deploySecuredLineWithConfig(CoreLineParams calldata coreParams) external returns (address);
 
     function deploySecuredLineWithModules(
         CoreLineParams calldata coreParams,
@@ -50,9 +38,5 @@ interface ILineFactory {
         address mEscrow
     ) external returns (address);
 
-    function rolloverSecuredLine(
-        address payable oldLine,
-        address borrower,
-        uint256 ttl
-    ) external returns (address);
+    function rolloverSecuredLine(address payable oldLine, address borrower, uint256 ttl) external returns (address);
 }
