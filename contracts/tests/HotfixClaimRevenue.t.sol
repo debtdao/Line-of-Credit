@@ -89,11 +89,9 @@ contract HotfixClaimRevenueTest is Test {
         escrow = line.escrow();
         spigot = line.spigot();
 
-        _mintAndApprove();
-
     }
 
-    function _mintAndApprove() internal {
+    function _createAndFundLine(uint256 loanAmount, uint256 collateral) internal {
 
         // enable collateral
         escrow.enableCollateral(SNX);
@@ -108,7 +106,10 @@ contract HotfixClaimRevenueTest is Test {
         line.addSpigot(BORROWER_REVENUE_EOA, setting);
 
         // ensure balances are sufficient
-        deal(DAI, lender, 1000 ether);
+        if (IERC20(SNX).balanceOf(borrower) < collateral) {
+            deal(SNX, borrower, collateral);
+        }
+        deal(DAI, lender, loanAmount);
         deal(USDC, borrower, 100e6);
         deal(USDC, BORROWER_REVENUE_EOA, 100e6);
 
@@ -120,12 +121,12 @@ contract HotfixClaimRevenueTest is Test {
         vm.startPrank(borrower);
         IERC20(SNX).approve(address(escrow), MAX_INT);
 
-        escrow.addCollateral(3.3 ether, SNX);
+        escrow.addCollateral(collateral, SNX);
 
         line.addCredit(
             dRate,
             fRate,
-            50000000000000000000,
+            loanAmount,
             DAI,
             lender
         );
@@ -137,7 +138,7 @@ contract HotfixClaimRevenueTest is Test {
         line.addCredit(
             dRate,
             fRate,
-            50000000000000000000,
+            loanAmount,
             DAI,
             lender
         );
@@ -146,7 +147,28 @@ contract HotfixClaimRevenueTest is Test {
     }
 
     function test_can_claimRevenue_multiple_times(uint256 advanceBlocks, uint256 borrowAmount, uint256 revenue) public {
+        vm.assume(borrowAmount > 0);
+        vm.assume(advanceBlocks > 0);
+        borrowAmount = bound(borrowAmount, 10 ether, 1000 ether);
+        advanceBlocks = bound(advanceBlocks, 100, 10_000);
 
+        uint256 funds = borrowAmount * 5;
+        _createAndFundLine(funds, funds / 2);
+        // _createAndFundLine(50 ether, 3.3 ether);
+
+        bytes32 lineId = line.ids(0);
+
+        // _rollAndWarpToBlock(block.number + advanceBlocks); // borrow block
+        vm.startPrank(borrower);
+        line.borrow(lineId, borrowAmount);
+        vm.stopPrank();
+
+        // for (uint i; i < 10;) {
+
+        //     unchecked {
+        //         ++i;
+        //     }
+        // }
 
     }
 
@@ -154,6 +176,9 @@ contract HotfixClaimRevenueTest is Test {
     // contract that didn't take into account the operatorToken balance when claiming revenue
     // @note: mainnet contract: 0x6e3a81f41210d45a2bbbbad00f25fd96567b9af2
     function test_accounting_for_multiple_claim_revenue_invocations() external {
+        
+        _createAndFundLine(50 ether, 3.3 ether); // 50 dai
+        
         bytes32 lineId = line.ids(0);
 
         // borrow 10 DAI
