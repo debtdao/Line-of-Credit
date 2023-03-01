@@ -24,7 +24,7 @@ import { RevenueToken } from "../mock/RevenueToken.sol";
 
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 
-contract HotfixTest is Test {
+contract HotfixClaimRevenueTest is Test {
 
     IEscrow escrow;
     ISpigot spigot;
@@ -145,6 +145,11 @@ contract HotfixTest is Test {
 
     }
 
+    function test_can_claimRevenue_multiple_times(uint256 advanceBlocks, uint256 borrowAmount, uint256 revenue) public {
+
+
+    }
+
     // @note: This test replicates an accounting bug discovered in _claimRevenue in the SpigotLib
     // contract that didn't take into account the operatorToken balance when claiming revenue
     // @note: mainnet contract: 0x6e3a81f41210d45a2bbbbad00f25fd96567b9af2
@@ -217,42 +222,29 @@ contract HotfixTest is Test {
         emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
 
         // full 15 USDC has been used at this point
-        /// note: 1.5 USDC remains in operator tokens
+        /// note: 1.5 USDC remains in operator tokens when bug is present
 
-/*
         // 16_687_230: claimRevenue (called by thomas)
         _rollAndWarpToBlock(16_687_230); 
         vm.startPrank(THOMAS);
         emit log_string("=> claimRevenue()");
         vm.expectRevert(ISpigot.NoRevenue.selector);
         claimed = spigot.claimRevenue(BORROWER_REVENUE_EOA, USDC, bytes(""));
-        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
-        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
-        expectedOwnerTokens = (claimed * revenueSplit) / 100;
-        assertEq(spigotOwnerTokens, expectedOwnerTokens);
-        assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens);
-        emit log_named_uint("owner tokens USDC after thomas claim Revenue", spigotOwnerTokens);
-        emit log_named_uint("operator tokens USDC after  thomas claim Revenue", spigotOperatorTokens);
-        emit log_named_uint("line USDC balance after  thomas claim Revenue", IERC20(USDC).balanceOf(lineAddress));
-        emit log_named_uint("spigot USDC balance after  thomas claim Revenue", IERC20(USDC).balanceOf(address(spigot)));
         vm.stopPrank();
+
 
         // 16_687_712: claimAndRepay
         _rollAndWarpToBlock(16_687_712); 
         emit log_string("=> claimAndRepay()");
+        vm.expectRevert(ISpigot.ClaimFailed.selector);
         line.claimAndRepay(USDC,hex"d9627aa400000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000149970000000000000000000000000000000000000000000000000128e269a9e9abf4100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000006b175474e89094c44da98b954eedeac495271d0f869584cd000000000000000000000000e9039a6968ed998139e023ed8d41c7fa77b7ff7a0000000000000000000000000000000000000000000000b9a844386663f6ab7a");
-        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
-        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
-        emit log_named_uint("owner tokens USDC after claimAndRepay", spigotOwnerTokens);
-        emit log_named_uint("operator tokens USDC after claimAndRepay", spigotOperatorTokens);
-        emit log_named_uint("line USDC balance after claimAndRepay", IERC20(USDC).balanceOf(lineAddress));
-        emit log_named_uint("spigot USDC balance after claimAndRepay", IERC20(USDC).balanceOf(address(spigot)));
 
         // 16_692_741: transfer 15 USDC to spigot
         _rollAndWarpToBlock(16_692_741); 
         vm.startPrank(BORROWER_REVENUE_EOA);
         emit log_string("=> Transferring revenue to spigot");
         IERC20(USDC).transfer(address(spigot), 15e6);
+        assertEq(IERC20(USDC).balanceOf(address(spigot)), spigotOperatorTokens + 15e6);
         spigotOwnerTokens = spigot.getOwnerTokens(USDC);
         spigotOperatorTokens = spigot.getOperatorTokens(USDC);
         emit log_named_uint("owner tokens USDC after transfer", spigotOwnerTokens);
@@ -261,36 +253,31 @@ contract HotfixTest is Test {
         emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
         vm.stopPrank();
 
+
         // 16_693_128: claimRevenue
         _rollAndWarpToBlock(16_693_128); 
         vm.startPrank(borrower);
         emit log_string("=> claimRevenue()");
+        uint256 previousSpigotOperatorTokens = spigot.getOperatorTokens(USDC);
         claimed = spigot.claimRevenue(BORROWER_REVENUE_EOA, USDC, bytes(""));
+        emit log_named_uint("claimed", claimed);
         spigotOwnerTokens = spigot.getOwnerTokens(USDC);
         spigotOperatorTokens = spigot.getOperatorTokens(USDC);
         expectedOwnerTokens = (claimed * revenueSplit) / 100;
-        assertEq(spigotOwnerTokens, expectedOwnerTokens);
-        assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens);
         emit log_named_uint("owner tokens USDC after claimRevenue", spigotOwnerTokens);
         emit log_named_uint("operator tokens USDC after claimRevenue", spigotOperatorTokens);
         emit log_named_uint("line USDC balance", IERC20(USDC).balanceOf(lineAddress));
         emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
+        assertEq(spigotOwnerTokens, expectedOwnerTokens);
+        assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + previousSpigotOperatorTokens);
         vm.stopPrank();
 
         // 16_694_077: claimRevenue
         _rollAndWarpToBlock(16_694_077); 
         vm.startPrank(borrower);
         emit log_string("=> claimRevenue()");
+        vm.expectRevert(ISpigot.NoRevenue.selector);
         claimed = spigot.claimRevenue(BORROWER_REVENUE_EOA, USDC, bytes(""));
-        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
-        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
-        expectedOwnerTokens = (claimed * revenueSplit) / 100;
-        assertEq(spigotOwnerTokens, expectedOwnerTokens);
-        assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens);
-        emit log_named_uint("owner tokens USDC after claimRevenue", spigotOwnerTokens);
-        emit log_named_uint("operator tokens USDC after claimRevenue", spigotOperatorTokens);
-        emit log_named_uint("line USDC balance", IERC20(USDC).balanceOf(lineAddress));
-        emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
         vm.stopPrank();
 
         // 16_694_108: claimAndRepay
@@ -303,7 +290,6 @@ contract HotfixTest is Test {
         emit log_named_uint("operator tokens USDC after claimAndRepay", spigotOperatorTokens);
         emit log_named_uint("line USDC balance after claimAndRepay", IERC20(USDC).balanceOf(lineAddress));
         emit log_named_uint("spigot USDC balance after claimAndRepay", IERC20(USDC).balanceOf(address(spigot)));
-
 
         // 16_701_533: transfer 3 USDC to spigot
         _rollAndWarpToBlock(16_701_533); 
@@ -318,11 +304,20 @@ contract HotfixTest is Test {
         emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
         vm.stopPrank();
 
-        */
+        _rollAndWarpToBlock(16_710_000); 
+        vm.startPrank(borrower);
+        emit log_string("=> claimRevenue()");
+        claimed = spigot.claimRevenue(BORROWER_REVENUE_EOA, USDC, bytes(""));
+        assertEq(claimed, 3e6);
+        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+        emit log_named_uint("owner tokens USDC after claimRevenue", spigotOwnerTokens);
+        emit log_named_uint("operator tokens USDC after claimRevenue", spigotOperatorTokens);
+        emit log_named_uint("line USDC balance", IERC20(USDC).balanceOf(lineAddress));
+        emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
+        vm.stopPrank();
         
     }
-
-    //    
 
     function _rollAndWarpToBlock(uint256 rollToBlock) internal {
         emit log_string("=======================");
