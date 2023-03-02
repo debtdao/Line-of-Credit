@@ -158,7 +158,7 @@ contract SpigotedLineTest is Test, Events {
       revenueToken.approve(address(dex), MAX_INT);
 
       // revenue earned
-      revenueToken.mint(address(spigot), MAX_REVENUE / 2);
+      revenueToken.mint(address(spigot), MAX_REVENUE);
       // allow deposits
       revenueToken.approve(address(line), MAX_INT);
     }
