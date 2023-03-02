@@ -68,6 +68,18 @@ contract DualRevenueStreamsTest is Test {
 
     string MAINNET_RPC_URL = vm.envString("MAINNET_RPC_URL");
 
+    // prevent stack-too-deep
+    uint256 principal;
+    uint256 interest;
+    uint256 interestRepaid;
+    uint256 claimed;
+    uint256 spigotOwnerTokens;
+    uint256 spigotOperatorTokens;
+    uint256 expectedOwnerTokens;
+    uint256 expectedOperatorTokens;
+    uint256 preClaimSpigotOperatorTokens;
+    uint256 preClaimSpigotOwnerTokens;
+
     constructor () {} 
 
     function setUp() public {
@@ -192,14 +204,6 @@ contract DualRevenueStreamsTest is Test {
         line.borrow(lineId, LOAN_AMT);
         vm.stopPrank();
 
-        uint256 principal;
-        uint256 interest;
-        uint256 interestRepaid;
-        uint256 claimed;
-        uint256 spigotOwnerTokens;
-        uint256 spigotOperatorTokens;
-        
-
         _rollAndWarpToBlock(block.number + 50_000);
 
         // generate revenue for pull
@@ -279,36 +283,23 @@ contract DualRevenueStreamsTest is Test {
 
     }
 
-    function test_can_repay_position_using_push_and_pull_revenue(uint256 advanceBlocks, uint256 borrowAmount)  public {
+    function test_can_repay_position_using_push_and_pull_revenue(uint256 advanceBlocks, uint256 borrowAmount, uint256 repayment)  public {
         vm.assume(borrowAmount > 0);
         vm.assume(advanceBlocks > 0);
-        borrowAmount = bound(borrowAmount, 10 ether, 1000 ether);
+        vm.assume(repayment > 0 && repayment % 2 == 0);
+        borrowAmount = bound(borrowAmount, 10 ether, LOAN_AMT);
         advanceBlocks = bound(advanceBlocks, 100, 10_000);
+        repayment = bound(repayment, 500e6, 2250e6); // USDC, ie 6 decimals
         
         bytes32 lineId = line.ids(0);
 
         // _rollAndWarpToBlock(block.number + advanceBlocks); // borrow block
         vm.startPrank(borrower);
-        line.borrow(lineId, LOAN_AMT);
+        line.borrow(lineId, borrowAmount);
         vm.stopPrank();
-
-        uint256 principal;
-        uint256 interest;
-        uint256 interestRepaid;
-        uint256 claimed;
-        uint256 spigotOwnerTokens;
-        uint256 spigotOperatorTokens;
-        uint256 expectedOwnerTokens;
-        uint256 expectedOperatorTokens;
-        uint256 preClaimSpigotOperatorTokens;
-        uint256 preClaimSpigotOwnerTokens;
         
 
         line.accrueInterest();
-
-        (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
-        emit log_named_uint("principal at start", principal);
-        emit log_named_uint("interest at start", interest);
 
         uint256 iterations;
 
@@ -318,11 +309,11 @@ contract DualRevenueStreamsTest is Test {
             _rollAndWarpToBlock(block.number + advanceBlocks);
 
             // generate revenue for pull
-            IERC20(USDC).transfer(address(pullRevenueContract), 1500e6);
+            IERC20(USDC).transfer(address(pullRevenueContract), repayment);
         
             // revenue for push
             vm.prank(PUSH_REVENUE_EOA);
-            IERC20(USDC).transfer(address(spigot), 2275e6);
+            IERC20(USDC).transfer(address(spigot), repayment / 2);
 
             // claim revenues
             vm.startPrank(borrower);
@@ -333,12 +324,6 @@ contract DualRevenueStreamsTest is Test {
             spigotOperatorTokens = spigot.getOperatorTokens(USDC);
             expectedOwnerTokens = (claimed * revenueSplit) / 100;
             expectedOperatorTokens = preClaimSpigotOperatorTokens + (claimed * (100-revenueSplit)) / 100;
-
-            emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
-            emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
-            emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
-            emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
-
             assertEq(spigotOwnerTokens, expectedOwnerTokens, "owner tokens dont match");
             assertEq(expectedOperatorTokens, spigotOperatorTokens, "operator tokens dont match");
             assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + preClaimSpigotOperatorTokens, "token totals don't add up");
@@ -352,10 +337,6 @@ contract DualRevenueStreamsTest is Test {
             spigotOperatorTokens = spigot.getOperatorTokens(USDC);
             spigotOperatorTokens = spigot.getOperatorTokens(USDC);
             expectedOwnerTokens = (claimed * revenueSplit) / 100;
-            emit log_named_uint("[$USDC] owner tokens after PULL claimeRevenue", spigotOwnerTokens);
-            emit log_named_uint("[$USDC] operator tokens after PULL claimeRevenue", spigotOperatorTokens);
-            emit log_named_uint("[$USDC] line balance after PULL claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
-            emit log_named_uint("[$USDC] spigot balance after PULL claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
             assertEq(spigotOwnerTokens, preClaimSpigotOwnerTokens + expectedOwnerTokens, "expected owner tokens don't match");
             assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + preClaimSpigotOperatorTokens, "token totals don't match");
             vm.stopPrank();
@@ -385,13 +366,6 @@ contract DualRevenueStreamsTest is Test {
             assertEq(IERC20(USDC).balanceOf(lineAddress), 0, "Non-Zero line balance");
 
             (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
-            emit log_named_uint("principal post payment", principal);
-            emit log_named_uint("interest post payment", interest);
-            emit log_named_uint("interestRepaid post payment", interestRepaid);
-            emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
-            emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
-            emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
-            emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
         }
         emit log_named_uint("iterations", iterations);
         assertEq(principal, 0, "principal is non-zero");

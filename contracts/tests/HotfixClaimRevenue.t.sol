@@ -146,31 +146,6 @@ contract HotfixClaimRevenueTest is Test {
 
     }
 
-    function test_can_claimRevenue_multiple_times(uint256 advanceBlocks, uint256 borrowAmount, uint256 revenue) public {
-        vm.assume(borrowAmount > 0);
-        vm.assume(advanceBlocks > 0);
-        borrowAmount = bound(borrowAmount, 10 ether, 1000 ether);
-        advanceBlocks = bound(advanceBlocks, 100, 10_000);
-
-        uint256 funds = borrowAmount * 5;
-        _createAndFundLine(funds, funds / 2);
-        // _createAndFundLine(50 ether, 3.3 ether);
-
-        bytes32 lineId = line.ids(0);
-
-        // _rollAndWarpToBlock(block.number + advanceBlocks); // borrow block
-        vm.startPrank(borrower);
-        line.borrow(lineId, borrowAmount);
-        vm.stopPrank();
-
-        // for (uint i; i < 10;) {
-
-        //     unchecked {
-        //         ++i;
-        //     }
-        // }
-
-    }
 
     // @note: This test replicates an accounting bug discovered in _claimRevenue in the SpigotLib
     // contract that didn't take into account the operatorToken balance when claiming revenue
