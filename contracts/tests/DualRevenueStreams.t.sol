@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 import "forge-std/Test.sol";
 
 import { Denominations } from "chainlink/Denominations.sol";
-
+import { Oracle } from "../modules/oracle/Oracle.sol";
 import { Spigot } from "../modules/spigot/Spigot.sol";
 import { Escrow } from "../modules/escrow/Escrow.sol";
 import { SecuredLine } from "../modules/credit/SecuredLine.sol";
@@ -18,7 +18,8 @@ import {ILineFactory} from "../interfaces/ILineFactory.sol";
 
 import { LineLib } from "../utils/LineLib.sol";
 import { MutualConsent } from "../utils/MutualConsent.sol";
-
+import { ZeroEx } from "../mock/ZeroEx.sol";
+import {MockRegistry} from "../mock/MockRegistry.sol";
 import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
 import { MockLine } from "../mock/MockLine.sol";
 import { SimpleOracle } from "../mock/SimpleOracle.sol";
@@ -35,6 +36,9 @@ contract DualRevenueStreamsTest is Test {
     LineFactory lineFactory;
     ModuleFactory moduleFactory;
     SimpleRevenueContract pullRevenueContract;
+    MockRegistry mockRegistry;
+    Oracle oracle;
+    ZeroEx dex;
 
     uint128 dRate = 1000;
     uint128 fRate = 1000;
@@ -48,7 +52,7 @@ contract DualRevenueStreamsTest is Test {
 
     uint256 mainnetFork;
 
-    uint256 constant LOAN_AMT = 1000 ether;
+    uint256 constant LOAN_AMT = 100_000 ether;
     uint256 constant MAX_INT = type(uint256).max;
 
     address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -74,16 +78,31 @@ contract DualRevenueStreamsTest is Test {
         borrower = makeAddr("borrower"); 
         lender = address(10);
         arbiter = address(this);
+
+        dex = new ZeroEx();
+
+        deal(DAI, address(dex), MAX_INT / 2);
+        deal(USDC, address(dex), MAX_INT / 2);
+        deal(TUSD, address(dex), MAX_INT / 2);
         
         pullRevenueContract = new SimpleRevenueContract(borrower, USDC);
+
+        // create our own oracle as we can't simulate Ox call data for dynamic swaps
+        mockRegistry = new MockRegistry();
+        mockRegistry.addToken(DAI, 10);
+        mockRegistry.addToken(USDC, 10);
+        mockRegistry.addToken(TUSD, 10);
+
+        oracle = new Oracle(address(mockRegistry));
 
         // factories
         moduleFactory = new ModuleFactory();
         lineFactory = new LineFactory(
             address(moduleFactory),
             arbiter,
-            ORACLE,
-            payable(ZERO_EX)
+            address(oracle),
+            payable(address(dex))
+            // payable(ZERO_EX)
         );
 
         // setup the line
@@ -135,12 +154,6 @@ contract DualRevenueStreamsTest is Test {
         deal(DAI, lender, LOAN_AMT);
         deal(USDC, address(this), MAX_INT / 2);
         deal(USDC, PUSH_REVENUE_EOA, MAX_INT / 2);
-        // deal(USDC, borrower, 100e6);
-        // deal(USDC, PUSH_REVENUE_EOA, 100e6);
-
-        emit log_named_uint("Mo TUSD balance", IERC20(TUSD).balanceOf(borrower));
-        emit log_named_uint("Mo DAI balance", IERC20(DAI).balanceOf(borrower));
-        emit log_named_uint("Mo USDC balance", IERC20(USDC).balanceOf(borrower));
 
         // approve tokens, add collateral, and propose position
         vm.startPrank(borrower);
@@ -181,50 +194,210 @@ contract DualRevenueStreamsTest is Test {
 
         uint256 principal;
         uint256 interest;
+        uint256 interestRepaid;
         uint256 claimed;
         uint256 spigotOwnerTokens;
         uint256 spigotOperatorTokens;
+        
 
         _rollAndWarpToBlock(block.number + 50_000);
 
-        // generate revenues
+        // generate revenue for pull
         IERC20(USDC).transfer(address(pullRevenueContract), 500e6);
+        
+        // revenue for push
         vm.prank(PUSH_REVENUE_EOA);
-
         IERC20(USDC).transfer(address(spigot), 500e6);
 
         // claim revenues
         vm.startPrank(borrower);
+        emit log_string("=> claiming PUSH revenue");
         claimed = spigot.claimRevenue(PUSH_REVENUE_EOA, USDC, bytes(""));
+        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+        emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
+        emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
+        emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+        emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
 
+        emit log_string("=> claiming PULL revenue");
         bytes memory pullClaimData = abi.encodeWithSelector(SimpleRevenueContract.claimPullPayment.selector);
-        // spigot.operate(address(pullRevenueContract), pullClaimData);
         claimed = spigot.claimRevenue(address(pullRevenueContract), USDC, pullClaimData);
+        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+        emit log_named_uint("[$USDC] owner tokens after PULL claimeRevenue", spigotOwnerTokens);
+        emit log_named_uint("[$USDC] operator tokens after PULL claimeRevenue", spigotOperatorTokens);
+        emit log_named_uint("[$USDC] line balance after PULL claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+        emit log_named_uint("[$USDC] spigot balance after PULL claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
+        vm.stopPrank();
+
+        // more revenue for push
+        vm.prank(PUSH_REVENUE_EOA);
+        IERC20(USDC).transfer(address(spigot), 750e6);
+
+        vm.startPrank(borrower);
+        emit log_string("=> claiming PUSH revenue");
+        claimed = spigot.claimRevenue(PUSH_REVENUE_EOA, USDC, bytes(""));
+        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+        emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
+        emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
+        emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+        emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
         vm.stopPrank();
 
         // check accounting
+        line.accrueInterest();
+        (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
+        emit log_named_uint("principal pre payment", principal);
+        emit log_named_uint("interest pre payment", interest);
 
-        // claimAndRepay
+        // claimAndRepay ( as arbiter )
+        bytes memory repayData = abi.encodeWithSignature(
+            'trade(address,address,uint256,uint256)',
+            USDC,
+            DAI,
+            spigotOwnerTokens, // note: should be 1:1
+            spigotOwnerTokens * 10**12 // convert to DAI
+        );
+        line.claimAndRepay(USDC, repayData);
 
-        // check accounting
+        spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+        spigotOperatorTokens = spigot.getOperatorTokens(USDC);
 
-        /*
-        while (principal > 0 && interest > 0) {
-            _rollAndWarpToBlock(block.number + 50_000);
+        assertEq(IERC20(USDC).balanceOf(address(spigot)), spigotOperatorTokens, "spigot operator token mismatch");
+        assertEq(IERC20(USDC).balanceOf(lineAddress), 0, "Non-Zero line balance");
 
-            // generate revenues
+        (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
+        emit log_named_uint("principal post payment", principal);
+        emit log_named_uint("interest post payment", interest);
+        emit log_named_uint("interestRepaid post payment", interestRepaid);
+        emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
+        emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
+        emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+        emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
 
-            // claim revenues
-
-            // check accounting
-
-            // claimAndRepay
-
-            // check accounting
-        }
-        */
     }
 
+    function test_can_repay_position_using_push_and_pull_revenue(uint256 advanceBlocks, uint256 borrowAmount)  public {
+        vm.assume(borrowAmount > 0);
+        vm.assume(advanceBlocks > 0);
+        borrowAmount = bound(borrowAmount, 10 ether, 1000 ether);
+        advanceBlocks = bound(advanceBlocks, 100, 10_000);
+        
+        bytes32 lineId = line.ids(0);
+
+        // _rollAndWarpToBlock(block.number + advanceBlocks); // borrow block
+        vm.startPrank(borrower);
+        line.borrow(lineId, LOAN_AMT);
+        vm.stopPrank();
+
+        uint256 principal;
+        uint256 interest;
+        uint256 interestRepaid;
+        uint256 claimed;
+        uint256 spigotOwnerTokens;
+        uint256 spigotOperatorTokens;
+        uint256 expectedOwnerTokens;
+        uint256 expectedOperatorTokens;
+        uint256 preClaimSpigotOperatorTokens;
+        uint256 preClaimSpigotOwnerTokens;
+        
+
+        line.accrueInterest();
+
+        (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
+        emit log_named_uint("principal at start", principal);
+        emit log_named_uint("interest at start", interest);
+
+        uint256 iterations;
+
+        while (principal > 0 || interest > 0) {
+            emit log_named_uint("iteration", ++iterations);
+
+            _rollAndWarpToBlock(block.number + advanceBlocks);
+
+            // generate revenue for pull
+            IERC20(USDC).transfer(address(pullRevenueContract), 1500e6);
+        
+            // revenue for push
+            vm.prank(PUSH_REVENUE_EOA);
+            IERC20(USDC).transfer(address(spigot), 2275e6);
+
+            // claim revenues
+            vm.startPrank(borrower);
+            emit log_string("=> claiming PUSH revenue");
+            preClaimSpigotOperatorTokens = spigot.getOperatorTokens(USDC);
+            claimed = spigot.claimRevenue(PUSH_REVENUE_EOA, USDC, bytes(""));
+            spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+            spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+            expectedOwnerTokens = (claimed * revenueSplit) / 100;
+            expectedOperatorTokens = preClaimSpigotOperatorTokens + (claimed * (100-revenueSplit)) / 100;
+
+            emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
+            emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
+            emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+            emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
+
+            assertEq(spigotOwnerTokens, expectedOwnerTokens, "owner tokens dont match");
+            assertEq(expectedOperatorTokens, spigotOperatorTokens, "operator tokens dont match");
+            assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + preClaimSpigotOperatorTokens, "token totals don't add up");
+
+            emit log_string("=> claiming PULL revenue");
+            preClaimSpigotOperatorTokens = spigotOperatorTokens;
+            preClaimSpigotOwnerTokens = spigotOwnerTokens;
+            bytes memory pullClaimData = abi.encodeWithSelector(SimpleRevenueContract.claimPullPayment.selector);
+            claimed = spigot.claimRevenue(address(pullRevenueContract), USDC, pullClaimData);
+            spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+            spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+            spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+            expectedOwnerTokens = (claimed * revenueSplit) / 100;
+            emit log_named_uint("[$USDC] owner tokens after PULL claimeRevenue", spigotOwnerTokens);
+            emit log_named_uint("[$USDC] operator tokens after PULL claimeRevenue", spigotOperatorTokens);
+            emit log_named_uint("[$USDC] line balance after PULL claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+            emit log_named_uint("[$USDC] spigot balance after PULL claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
+            assertEq(spigotOwnerTokens, preClaimSpigotOwnerTokens + expectedOwnerTokens, "expected owner tokens don't match");
+            assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + preClaimSpigotOperatorTokens, "token totals don't match");
+            vm.stopPrank();
+
+            // check accounting
+            line.accrueInterest();
+            (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
+            emit log_named_uint("principal pre payment", principal);
+            emit log_named_uint("interest pre payment", interest);
+
+            // claimAndRepay ( as arbiter )
+            bytes memory repayData = abi.encodeWithSignature(
+                'trade(address,address,uint256,uint256)',
+                USDC,
+                DAI,
+                spigotOwnerTokens, // note: should be 1:1
+                spigotOwnerTokens * 10**12 // convert to DAI decimals
+            );
+            line.claimAndRepay(USDC, repayData);
+
+            spigotOwnerTokens = spigot.getOwnerTokens(USDC);
+            spigotOperatorTokens = spigot.getOperatorTokens(USDC);
+
+            assertEq(spigotOwnerTokens, 0, "non-zero owner tokens");
+
+            assertEq(IERC20(USDC).balanceOf(address(spigot)), spigotOperatorTokens, "spigot operator token mismatch");
+            assertEq(IERC20(USDC).balanceOf(lineAddress), 0, "Non-Zero line balance");
+
+            (, principal, interest, interestRepaid,,,,) = line.credits(line.ids(0));
+            emit log_named_uint("principal post payment", principal);
+            emit log_named_uint("interest post payment", interest);
+            emit log_named_uint("interestRepaid post payment", interestRepaid);
+            emit log_named_uint("[$USDC] owner tokens after PUSH claimeRevenue", spigotOwnerTokens);
+            emit log_named_uint("[$USDC] operator tokens after PUSH claimeRevenue", spigotOperatorTokens);
+            emit log_named_uint("[$USDC] line balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(lineAddress));
+            emit log_named_uint("[$USDC] spigot balance after PUSH claimeRevenue", IERC20(USDC).balanceOf(address(spigot)));
+        }
+        emit log_named_uint("iterations", iterations);
+        assertEq(principal, 0, "principal is non-zero");
+        assertEq(interest, 0, "interest is non-zero");
+
+    }
 
     function _rollAndWarpToBlock(uint256 rollToBlock) internal {
         emit log_string("=======================");
