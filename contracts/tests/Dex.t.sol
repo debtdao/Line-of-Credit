@@ -341,7 +341,11 @@ contract EthRevenue is Test {
         vm.expectRevert(ILineOfCredit.PositionIsClosed.selector);
         line.close(id);
         vm.stopPrank();
-        
+
+        emit log_named_uint("spigot operator tokens", spigot.getOperatorTokens(Denominations.ETH));
+        vm.prank(borrower);
+        spigot.claimOperatorTokens(Denominations.ETH);
+        emit log_named_uint("spigot operator tokens", spigot.getOperatorTokens(Denominations.ETH));        
     }
 
     function test_cannot_claim_and_trade_with_insufficient_balance() public {

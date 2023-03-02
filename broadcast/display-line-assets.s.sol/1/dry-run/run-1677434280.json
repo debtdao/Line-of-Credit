@@ -1,0 +1,93 @@
+{
+  "transactions": [
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x5Bda5b7a953f71f03711f9C0Bd2c10C1738f6ee4",
+      "function": null,
+      "arguments": null,
+      "rpc": "http://127.0.0.1:8545",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+        "to": "0x5bda5b7a953f71f03711f9c0bd2c10c1738f6ee4",
+        "gas": "0x734f",
+        "value": "0x0",
+        "data": "0x5e235d54",
+        "nonce": "0x3",
+        "accessList": []
+      },
+      "additionalContracts": []
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x5Bda5b7a953f71f03711f9C0Bd2c10C1738f6ee4",
+      "function": null,
+      "arguments": null,
+      "rpc": "http://127.0.0.1:8545",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+        "to": "0x5bda5b7a953f71f03711f9c0bd2c10c1738f6ee4",
+        "gas": "0x89a9",
+        "value": "0x0",
+        "data": "0x461035af000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "nonce": "0x4",
+        "accessList": []
+      },
+      "additionalContracts": []
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x5Bda5b7a953f71f03711f9C0Bd2c10C1738f6ee4",
+      "function": null,
+      "arguments": null,
+      "rpc": "http://127.0.0.1:8545",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+        "to": "0x5bda5b7a953f71f03711f9c0bd2c10c1738f6ee4",
+        "gas": "0x89a9",
+        "value": "0x0",
+        "data": "0x461035af000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "nonce": "0x5",
+        "accessList": []
+      },
+      "additionalContracts": []
+    },
+    {
+      "hash": null,
+      "transactionType": "CALL",
+      "contractName": null,
+      "contractAddress": "0x5Bda5b7a953f71f03711f9C0Bd2c10C1738f6ee4",
+      "function": null,
+      "arguments": null,
+      "rpc": "http://127.0.0.1:8545",
+      "transaction": {
+        "type": "0x02",
+        "from": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+        "to": "0x5bda5b7a953f71f03711f9c0bd2c10c1738f6ee4",
+        "gas": "0x89a9",
+        "value": "0x0",
+        "data": "0x461035af0000000000000000000000006b175474e89094c44da98b954eedeac495271d0f",
+        "nonce": "0x6",
+        "accessList": []
+      },
+      "additionalContracts": []
+    }
+  ],
+  "receipts": [],
+  "libraries": [],
+  "pending": [],
+  "path": "/Users/kibagateaux/code/debtdao/loc/broadcast/display-line-assets.s.sol/1/dry-run/run-latest.json",
+  "returns": {},
+  "timestamp": 1677434280,
+  "chain": 1,
+  "multi": false,
+  "commit": "63faf71"
+}
