@@ -24,7 +24,7 @@ We have deployed contracts to Gõrli testnet.
 
 ### Mainnet Deploymetns
 
-N/A. We have not deployed to mainnet yet
+We have deployed 2 test versions of our contracts to Mainnet. You can find those contract address here: TODO
 
 ### Deploy Your Own
 
@@ -36,56 +36,58 @@ To deploy a SecuredLine you should call our [LineFactory](https://github.com/deb
 
 We use foundry for testing. Follow [installation guide](https://github.com/foundry-rs/foundry) on their repo.
 
+Before running tests, make sure the foundry.toml file is correctly configured. Make sure it includes the following:
+
+`[profile.default]
+src = 'contracts'
+test = 'test'
+script = 'scripts'
+out = 'out'
+libs = [
+    
+]
+remappings = [
+    "forge-std/=lib/forge-std/src/",
+    "ds-test/=lib/forge-std/lib/ds-test/src/",
+    "chainlink/=lib/chainlink/contracts/src/v0.8/",
+    "openzeppelin/=lib/openzeppelin-contracts/contracts/"
+]
+libraries = []`
+
+Check the the .env file includes the following environment variables:
+
+`FOUNDRY_PROFILE=""
+
+MAINNET_ETHERSCAN_API_KEY= <YOUR_KEY_HERE>
+DEPLOYER_MAINNET_PRIVATE_KEY= <YOUR_KEY_HERE>
+MAINNET_RPC_URL= <YOUR_RPC_URL_HERE>
+
+GOERLI_RPC_URL= <YOUR_GOERLI_RPC_URL_HERE>
+GOERLI_PRIVATE_KEY= <YOUR_GOERLI_PRIVATE_KEY_HERE>
+
+LOCAL_RPC_URL='http://localhost:8545'
+LOCAL_PRIVATE_KEY= <LOCAL_PRIVATE_KEY_HERE>`
+
 Then run `forge test`
 
-## Failing Tests
+Run all tests with maximum logging:
+`forge test -vvv`
 
-Test `test_can_trade` and `test_can_trade_and_reapy` fail occasionally, with inconsequential parameter inputs.
+Test individual test files:
+`forge test —match-path <filepath>`
 
-```
-Failing tests:
-Encountered 1 failing test in contracts/tests/SpigotedLine.t.sol:SpigotedLineTest
-[FAIL. Reason: TradeFailed() Counterexample: calldata=0xd9be461e0000000000000000000000000000000000000000000000000000000000000001004189374bc6a7ef9db22d0e5604189374bc6a7ef9db22d0e5604189374bc6a8, args=[1, 115792089237316195423570985008687907853269984665640564039457584007913129640]] test_can_trade(uint256,uint256) (runs: 205, μ: 243309, ~: 283578)
-```
+Test individual tests:
+`forge test —match-test <testname>`
+
+Check test coverage:
+`forge coverage`
 
 ## Deployment
+For all deployments, the `deploy.sh` script can be modified to deploy all libraries and modules necessary to create Lines of Credit. To run the script, you will need the `jq` library which can be installed usng homebrew(mac) or apt-get(Windows). You can uncomment the command for your OS in the script to install automatically.
+
+There are 4 variables that will need to be adjusted depening on if you are deploying to local, goerli or mainnet. RPC_URL, PRIVATE_KEY and the toml profile that the script will write the libraries to. These  variables are in `deploy.sh`. The 4th variable will be  in your `.env` file and is the FOUNDRY_PROFILE environment variable.  
+
 
 ### Local
 
-```
-source .env && forge script contracts/scripts/DeployLocal.s.sol -vvvv --rpc-url http://127.0.0.1:8545 --broadcast
-```
-
 ### Goerli
-
-First, deploy the libs via the registry:
-
-```
-yarn deploy:goerli:libs
-```
-
-Next, copy the libraries found at `broadcast/DeployLibs.s.sol/5/run-latest.json` in the `libraries` property, and past it into the `foundry.toml` under the `[profile.goerli]`.
-
-Eg.
-
-```
-libraries = [
-    "contracts/utils/CreditLib.sol:CreditLib:0x079DBdF326754d07745061e4f70728Cf553817D0",
-    "contracts/utils/CreditListLib.sol:CreditListLib:0xC9643585fFde9Be2b4084776289A2ecB181C28E1",
-    "contracts/utils/LineLib.sol:LineLib:0x610858ec92822FCC78d0EF51e3434E5F4968ae66",
-    "contracts/utils/EscrowLib.sol:EscrowLib:0xfaffe74894e36C6534Cc13b73af015b5666b4EA9",
-    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x910116b3FB14D968eAF69292F23EA52A456F4183",
-    "contracts/utils/SpigotLib.sol:SpigotLib:0xD40bf1DC5c9Ed959642443876d79fdE2Ff81196a",
-    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xF3562A8970e5a4DE823D32AC11b761DDb9a167a3"
-]
-```
-
-```
-source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --broadcast
-```
-
-If verification fails:
-
-```
-source .env && forge script contracts/scripts/DeployGoerli.s.sol -vvv --rpc-url $GOERLI_RPC_URL --verify --etherscan-api-key $GOERLI_ETHERSCAN_API_KEY --resume
-```
