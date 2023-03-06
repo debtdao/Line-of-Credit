@@ -38,7 +38,7 @@ We use foundry for testing. Follow [installation guide](https://github.com/found
 
 Before running tests, make sure the foundry.toml file is correctly configured. Make sure it includes the following:
 
-`[profile.default]
+```[profile.default]
 src = 'contracts'
 test = 'test'
 script = 'scripts'
@@ -52,11 +52,11 @@ remappings = [
     "chainlink/=lib/chainlink/contracts/src/v0.8/",
     "openzeppelin/=lib/openzeppelin-contracts/contracts/"
 ]
-libraries = []`
+libraries = []```
 
 Check the the .env file includes the following environment variables:
 
-`FOUNDRY_PROFILE=""
+```FOUNDRY_PROFILE=""
 
 MAINNET_ETHERSCAN_API_KEY= <YOUR_KEY_HERE>
 DEPLOYER_MAINNET_PRIVATE_KEY= <YOUR_KEY_HERE>
@@ -66,7 +66,7 @@ GOERLI_RPC_URL= <YOUR_GOERLI_RPC_URL_HERE>
 GOERLI_PRIVATE_KEY= <YOUR_GOERLI_PRIVATE_KEY_HERE>
 
 LOCAL_RPC_URL='http://localhost:8545'
-LOCAL_PRIVATE_KEY= <LOCAL_PRIVATE_KEY_HERE>`
+LOCAL_PRIVATE_KEY= <LOCAL_PRIVATE_KEY_HERE>```
 
 Then run `forge test`
 
