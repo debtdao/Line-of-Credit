@@ -58,6 +58,7 @@ libraries = []
 
 Check the the .env file includes the following environment variables:
 
+```
 FOUNDRY_PROFILE=""
 
 MAINNET_ETHERSCAN_API_KEY= <YOUR_KEY_HERE>
@@ -69,6 +70,7 @@ GOERLI_PRIVATE_KEY= <YOUR_GOERLI_PRIVATE_KEY_HERE>
 
 LOCAL_RPC_URL='http://localhost:8545'
 LOCAL_PRIVATE_KEY= <LOCAL_PRIVATE_KEY_HERE>
+```
 
 Then run `forge test`
 
