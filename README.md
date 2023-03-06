@@ -38,7 +38,8 @@ We use foundry for testing. Follow [installation guide](https://github.com/found
 
 Before running tests, make sure the foundry.toml file is correctly configured. Make sure it includes the following:
 
-``` [profile.default]
+``` 
+[profile.default]
 src = 'contracts'
 test = 'test'
 script = 'scripts'
@@ -52,7 +53,8 @@ remappings = [
     "chainlink/=lib/chainlink/contracts/src/v0.8/",
     "openzeppelin/=lib/openzeppelin-contracts/contracts/"
 ]
-libraries = [] ```
+libraries = [] 
+```
 
 Check the the .env file includes the following environment variables:
 
