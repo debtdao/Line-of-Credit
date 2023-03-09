@@ -335,7 +335,6 @@ contract DualRevenueStreamsTest is Test {
             claimed = spigot.claimRevenue(address(pullRevenueContract), USDC, pullClaimData);
             spigotOwnerTokens = spigot.getOwnerTokens(USDC);
             spigotOperatorTokens = spigot.getOperatorTokens(USDC);
-            spigotOperatorTokens = spigot.getOperatorTokens(USDC);
             expectedOwnerTokens = (claimed * revenueSplit) / 100;
             assertEq(spigotOwnerTokens, preClaimSpigotOwnerTokens + expectedOwnerTokens, "expected owner tokens don't match");
             assertEq(spigotOperatorTokens, claimed - expectedOwnerTokens + preClaimSpigotOperatorTokens, "token totals don't match");
