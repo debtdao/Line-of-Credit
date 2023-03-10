@@ -25,7 +25,7 @@ import { RevenueToken } from "../mock/RevenueToken.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 
     /*
-    *   @note:    A bug was introduced following changes that were made based on issues discovered
+    *   @note:      A bug was introduced following changes that were made based on issues discovered
     *               in the Code4rena audit. It became necessary to have the Operator claim tokens in a 
     *               separate tx, as opposed to being part of the claimRevenue call.  This resulted in
     *               an excess of tokens that were not accounted for in the claimRevenue function's logic.
@@ -33,9 +33,10 @@ import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
     *               , but only in scenarios where push payments were used, and incorrectly increasing 
     *               state.operatorTokens by the amount that was now unaccounted for.
     *   @link:      https://debtdao.notion.site/Spigot-Claim-Revenue-Accounting-01153e95f1be47d194ec9f252304855b
-    *   @dev:       The test forks mainnet 1 block before the sequence of transactions that surfaced the bug.
-    *   @dev:       New factories need to be deployed to the test's fork to include the bug fixes.  The same core params
-    *               used for the mainnet contract were the bug was discovered are used for the test.
+    *   @dev:       This test file tests contracts under the same conditions as the ones containing the bug on mainnet,
+    *               except with a focus on testing the fixes.  New factories need to be deployed to the test's fork to 
+    *               include the bug fixes.  The same core params used for the mainnet contract were the bug was 
+    *               discovered are used for the test.  A fork of mainnet is used to use the same token contracts and 0x trades.
     *   @dev:       The block number of, and a link to, each transaction is included in the comments above each step
     *               in the sequence.
     *   @dev:       Original Spigot: 0x6E3a81f41210D45A2bBBBad00f25Fd96567b9af2
@@ -43,7 +44,7 @@ import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
     *   @dev:       Original Line Of Credit: 0x5bda5b7a953f71f03711f9c0bd2c10c1738f6ee4
     */
 
-contract HotfixClaimRevenueTest is Test {
+contract HotfixForkClaimRevenueTest is Test {
 
     IEscrow escrow;
     ISpigot spigot;
@@ -166,9 +167,10 @@ contract HotfixClaimRevenueTest is Test {
     }
 
 
-    // @note: This test replicates an accounting bug discovered in _claimRevenue in the SpigotLib
-    // contract that didn't take into account the operatorToken balance when claiming revenue, 
-    // @note: mainnet spigot contract: 0x6e3a81f41210d45a2bbbbad00f25fd96567b9af2
+    // @note:   This test replicates an accounting bug discovered in _claimRevenue in the SpigotLib
+    //          contract that didn't take into account the operatorToken balance when claiming revenue, 
+    // @note:   This test is testing the fix that's been implemented, not testing the bug in the original
+    //          contract.
     function test_reproduce_bug_claim_revenue_multiple_push_payments_accounting() external {
         
         _createAndFundLine(50 ether, 3.3 ether); // 50 dai
@@ -244,8 +246,6 @@ contract HotfixClaimRevenueTest is Test {
         emit log_named_uint("line USDC balance", IERC20(USDC).balanceOf(lineAddress));
         emit log_named_uint("spigot USDC balance", IERC20(USDC).balanceOf(address(spigot)));
 
-        // full 15 USDC has been used at this point
-        /// note: 1.5 USDC remains in operator tokens when bug is present
 
         // 16_687_230: claimRevenue (called by thomas)
         // https://etherscan.io/tx/0x41d7f72a30dc64a55b20cd255e2fdfedda625ba2fa7129bb99ab0c2305844a05
@@ -349,6 +349,7 @@ contract HotfixClaimRevenueTest is Test {
         vm.stopPrank();
         
     }
+
 
     function _rollAndWarpToBlock(uint256 rollToBlock) internal {
         emit log_string("=======================");
