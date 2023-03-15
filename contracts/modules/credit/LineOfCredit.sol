@@ -309,7 +309,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     function borrow(bytes32 id, uint256 amount) external override nonReentrant whileActive onlyBorrower {
         Credit memory credit = _accrue(credits[id], id);
 
-        if(!credit.isOpen) {
+        if (!credit.isOpen) {
             revert PositionIsClosed();
         }
 
@@ -405,14 +405,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return CreditLib.repay(credit, id, amount, payer);
     }
 
-
     /**
-    * @notice - accrues token demoninated interest on a lender's position.
-    * @dev MUST call any time a position balance or interest rate changes
-    * @dev syntatic sugar
-    * @param credit - the lender position that is accruing interest
-    * @param id - the position id for credit position
-    */
+     * @notice - accrues token demoninated interest on a lender's position.
+     * @dev MUST call any time a position balance or interest rate changes
+     * @dev syntatic sugar
+     * @param credit - the lender position that is accruing interest
+     * @param id - the position id for credit position
+     */
     function _accrue(Credit memory credit, bytes32 id) internal returns (Credit memory) {
         return CreditLib.accrue(credit, id, address(interestRate));
     }
@@ -511,7 +510,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         // Add to docs that this view revertts if no queue
         (uint128 dRate, uint128 fRate) = CreditLib.getNextRateInQ(credit.principal, next, address(interestRate));
         return (
-            next, 
+            next,
             credit.lender,
             credit.token,
             credit.principal,
