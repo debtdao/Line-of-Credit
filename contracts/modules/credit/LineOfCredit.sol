@@ -105,11 +105,18 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     modifier onlyBorrower() {
-        if (msg.sender != borrower) {
+        if (_isBorrower(msg.sender)) {
             revert CallerAccessDenied();
         }
         _;
     }
+
+    function _isBorrower(address caller) internal virtual returns (bool) {
+        if (caller == borrower) {
+            return true;
+        }
+    }
+
 
     /**
      * @notice - mutualConsent() but hardcodes borrower address and uses the position id to
