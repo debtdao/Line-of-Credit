@@ -174,7 +174,11 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     }
 
     /// see ILineOfCredit.updateOutstandingDebt
-    function updateOutstandingDebt() external override returns (uint256, uint256) {
+    function updateOutstandingDebt()
+        external
+        override
+        returns (uint256, uint256)
+    {
         return _updateOutstandingDebt();
     }
 
@@ -380,7 +384,13 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             revert PositionExists();
         }
 
-        credits[id] = CreditLib.create(id, amount, lender, token, address(oracle));
+        credits[id] = CreditLib.create(
+            id,
+            amount,
+            lender,
+            token,
+            address(oracle)
+        );
 
         ids.push(id); // add lender to end of repayment queue
 
