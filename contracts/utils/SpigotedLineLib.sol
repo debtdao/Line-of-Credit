@@ -3,7 +3,6 @@ pragma solidity 0.8.16;
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {ISpigotedLine} from "../interfaces/ISpigotedLine.sol";
 import {LineLib} from "../utils/LineLib.sol";
-import {SpigotLib} from "../utils/SpigotLib.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 import {Denominations} from "chainlink/Denominations.sol";

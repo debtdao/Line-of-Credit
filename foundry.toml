@@ -28,7 +28,7 @@ gas_reports_ignore = []
 auto_detect_solc = true
 offline = false
 optimizer = true
-optimizer_runs = 10000
+optimizer_runs = 20000
 verbosity = 0
 ignored_error_codes = [
     1878,
@@ -66,16 +66,25 @@ fuzz_runs = 65536
 
 [profile.gnosis]
 libraries = [
-"contracts/utils/LineLib.sol:LineLib:0x00A3699F677C252CA32B887F9f66621920D392f8",
-"contracts/utils/CreditLib.sol:CreditLib:0x100a23bbdD2F707901A6FBe46e0eDd9860a866d7",
-"contracts/utils/CreditListLib.sol:CreditListLib:0x819866bA0A1581C324d3fB9513ba8a16f6911e33",
-"contracts/utils/SpigotLib.sol:SpigotLib:0x04e91e5728D89e588276F75CE1Cb1Cc87Dfe9F10",
-"contracts/utils/EscrowLib.sol:EscrowLib:0x4c9416dCcC4d66342c7E5f13dE2a5Fa453e4e607",
-"contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x0521D80daF43c264B0653DcD8B8072999a64b7Af",
-"contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xA242F3ddC21031e99ca90dc11B748fB1E132FEd7"]
+    "contracts/utils/LineLib.sol:LineLib:0x00A3699F677C252CA32B887F9f66621920D392f8",
+    "contracts/utils/CreditLib.sol:CreditLib:0x2976e614dfc162A553c45038C9574c1F05B9C2c9",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0x982b69751Cb47A94edb7210b069aDC91d9B0127C",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0xb979b147E11E99A7cdb06B5179835b217e387734",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0x4557d04FccC6AD4469c052e02750Ed91f2b4Ad78",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x876fAe1673c68207011E0E91C309f79f68d88405",
+    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0x7F008436CcE1E78C49fd9C630347e1E386439EC6"
+]
 
 [profile.mainnet]
-libraries = []
+libraries = [
+    "contracts/utils/LineLib.sol:LineLib:0xC4D9D168EbDcc8a44ea6061F33f07d65CEaf5F86",
+    "contracts/utils/CreditLib.sol:CreditLib:0xEDD70e87d9d9756e753D15D4867753353C3b7d7a",
+    "contracts/utils/CreditListLib.sol:CreditListLib:0x258b76EB1E7fa15bfA8225183465BAF9d8505a2C",
+    "contracts/utils/SpigotLib.sol:SpigotLib:0xAE7fAa5c6a7c093B83771a1CadCb51D6Dd59F7eb",
+    "contracts/utils/EscrowLib.sol:EscrowLib:0x65458395d06A72762C2942BED6Ee902d1cF554A6",
+    "contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x0d8c1dAdBd42e77577fDFEe01E66C334C77eE082",
+    "contracts/utils/LineFactoryLib.sol:LineFactoryLib:0x599ee0b71ff5975b42dfe42fc81e857d571162f8"
+]
 
 [profile.local]
 libraries = []

@@ -15,8 +15,8 @@ echo "Deploying Debt DAO Libraries and adding addresses to foundry.toml file....
 echo "Deploying LineLib to $MAINNET_RPC_URL...."
 LineLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/LineLib.sol:LineLib --json --verify)
+    # --optimzer-runs 20000 \
 echo "LineLib deployed $LineLib"
 LineLibAddress=$(echo "$LineLib" | jq -r '.deployedTo')
 LineLibEntry="contracts\/utils\/LineLib.sol:LineLib:$LineLibAddress"
@@ -27,8 +27,8 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \[.*\]/libraries = \["'$Li
 echo "Deploying CreditLib...."
 CreditLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/CreditLib.sol:CreditLib --verify --json)
+    # --optimzer-runs 20000 \
 echo "CreditLib deployed {$CreditLib}"
 CreditLibAddress=$(echo "$CreditLib" | jq -r '.deployedTo')
 CreditLibEntry="contracts\/utils\/CreditLib.sol:CreditLib:$CreditLibAddress"
@@ -39,8 +39,8 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'"\]/libr
 echo "Deploying CreditListLib...."
 CreditListLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/CreditListLib.sol:CreditListLib --verify --json)
+    # --optimzer-runs 20000 \
 echo "CreditListLib deployed {$CreditListLib}"
 CreditListLibAddress=$(echo "$CreditListLib" | jq -r '.deployedTo')
 CreditListLibEntry="contracts\/utils\/CreditListLib.sol:CreditListLib:$CreditListLibAddress"
@@ -51,8 +51,8 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying SpigotLib...."
 SpigotLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/SpigotLib.sol:SpigotLib --verify --json)
+    # --optimzer-runs 20000 \
 echo "SpigotLib deployed {$SpigotLib}"
 SpigotLibAddress=$(echo "$SpigotLib" | jq -r '.deployedTo')
 SpigotLibEntry="contracts\/utils\/SpigotLib.sol:SpigotLib:$SpigotLibAddress"
@@ -63,8 +63,8 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying EscrowLib...."
 EscrowLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/EscrowLib.sol:EscrowLib --verify --json)
+    # --optimzer-runs 20000 \
 echo "EscrowLib deployed {$EscrowListLib}"
 EscrowLibAddress=$(echo "$EscrowLib" | jq -r '.deployedTo')
 EscrowLibEntry="contracts\/utils\/EscrowLib.sol:EscrowLib:$EscrowLibAddress"
@@ -75,20 +75,20 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying SpigotedLineLib...."
 SpigotedLineLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 20000 \
     contracts/utils/SpigotedLineLib.sol:SpigotedLineLib --verify --json)
+    # --optimzer-runs 20000 \
 echo "SpigotedLineLib deployed {$SpigotedLineListLib}"
 SpigotedLineLibAddress=$(echo "$SpigotedLineLib" | jq -r '.deployedTo')
 SpigotedLineLibEntry="contracts\/utils\/SpigotedLineLib.sol:SpigotedLineLib:$SpigotedLineLibAddress"
 echo "Updating foundry.toml with SpigotedLineLib address: {$SpigotedLineListLibAddress}...."
 sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/' foundry.toml
 
-# TODO want to change optimizer runs to like 200 here so that each new contract deployed is hella cheap
+NOTE:  change optimizer runs to like 200 here so that each new contract deployed is hella cheap
 echo "Deploying LineFactoryLib...."
 LineFactoryLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 200 \
     contracts/utils/LineFactoryLib.sol:LineFactoryLib --verify --json)
+    # --optimzer-runs 200 \
 echo "LineFactoryLib deployed {$LineFactoryLib}"
 LineFactoryLibAddress=$(echo "$LineFactoryLib" | jq -r '.deployedTo')
 echo "Updating foundry.toml with LineFactoryLib address: {$LineFactoryLibAddress}...."
@@ -102,20 +102,22 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying ModuleFactory...."
 ModuleFactory=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 10000 \
     contracts/modules/factories/ModuleFactory.sol:ModuleFactory --verify --json)
+    # --optimzer-runs 10000 \
 ModuleFactoryAddress=$(echo "$ModuleFactory" | jq -r '.deployedTo')
 echo "ModuleFactory contract deployed to address: {$ModuleFactoryAddress}...."
 
+# TODO want to change optimizer runs to like 20000 here so that each new contract deployed is hella cheap
 echo "Deploying LineFactory...."
-SwapTargetAddress=0xdef1c0ded9bec7f1a1670819833240f027b25eff # alias to semantic name
-ArbiterAddress=0x2e1b9B77692D662AF998e98666908BA80Fb8018E # our multisig
-OracleAddress=0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf
+ModuleFactoryAddress=0x00A3699F677C252CA32B887F9f66621920D392f8 # copy from deployment above after changing optimizer runs
+ArbiterAddress=0x1E73ADD2B1cd5152217B0A9B6eA58764a6d97FC1       # our multisig
+OracleAddress=0x5a4AAF300473eaF8A9763318e7F30FA8a3f5Dd48        # OG wrapper oracle deployment 
+SwapTargetAddress=0xDef1C0ded9bec7F1a1670819833240f027b25EfF    # 0x exchange
 LineFactory=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer-runs 10000 \
     --constructor-args $ModuleFactoryAddress $ArbiterAddress $OracleAddress $SwapTargetAddress \
-    contracts/modules/factories/LineFactory.sol:LineFactory --verify --json)
+    --verify --json contracts/modules/factories/LineFactory.sol:LineFactory)
+    # --optimzer-runs 10000 \
 echo "LineFactory deployed {$LineFactory}"
 
 
