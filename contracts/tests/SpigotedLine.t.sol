@@ -272,12 +272,17 @@ contract SpigotedLineTest is Test, Events {
     function test_no_unused_credit_tokens_to_trade() public {
       _borrow(line.ids(0), lentAmount);
 
-      uint claimable = spigot.getOwnerTokens(address(revenueToken));
+      uint256 spigotBalance = revenueToken.balanceOf(address(spigot));
 
+      uint256 claimable = spigot.getOwnerTokens(address(revenueToken));
+      uint256 operatorTokens = spigot.getOperatorTokens(address(revenueToken));
+
+      assertGt(claimable, 0, "claimable amount is zero");
       // if(claimable == 0) { // ensure claimAndRepay doesnt fail from claimEscrow()
-        deal(address(revenueToken), address(spigot),  MAX_REVENUE);
-        spigot.claimRevenue(revenueContract, address(revenueToken),  "");
-        claimable = spigot.getOwnerTokens(address(revenueToken));
+      revenueToken.mint(address(spigot), 1000 ether);
+      spigotBalance = revenueToken.balanceOf(address(spigot));
+      spigot.claimRevenue(revenueContract, address(revenueToken),  "");
+      claimable = spigot.getOwnerTokens(address(revenueToken));
       // }
       
       // no extra tokens

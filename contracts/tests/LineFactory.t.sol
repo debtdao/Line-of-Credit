@@ -90,7 +90,7 @@ contract LineFactoryTest is Test {
             .CoreLineParams({
                 borrower: borrower,
                 ttl: ttl,
-                cratio: 3000,
+                cratio: 1000,
                 revenueSplit: 90
             });
 
