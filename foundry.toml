@@ -64,16 +64,23 @@ build_info = false
 [profile.ci]
 fuzz_runs = 65536
 
+[profile.gnosis]
+libraries = [
+"contracts/utils/LineLib.sol:LineLib:0x00A3699F677C252CA32B887F9f66621920D392f8",
+"contracts/utils/CreditLib.sol:CreditLib:0x100a23bbdD2F707901A6FBe46e0eDd9860a866d7",
+"contracts/utils/CreditListLib.sol:CreditListLib:0x819866bA0A1581C324d3fB9513ba8a16f6911e33",
+"contracts/utils/SpigotLib.sol:SpigotLib:0x04e91e5728D89e588276F75CE1Cb1Cc87Dfe9F10",
+"contracts/utils/EscrowLib.sol:EscrowLib:0x4c9416dCcC4d66342c7E5f13dE2a5Fa453e4e607",
+"contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x0521D80daF43c264B0653DcD8B8072999a64b7Af",
+"contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xA242F3ddC21031e99ca90dc11B748fB1E132FEd7"]
+
+[profile.mainnet]
+libraries = []
+
 [profile.local]
 libraries = []
 
 [profile.goerli]
-libraries = []
-
-[profile.gnosis]
-libraries = ["contracts/utils/LineLib.sol:LineLib:0x00A3699F677C252CA32B887F9f66621920D392f8","contracts/utils/CreditLib.sol:CreditLib:0x100a23bbdD2F707901A6FBe46e0eDd9860a866d7","contracts/utils/CreditListLib.sol:CreditListLib:0x819866bA0A1581C324d3fB9513ba8a16f6911e33","contracts/utils/SpigotLib.sol:SpigotLib:0x04e91e5728D89e588276F75CE1Cb1Cc87Dfe9F10","contracts/utils/EscrowLib.sol:EscrowLib:0x4c9416dCcC4d66342c7E5f13dE2a5Fa453e4e607","contracts/utils/SpigotedLineLib.sol:SpigotedLineLib:0x0521D80daF43c264B0653DcD8B8072999a64b7Af","contracts/utils/LineFactoryLib.sol:LineFactoryLib:0xA242F3ddC21031e99ca90dc11B748fB1E132FEd7"]
-
-[profile.mainnet]
 libraries = []
 
 [profile.default.rpc_storage_caching]

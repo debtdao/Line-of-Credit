@@ -15,7 +15,7 @@ echo "Deploying Debt DAO Libraries and adding addresses to foundry.toml file....
 echo "Deploying LineLib to $MAINNET_RPC_URL...."
 LineLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/LineLib.sol:LineLib --json --verify)
 echo "LineLib deployed $LineLib"
 LineLibAddress=$(echo "$LineLib" | jq -r '.deployedTo')
@@ -27,7 +27,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \[.*\]/libraries = \["'$Li
 echo "Deploying CreditLib...."
 CreditLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/CreditLib.sol:CreditLib --verify --json)
 echo "CreditLib deployed {$CreditLib}"
 CreditLibAddress=$(echo "$CreditLib" | jq -r '.deployedTo')
@@ -39,7 +39,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'"\]/libr
 echo "Deploying CreditListLib...."
 CreditListLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/CreditListLib.sol:CreditListLib --verify --json)
 echo "CreditListLib deployed {$CreditListLib}"
 CreditListLibAddress=$(echo "$CreditListLib" | jq -r '.deployedTo')
@@ -51,7 +51,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying SpigotLib...."
 SpigotLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/SpigotLib.sol:SpigotLib --verify --json)
 echo "SpigotLib deployed {$SpigotLib}"
 SpigotLibAddress=$(echo "$SpigotLib" | jq -r '.deployedTo')
@@ -63,7 +63,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying EscrowLib...."
 EscrowLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/EscrowLib.sol:EscrowLib --verify --json)
 echo "EscrowLib deployed {$EscrowListLib}"
 EscrowLibAddress=$(echo "$EscrowLib" | jq -r '.deployedTo')
@@ -75,7 +75,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying SpigotedLineLib...."
 SpigotedLineLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 20000 \
+    --optimzer-runs 20000 \
     contracts/utils/SpigotedLineLib.sol:SpigotedLineLib --verify --json)
 echo "SpigotedLineLib deployed {$SpigotedLineListLib}"
 SpigotedLineLibAddress=$(echo "$SpigotedLineLib" | jq -r '.deployedTo')
@@ -87,7 +87,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying LineFactoryLib...."
 LineFactoryLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 200 \
+    --optimzer-runs 200 \
     contracts/utils/LineFactoryLib.sol:LineFactoryLib --verify --json)
 echo "LineFactoryLib deployed {$LineFactoryLib}"
 LineFactoryLibAddress=$(echo "$LineFactoryLib" | jq -r '.deployedTo')
@@ -102,7 +102,7 @@ sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$Cre
 echo "Deploying ModuleFactory...."
 ModuleFactory=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 10000 \
+    --optimzer-runs 10000 \
     contracts/modules/factories/ModuleFactory.sol:ModuleFactory --verify --json)
 ModuleFactoryAddress=$(echo "$ModuleFactory" | jq -r '.deployedTo')
 echo "ModuleFactory contract deployed to address: {$ModuleFactoryAddress}...."
@@ -113,7 +113,7 @@ ArbiterAddress=0x2e1b9B77692D662AF998e98666908BA80Fb8018E # our multisig
 OracleAddress=0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf
 LineFactory=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
-    --optimzer0-runs 10000 \
+    --optimzer-runs 10000 \
     --constructor-args $ModuleFactoryAddress $ArbiterAddress $OracleAddress $SwapTargetAddress \
     contracts/modules/factories/LineFactory.sol:LineFactory --verify --json)
 echo "LineFactory deployed {$LineFactory}"
