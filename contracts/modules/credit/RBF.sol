@@ -8,8 +8,11 @@ import {MutualConsent} from "../../utils/MutualConsent.sol";
 
 /**
  * @notice - Contract that allows buying a fixed % of total revenue from a Spigot for a fixed amount of time
- *           This contract is owner of Spigot so ownerSplit is what rev share they are buying as `rev_recipient`
- *           The `owner` ofthis contracts is liekly the `operator` on the Spigot who acts on behalf of OG rev owner
+ * Used by Owners of multiple onchain reveue streams that wants to outsource operations to the marketto maximize productivity. 
+ * Operators buy license to operate Harberger style from each other at the benefit of Spigot owner.
+ *
+ * This contract is owner of Spigot so ownerSplit is what rev share they are buying as `rev_recipient`
+ * The `owner` ofthis contracts is liekly the `operator` on the Spigot who acts on behalf of OG rev owner
  *
   * Can either do discrete mutualConsent for fixded % + time sales or do continous harberger tax with lower bounds set by owner
  *
@@ -27,7 +30,7 @@ import {MutualConsent} from "../../utils/MutualConsent.sol";
  *
  *
  *  */
-contract RBF is MutualConsent {
+contract SpigotOperatorHarbergerSale is MutualConsent {
     
     using SafeERC20 for IERC20;
 
