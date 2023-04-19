@@ -56,7 +56,8 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     /// @notice  revenue token -> 8 decimal price in credit tokens.
     /// e.g. 2e8 == means we must sell <= 0.5 revenue tokens to buy 1 credit token
     mapping(address => uint16) public floorPrices;
-    mapping(bytes32 => Order) public orders;
+    // data required to confirm order data from solver/settler
+    mapping(bytes32 => uint256) public orders;
 
     error InvalidPaymentSetting();
     error InvalidRevenueSplit();
@@ -130,7 +131,9 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         if(msg.sender != borrower) {
             revert NotBorrower();
         }
-        if(totalOwed != 0) {
+        
+        // can withdraw spigot until the loan has been funded
+        if(lender != address(0) && totalOwed != 0) {
             revert CantSweepWhileInDebt();
         }
 
@@ -180,13 +183,14 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         ERC20(revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
 
         bytes32 tradeHash = _constructOrder(revenueToken, tradeAmount, deadline);
+        orders[tradeHash] = 1;
         emit TradeInitiated(tradeHash, tradeAmount, minPrice, deadline);
 
         return tradeHash;
     }
 
     function isValidSignature(bytes32 _tradeHash, bytes calldata _signature) external view returns (bytes4) {
-        if (orders[_tradeHash].sellAmount == 0) {
+        if (orders[_tradeHash] == 0) {
             revert InvalidTradeId();
         }
 
@@ -212,8 +216,9 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @notice Allows lender to whitelist specific functions for Spigot operator to call for product maintainence
     * @param _whitelistedFunc - the function to whitelist across revenue contracts
     * @param _allowed -if function can be called by operator or not
+    * @return if update was successful
     */
-    function addSpigot(bytes4 _whitelistedFunc, bool _allowed) external returns(bool) {
+    function updateWhitelist(bytes4 _whitelistedFunc, bool _allowed) external returns(bool) {
         if(msg.sender != lender) {
             revert NotLender();
         }
@@ -228,6 +233,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @param revenueContract - the contract to add revenue for
     * @param claimFunc - Function to call on revenue contract tto claim revenue into the Spigot.
     * @param transferFunc - Function on revenue contract to call to transfer ownership. MUST only take 1 parameter that is the new owner
+    * @return if update was successful
     *
     */
     function addSpigot(address revenueContract, bytes4 claimFunc, bytes4 transferFunc) external returns(bool) {
@@ -244,9 +250,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @notice Allows updating any revenue stream in Spigot to the agreed split.
     * Useful incase spigot configured before put into RSA 
     * @param revenueContract - the contract to reset
-    *
-    *
-    *
+    * @return if update was successful
      */
     function resetRevenueSplit(address revenueContract) external returns(bool) {
         spigot.updateOwnerSplit(revenueContract, lenderRevenueSplit);

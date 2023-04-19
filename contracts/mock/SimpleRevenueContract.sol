@@ -21,6 +21,17 @@ contract SimpleRevenueContract {
         return true;
     }
 
+    function claimPullPaymentWithToken(address _revenueToken) external returns (bool) {
+        require(msg.sender == owner, "Revenue: Only owner can claim");
+        if (_revenueToken != Denominations.ETH) {
+            require(IERC20(_revenueToken).transfer(owner, IERC20(_revenueToken).balanceOf(address(this))), "Revenue: bad transfer");
+        } else {
+            payable(owner).transfer(address(this).balance);
+        }
+        return true;
+    }
+
+
     function sendPushPayment() external returns (bool) {
         if (address(revenueToken) != Denominations.ETH) {
             require(revenueToken.transfer(owner, revenueToken.balanceOf(address(this))), "Revenue: bad transfer");
