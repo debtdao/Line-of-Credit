@@ -12,7 +12,6 @@ import {Denominations} from "chainlink/Denominations.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
 contract SpigotTest is Test {
-   
     // spigot contracts/configurations to test against
     RevenueToken private token;
     address private revenueContract;

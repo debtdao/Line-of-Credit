@@ -9,6 +9,8 @@ import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 import { MutualConsent } from "../../utils/MutualConsent.sol";
 
+// TODO import GPv2 data types
+
 struct Order {
 
     address sellToken; // any token earned as revenue
@@ -26,10 +28,20 @@ struct Order {
     string[5] buyTokenBalance; // always 'erc20' to use native ERC20 balances not BAL/GNO protocol balances
 
     string[7] signingScheme; // always 'eip1271'
-    bytes32 signature; // actual signature for the order
     address from; // always addressI(this)
 }
 
+/**
+* @title Revenue Share Agreemnt
+* @author Kiba Gateaux
+* @notice Allows a borrower with revenue streams collateralized in a Spigot to  borrow against them from a single lender
+* Lender is guaranteed a specific return but payments are variable based on revenue and % split between borrower and lender.
+* Claims on revenue are tokenized as ERC20 at 1:1 redemption rate for the credit token being lent/repaid.
+* All claim tokens are minted immediately to the lender and must be burnt to claim credit tokens. 
+* Borrower or Lender can trade any revenue token at any time to the token owed to lender using CowSwap Smart Orders
+* Borrower and Lender can mutually agree to set a minimum price for specific revenue tokens to prevent cowswap from executing non-optimal trades.
+*
+ */
 contract RevenueShareAgreement is ERC20, MutualConsent {
     using ECDSA for bytes32;
     using SafeERC20 for ERC20;
@@ -51,11 +63,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     uint256 public initialPrincipal;
     uint256 public totalOwed;
     uint256 public currentDeposits; // total repaid from revenue - total withdrawn by
-    uint256 public priceDecimals; // denominated in creditToken. not to be confused with RSA token decimals
 
-    /// @notice  revenue token -> 8 decimal price in credit tokens.
-    /// e.g. 2e8 == means we must sell <= 0.5 revenue tokens to buy 1 credit token
-    mapping(address => uint16) public floorPrices;
     // data required to confirm order data from solver/settler
     mapping(bytes32 => uint256) public orders;
 
@@ -79,7 +87,6 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     ) ERC20(_name, _symbol, 18) {
         spigot = ISpigot(_spigot);
         borrower = _borrower;
-        priceDecimals = 10 ** ERC20(_creditToken).decimals();
 
         if(_initialPrincipal > _totalOwed) {
             revert InvalidPaymentSetting();
@@ -165,26 +172,23 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
 
     function initiateTrade(
         address revenueToken,
-        uint256 tradeAmount,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
         uint256 deadline,
         bytes calldata signature
     ) external returns(bytes32) {
         require(revenueToken !=  creditToken, "Cant sell token being bought");
-        require(tradeAmount !=  0, "Invalid trade amount");
+        require(sellAmount !=  0, "Invalid trade amount");
         require(deadline >= block.timestamp, "Trade deadline has passed");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
-
-        uint256 balanceBefore = ERC20(creditToken).balanceOf(address(this));
-        
-        uint256 minPrice = floorPrices[revenueToken];
 
         // increase so multiple revenue streams in same token dont override each other
         // we always sell all revenue tokens
         ERC20(revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
 
-        bytes32 tradeHash = _constructOrder(revenueToken, tradeAmount, deadline);
+        bytes32 tradeHash = _constructOrder(revenueToken, sellAmount, minBuyAmount, deadline);
         orders[tradeHash] = 1;
-        emit TradeInitiated(tradeHash, tradeAmount, minPrice, deadline);
+        emit TradeInitiated(tradeHash, sellAmount, minBuyAmount, deadline);
 
         return tradeHash;
     }
@@ -205,11 +209,6 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         // orders[tradeHash] = Order({ });
 
         return ERC_1271_MAGIC_VALUE;
-    }
-
-    function setFloorPrice(address _revenueToken, uint16 _price) mutualConsent(borrower, lender) external returns(bool) {
-        floorPrices[_revenueToken] = _price;
-        return true;
     }
 
     /**
@@ -257,7 +256,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         return true;
     }
 
-    function _constructOrder(address _revenueToken, uint256 _sellAmount, uint256 _deadline) internal view returns (bytes32) {
+    function _constructOrder(address _revenueToken, uint256 _sellAmount, uint256 _buyAmount, uint256 _deadline) internal view returns (bytes32) {
         bytes32 tradeHash = keccak256(abi.encodePacked(
             "\\x19\\x01",
             DOMAIN_SEPARATOR(),
@@ -266,7 +265,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
                 _revenueToken,  // sellToken
                 creditToken,    // buyToken
                 _sellAmount,    // sellAmount
-                0,              // buyAmount
+                _buyAmount,     // buyAmount
                 address(this),  // receiver
                 _deadline,      // validTo
                 "",             // appData
@@ -281,38 +280,13 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
             ))
         ));
 
-        // return Order({
-        //     sellToken: _revenueToken, // any token earned as revenue
-        //     buyToken: creditToken, // always creditToken
-        //     sellAmount: _sellAmount, // always defined
-        //     buyAmount: 0, // can be open ended or use pre-agreed floorPrice
-        //     receiver: address(this), // always address(this)
-        //     validTo: _deadline, // timestamp for deadline of order
-        //     appData: "", // not used onchain but could be used offchain
-        //     feeAmount: 0, // always 0
-        //     kind: 'sell', // always 'sell' incase we do ever charge fees we take from borrower revenue streams not creditors
-        //     partiallyFillable: true, // always true
-            
-        //     sellTokenBalance: 'erc20', // always 'erc20' to use native ERC20 balances not BAL/GNO protocol balances
-        //     buyTokenBalance: 'erc20', // always 'erc20' to use native ERC20 balances not BAL/GNO protocol balances
-
-        //     signingScheme: 'eip1271',  // always 'eip1271'
-        //     signature: "", // actual signature for the order
-        //     from: address(this) // always addressI(this)
-        // });
-
         return tradeHash;
-    }
-
-    function _normalizePrice(address quoteToken, uint256 baseAmount, uint256 quoteAmount) internal view returns (uint256)  {
-        // offset division by base decimals and then add priceDecimals
-        return (quoteAmount * priceDecimals * priceDecimals) / (baseAmount * ERC20(quoteToken).decimals());
     }
 
     event TradeInitiated(
         bytes32 indexed tradeHash,
-        uint256 indexed tradeAmount,
-        uint256 indexed minPrice,
+        uint256 indexed sellAmount,
+        uint256 indexed minBuyAmount,
         uint256 deadline
     );
     event TradeFinalized(bytes32 indexed tradeHash);
