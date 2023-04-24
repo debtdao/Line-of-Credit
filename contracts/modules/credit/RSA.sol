@@ -41,7 +41,7 @@ struct Order {
 * Borrower or Lender can trade any revenue token at any time to the token owed to lender using CowSwap Smart Orders
 * Borrower and Lender can mutually agree to set a minimum price for specific revenue tokens to prevent cowswap from executing non-optimal trades.
 *
- */
+*/
 contract RevenueShareAgreement is ERC20, MutualConsent {
     using ECDSA for bytes32;
     using SafeERC20 for ERC20;
@@ -102,44 +102,69 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         totalOwed = _totalOwed;
     }
 
+
+    /**
+    * @notice Lets lenders deposit Borrower's requested loan amount into RSA and receive back redeemable shares of revenue stream
+    * @dev callable by anyone if offer not accepted yet
+    */
     function deposit() external returns(bool) {
         if(lender != address(0)) {
             revert DepositsFull();
         }
-
+        // store who accepted borrower's offer. only 1 lender
         lender = msg.sender;
+        // issue RSA token to lender to redeem later
         _mint(msg.sender, totalOwed);
-
+        // extend credit to borrower
         ERC20(creditToken).transferFrom(msg.sender, borrower, initialPrincipal);
 
         return true;
     }
 
+    /**
+    * @notice Lets Lender redeem their original tokens.
+    * @param _amount - amount of RSA tokens to redeem @ 1:1 ratio for creditToken
+    * @dev callable by anyone if offer not accepted yet
+    */
     function claim(uint256 _amount) external returns(bool) {
         _burn(msg.sender, _amount); // anyone can redeem not restricted to original lender
         ERC20(creditToken).transfer(msg.sender, _amount);
         return true;
     }
 
-    function sweep(address _token) external returns(bool) {
+
+    /**
+    * @notice Lets Borrower redeem any excess revenue not needed to repay lenders.
+    *         We do not track any tokens held in this contract so yeet entire balance to sweeper.
+    * @dev    Only callable if RSA not initiated yet or after RSA is fully repaid.
+    * @param _token - amount of RSA tokens to redeem @ 1:1 ratio for creditToken
+    * @param _to    - who to sweep tokens to
+    */
+    function sweep(address _token, address _to) external returns(bool) {
+        // cannot withdraw spigot until the RSA has been repaid
+        if(lender != address(0) && totalOwed != 0) {
+            revert CantSweepWhileInDebt();
+        }
         if(msg.sender != borrower) {
             revert NotBorrower();
         }
-        if(totalOwed != 0) {
-            revert CantSweepWhileInDebt();
-        }
 
-        ERC20(_token).transfer(msg.sender, ERC20(_token).balanceOf(address(this)));
+        ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)));
         
         return true;
     }   
 
+    /**
+    * @notice Lets Borrower reclaim their Spigot after paying off all their debt.
+    * @dev    Only callable if RSA not initiated yet or after RSA is fully repaid.
+    * @param _to    - who to give ownerhsip of Spigot to
+    */
     function releaseSpigot(address _to) external returns(bool) {
         if(msg.sender != borrower) {
             revert NotBorrower();
         }
-        
-        // can withdraw spigot until the loan has been funded
+
+        // cannot withdraw spigot until the RSA has been repaid
         if(lender != address(0) && totalOwed != 0) {
             revert CantSweepWhileInDebt();
         }
@@ -170,25 +195,32 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         return spigot.claimOwnerTokens(_token);
     }
 
+    /**
+    * @notice Gives Borrower AND Lender the ability to trade any revenue token into the token owed by lenders
+    * @param _revenueToken - The token claimed from Spigot to sell for creditToken
+    * @param _sellAmount - How many revenue tokens to sell. MUST be > 0
+    * @param _minBuyAmount - Minimum amount of creditToken to buy during trade. Can be 0
+    * @param _deadline - block timestamp that trade is valid until
+    */
     function initiateTrade(
-        address revenueToken,
-        uint256 sellAmount,
-        uint256 minBuyAmount,
-        uint256 deadline,
-        bytes calldata signature
+        address _revenueToken,
+        uint256 _sellAmount,
+        uint256 _minBuyAmount,
+        uint256 _deadline
     ) external returns(bytes32) {
-        require(revenueToken !=  creditToken, "Cant sell token being bought");
-        require(sellAmount !=  0, "Invalid trade amount");
-        require(deadline >= block.timestamp, "Trade deadline has passed");
+        require(totalOwed !=  0, "Trade not required");
+        require(_revenueToken !=  creditToken, "Cant sell token being bought");
+        require(_sellAmount !=  0, "Invalid trade amount");
+        require(_deadline >= block.timestamp, "Trade _deadline has passed");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
 
         // increase so multiple revenue streams in same token dont override each other
         // we always sell all revenue tokens
-        ERC20(revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
+        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
 
-        bytes32 tradeHash = _constructOrder(revenueToken, sellAmount, minBuyAmount, deadline);
+        bytes32 tradeHash = _constructOrder(_revenueToken, _sellAmount, _minBuyAmount, _deadline);
         orders[tradeHash] = 1;
-        emit TradeInitiated(tradeHash, sellAmount, minBuyAmount, deadline);
+        emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
 
         return tradeHash;
     }
@@ -203,7 +235,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
         //     abi.encodePacked(address(this), tradeAmount, minPrice, deadline)
         // ).toEthSignedMessageHash();
         // require(
-        //     ECDSA.recover(tradeHash, signature) == lender,
+        //     ECDSA.recover(tradeHash, _signature) == lender,
         //     "Signature must be from lender"
         // );
         // orders[tradeHash] = Order({ });
@@ -215,7 +247,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @notice Allows lender to whitelist specific functions for Spigot operator to call for product maintainence
     * @param _whitelistedFunc - the function to whitelist across revenue contracts
     * @param _allowed -if function can be called by operator or not
-    * @return if update was successful
+    * @return bool - if update was successful
     */
     function updateWhitelist(bytes4 _whitelistedFunc, bool _allowed) external returns(bool) {
         if(msg.sender != lender) {
@@ -232,7 +264,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @param revenueContract - the contract to add revenue for
     * @param claimFunc - Function to call on revenue contract tto claim revenue into the Spigot.
     * @param transferFunc - Function on revenue contract to call to transfer ownership. MUST only take 1 parameter that is the new owner
-    * @return if update was successful
+    * @return bool - if update was successful
     *
     */
     function addSpigot(address revenueContract, bytes4 claimFunc, bytes4 transferFunc) external returns(bool) {
@@ -249,12 +281,22 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     * @notice Allows updating any revenue stream in Spigot to the agreed split.
     * Useful incase spigot configured before put into RSA 
     * @param revenueContract - the contract to reset
-    * @return if update was successful
+    * @return bool - if update was successful
      */
     function resetRevenueSplit(address revenueContract) external returns(bool) {
         spigot.updateOwnerSplit(revenueContract, lenderRevenueSplit);
         return true;
     }
+
+    /**
+    * @notice   - Generates GnosisProtcool v2 structured trade order data with ERC712 signature.
+                This order will be signed by this RSA contract to authorize sales of revenue tokens
+    * @param _revenueToken - the token being sold
+    * @param _sellAmount -  amount of _revenueToken to sell
+    * @param _buyAmount - amount of creditToken to buy
+    * @param _deadline - until when ordershould be valid
+    * @return hash - trade hsh used to verify that the order is valid and from this contract
+     */
 
     function _constructOrder(address _revenueToken, uint256 _sellAmount, uint256 _buyAmount, uint256 _deadline) internal view returns (bytes32) {
         bytes32 tradeHash = keccak256(abi.encodePacked(
@@ -275,7 +317,6 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
                 'erc20',        // sellTokenBalance
                 'erc20',        // buyTokenBalance
                 'eip1271',      // signingScheme
-                "",             // signature
                 address(this)   // from
             ))
         ));
