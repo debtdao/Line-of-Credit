@@ -12,108 +12,108 @@ source .env
 
 echo "Deploying Debt DAO Libraries and adding addresses to foundry.toml file...."
 
-# echo "Deploying LineLib to $GNOSIS_RPC_URL...."
-# LineLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     --optimizer-runs 20000 \
-#     contracts/utils/LineLib.sol:LineLib --json --verify )
-# echo "LineLib deployed $LineLib"
-# LineLibAddress=$(echo "$LineLib" | jq -r '.deployedTo')
-# LineLibAddress="0x00A3699F677C252CA32B887F9f66621920D392f8"
+echo "Deploying LineLib to $GNOSIS_RPC_URL...."
+LineLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    --optimizer-runs 20000 \
+    contracts/utils/LineLib.sol:LineLib --json --verify )
+echo "LineLib deployed $LineLib"
+LineLibAddress=$(echo "$LineLib" | jq -r '.deployedTo')
+LineLibAddress="0x00A3699F677C252CA32B887F9f66621920D392f8"
 
-# LineLibEntry="contracts\/utils\/LineLib.sol:LineLib:$LineLibAddress"
-# echo "Updating foundry.toml with LineLib address: {$LineLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \[.*\]/libraries = \["'$LineLibEntry'"\]/' foundry.toml
-
-
-# echo "Deploying CreditLib...."
-# CreditLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/CreditLib.sol:CreditLib --verify  --json)
-#     # --optimizer-runs 20000 \
-# echo "CreditLib deployed {$CreditLib}"
-# CreditLibAddress=$(echo "$CreditLib" | jq -r '.deployedTo')
-# CreditLibEntry="contracts\/utils\/CreditLib.sol:CreditLib:$CreditLibAddress"
-# echo "Updating foundry.toml with CreditLib address: {$CreditLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'"\]/' foundry.toml
+LineLibEntry="contracts\/utils\/LineLib.sol:LineLib:$LineLibAddress"
+echo "Updating foundry.toml with LineLib address: {$LineLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \[.*\]/libraries = \["'$LineLibEntry'"\]/' foundry.toml
 
 
-# echo "Deploying CreditListLib...."
-# CreditListLib=$(forge create --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/CreditListLib.sol:CreditListLib --verify  --json)
-#     # --optimizer-runs 20000 \
-# echo "CreditListLib deployed {$CreditListLib}"
-# CreditListLibAddress=$(echo "$CreditListLib" | jq -r '.deployedTo')
-# CreditListLibEntry="contracts\/utils\/CreditListLib.sol:CreditListLib:$CreditListLibAddress"
-# echo "Updating foundry.toml with CreditListLib address: {$CreditListLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'"\]/' foundry.toml
+echo "Deploying CreditLib...."
+CreditLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/CreditLib.sol:CreditLib --verify  --json)
+    # --optimizer-runs 20000 \
+echo "CreditLib deployed {$CreditLib}"
+CreditLibAddress=$(echo "$CreditLib" | jq -r '.deployedTo')
+CreditLibEntry="contracts\/utils\/CreditLib.sol:CreditLib:$CreditLibAddress"
+echo "Updating foundry.toml with CreditLib address: {$CreditLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'"\]/' foundry.toml
 
 
-# echo "Deploying SpigotLib...."
-# SpigotLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/SpigotLib.sol:SpigotLib --verify  --json)
-#     # --optimizer-runs 20000 \
-# echo "SpigotLib deployed {$SpigotLib}"
-# SpigotLibAddress=$(echo "$SpigotLib" | jq -r '.deployedTo')
-# SpigotLibEntry="contracts\/utils\/SpigotLib.sol:SpigotLib:$SpigotLibAddress"
-# echo "Updating foundry.toml with SpigotLib address: {$SpigotLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'"\]/' foundry.toml
+echo "Deploying CreditListLib...."
+CreditListLib=$(forge create --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/CreditListLib.sol:CreditListLib --verify  --json)
+    # --optimizer-runs 20000 \
+echo "CreditListLib deployed {$CreditListLib}"
+CreditListLibAddress=$(echo "$CreditListLib" | jq -r '.deployedTo')
+CreditListLibEntry="contracts\/utils\/CreditListLib.sol:CreditListLib:$CreditListLibAddress"
+echo "Updating foundry.toml with CreditListLib address: {$CreditListLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'"\]/' foundry.toml
 
 
-# echo "Deploying EscrowLib...."
-# EscrowLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/EscrowLib.sol:EscrowLib --verify  --json)
-#     # --optimizer-runs 20000 \
-# echo "EscrowLib deployed {$EscrowListLib}"
-# EscrowLibAddress=$(echo "$EscrowLib" | jq -r '.deployedTo')
-# EscrowLibEntry="contracts\/utils\/EscrowLib.sol:EscrowLib:$EscrowLibAddress"
-# echo "Updating foundry.toml with EscrowLib address: {$EscrowListLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/' foundry.toml
+echo "Deploying SpigotLib...."
+SpigotLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/SpigotLib.sol:SpigotLib --verify  --json)
+    # --optimizer-runs 20000 \
+echo "SpigotLib deployed {$SpigotLib}"
+SpigotLibAddress=$(echo "$SpigotLib" | jq -r '.deployedTo')
+SpigotLibEntry="contracts\/utils\/SpigotLib.sol:SpigotLib:$SpigotLibAddress"
+echo "Updating foundry.toml with SpigotLib address: {$SpigotLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'"\]/' foundry.toml
 
 
-# echo "Deploying SpigotedLineLib...."
-# SpigotedLineLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/SpigotedLineLib.sol:SpigotedLineLib --verify  --json)
-#     # --optimizer-runs 20000 \
-# echo "SpigotedLineLib deployed {$SpigotedLineListLib}"
-# SpigotedLineLibAddress=$(echo "$SpigotedLineLib" | jq -r '.deployedTo')
-# SpigotedLineLibEntry="contracts\/utils\/SpigotedLineLib.sol:SpigotedLineLib:$SpigotedLineLibAddress"
-# echo "Updating foundry.toml with SpigotedLineLib address: {$SpigotedLineListLibAddress}...."
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/' foundry.toml
+echo "Deploying EscrowLib...."
+EscrowLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/EscrowLib.sol:EscrowLib --verify  --json)
+    # --optimizer-runs 20000 \
+echo "EscrowLib deployed {$EscrowListLib}"
+EscrowLibAddress=$(echo "$EscrowLib" | jq -r '.deployedTo')
+EscrowLibEntry="contracts\/utils\/EscrowLib.sol:EscrowLib:$EscrowLibAddress"
+echo "Updating foundry.toml with EscrowLib address: {$EscrowListLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/' foundry.toml
 
 
-# echo "Deploying LineFactoryLib...."
-# LineFactoryLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/utils/LineFactoryLib.sol:LineFactoryLib --verify  --json)
-#     # --optimizer-runs 200 \
-# echo "LineFactoryLib deployed {$LineFactoryLib}"
-# LineFactoryLibAddress=$(echo "$LineFactoryLib" | jq -r '.deployedTo')
-# echo "Updating foundry.toml with LineFactoryLib address: {$LineFactoryLibAddress}...."
-# LineFactoryLibEntry="contracts\/utils\/LineFactoryLib.sol:LineFactoryLib:$LineFactoryLibAddress"
-# sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'","'$LineFactoryLibEntry'"\]/' foundry.toml
+echo "Deploying SpigotedLineLib...."
+SpigotedLineLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/SpigotedLineLib.sol:SpigotedLineLib --verify  --json)
+    # --optimizer-runs 20000 \
+echo "SpigotedLineLib deployed {$SpigotedLineListLib}"
+SpigotedLineLibAddress=$(echo "$SpigotedLineLib" | jq -r '.deployedTo')
+SpigotedLineLibEntry="contracts\/utils\/SpigotedLineLib.sol:SpigotedLineLib:$SpigotedLineLibAddress"
+echo "Updating foundry.toml with SpigotedLineLib address: {$SpigotedLineListLibAddress}...."
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/' foundry.toml
 
 
-### DEPLOY Mock Tokens & Oracle for testing ###
+echo "Deploying LineFactoryLib...."
+LineFactoryLib=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/utils/LineFactoryLib.sol:LineFactoryLib --verify  --json)
+    # --optimizer-runs 200 \
+echo "LineFactoryLib deployed {$LineFactoryLib}"
+LineFactoryLibAddress=$(echo "$LineFactoryLib" | jq -r '.deployedTo')
+echo "Updating foundry.toml with LineFactoryLib address: {$LineFactoryLibAddress}...."
+LineFactoryLibEntry="contracts\/utils\/LineFactoryLib.sol:LineFactoryLib:$LineFactoryLibAddress"
+sed -i '' '/\[profile\.gnosis\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'","'$LineFactoryLibEntry'"\]/' foundry.toml
+
+
+# ## DEPLOY Mock Tokens & Oracle for testing ###
 
 # echo "Deploying DummyToken1...."
 # DummyToken1=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-    # --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-    # --optimizer-runs 20000 \
-    #     contracts/mock/RevenueToken.sol:RevenueToken --verify  --json)
+#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+#     --optimizer-runs 20000 \
+#         contracts/mock/RevenueToken.sol:RevenueToken --verify  --json)
 # echo "DummyToken1 deployed {$DummyToken1}"
 # DummyToken1Address=$(echo "$DummyToken1" | jq -r '.deployedTo')
 # echo "Updating foundry.toml with DummyToken1 address: {$DummyToken1Address}...."
 
 # echo "Deploying DummyToken2...."
 # DummyToken2=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-    # --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-    # --optimizer-runs 20000 \
-    #     contracts/mock/RevenueToken.sol:RevenueToken --verify  --json)
+#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+#     --optimizer-runs 20000 \
+#         contracts/mock/RevenueToken.sol:RevenueToken --verify  --json)
 # echo "DummyToken2 deployed {$DummyToken2}"
 # DummyToken2Address=$(echo "$DummyToken2" | jq -r '.deployedTo')
 # echo "Updating foundry.toml with DummyToken2 address: {$DummyToken2Address}...."
@@ -124,31 +124,31 @@ echo "Deploying Debt DAO Libraries and adding addresses to foundry.toml file....
 # echo "Deploying Oracle...."
 # Oracle=$(forge create --constructor-args $DummyToken1Address $DummyToken2Address --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
 # --optimizer-runs 20000 \
-    # contracts/mock/SimpleOracle.sol:SimpleOracle --verify  --json)
+#     contracts/mock/SimpleOracle.sol:SimpleOracle --verify  --json)
 # echo "Oracle deployed {$Oracle}"
 # OracleAddress=$(echo "$Oracle" | jq -r '.deployedTo')
 # echo "Updating foundry.toml with Oracle address: {$OracleAddress}...."
 
 
-### DEPLOY FACTORY CONTRACTS ###
+## DEPLOY FACTORY CONTRACTS ###
 
 # use multicall as swap target on chains without 0x support
 
-# echo "Deploying Multicall...."
-# Multicall=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-    # --optimizer-runs 100000 \
-#         contracts/utils/Multicall.sol:Multicall3 --verify  --json)
-# MulticallAddress=$(echo "$Multicall" | jq -r '.deployedTo')
-# echo "Multicall contract deployed to address: {$MulticallAddress}...."
+echo "Deploying Multicall...."
+Multicall=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+    --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    --optimizer-runs 100000 \
+        contracts/utils/Multicall.sol:Multicall3 --verify  --json)
+MulticallAddress=$(echo "$Multicall" | jq -r '.deployedTo')
+echo "Multicall contract deployed to address: {$MulticallAddress}...."
 
-# echo "Deploying ModuleFactory...."
-# ModuleFactory=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
-#      --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
-#     contracts/modules/factories/ModuleFactory.sol:ModuleFactory --verify  --json)
-#     #  --optimizer-runs 10000 \
-# ModuleFactoryAddress=$(echo "$ModuleFactory" | jq -r '.deployedTo')
-# echo "ModuleFactory contract deployed to address: {$ModuleFactoryAddress}...."
+echo "Deploying ModuleFactory...."
+ModuleFactory=$(forge create --chain gnosis --rpc-url $GNOSIS_RPC_URL --verifier-url https://api.gnosisscan.io/api \
+     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $GNOSIS_ETHERSCAN_API_KEY \
+    contracts/modules/factories/ModuleFactory.sol:ModuleFactory --verify  --json)
+    #  --optimizer-runs 10000 \
+ModuleFactoryAddress=$(echo "$ModuleFactory" | jq -r '.deployedTo')
+echo "ModuleFactory contract deployed to address: {$ModuleFactoryAddress}...."
 
 echo "Deploying LineFactory...."
 # # hardcode if final deploy fails

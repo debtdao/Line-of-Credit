@@ -83,7 +83,7 @@ SpigotedLineLibEntry="contracts\/utils\/SpigotedLineLib.sol:SpigotedLineLib:$Spi
 echo "Updating foundry.toml with SpigotedLineLib address: {$SpigotedLineListLibAddress}...."
 sed -i '' '/\[profile\.mainnet\]/,/^\[/s/^libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'"\]/libraries = \["'$LineLibEntry'","'$CreditLibEntry'","'$CreditListLibEntry'","'$SpigotLibEntry'","'$EscrowLibEntry'","'$SpigotedLineLibEntry'"\]/' foundry.toml
 
-NOTE:  change optimizer runs to like 200 here so that each new contract deployed is hella cheap
+# NOTE:  change optimizer runs to like 200 here so that each new contract deployed is hella cheap
 echo "Deploying LineFactoryLib...."
 LineFactoryLib=$(forge create --rpc-url $MAINNET_RPC_URL \
     --private-key $DEPLOYER_PRIVATE_KEY --etherscan-api-key $ETHERSCAN_API_KEY \
