@@ -3,12 +3,11 @@
 pragma solidity ^0.8.0;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
-import {GPv2Order} from "@cow-protocol/contracts/libraries/GPv2Order.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
 import { MutualConsent } from "../../utils/MutualConsent.sol";
+import {GPv2Order} from "../../utils/GPv2Order.sol";
 
 // TODO import GPv2 data types
 
@@ -45,7 +44,7 @@ struct Order {
 */
 contract RevenueShareAgreement is ERC20, MutualConsent {
     using ECDSA for bytes32;
-    using SafeERC20 for ERC20;
+    using GPv2Order for GPv2Order.Data;
     
     // ERC-1271 signature
     uint256 private constant MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
@@ -223,7 +222,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
 
         // increase so multiple revenue streams in same token dont override each other
         // we always sell all revenue tokens
-        ERC20(_revenueToken).safeApprove(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
+        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
 
         bytes32 tradeHash = _encodeOrder(_revenueToken, _sellAmount, _minBuyAmount, _deadline);
         orders[tradeHash] = 1;
@@ -261,7 +260,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
             address _orderCreator,
             address _priceChecker,
             bytes memory _priceCheckerData
-        ) = decodeOrder(encodedOrder);
+        ) = _decodeOrder(_encodedOrder);
 
         require(_order.hash(COW_DOMAIN_SEPARATOR) == _tradeHash, "!match");
 
@@ -290,7 +289,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
             "!erc20_out"
         );
 
-        bytes32 _calculatedSwapHash = _encodeOrder(_order.sellToken, order.sellAmount, order.buyAmount, order.deadline);
+        bytes32 _calculatedSwapHash = _encodeOrder(_order.sellToken, _order.sellAmount, _order.buyAmount, _order.validTo);
 
         // can do add any arbitrry data to appData in Order to verify who submitted, zk proof price is above min, etc.
         // bytes32 tradeHash = keccak256(
@@ -362,7 +361,7 @@ contract RevenueShareAgreement is ERC20, MutualConsent {
     function _encodeOrder(address _revenueToken, uint256 _sellAmount, uint256 _buyAmount, uint256 _deadline) internal view returns (bytes32) {
         bytes32 tradeHash = keccak256(abi.encodePacked(
             "\\x19\\x01",
-            COW_DOMAIN_SEPARATOR(),
+            DOMAIN_SEPARATOR(),
             keccak256(abi.encode(
                 COW_ORDER_HASH,
                 _revenueToken,  // sellToken
