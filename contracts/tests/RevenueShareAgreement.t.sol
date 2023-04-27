@@ -2,6 +2,7 @@ pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 import { RevenueShareAgreement } from "../modules/credit/RevenueShareAgreement.sol";
+import { RSAFactory } from "../modules/factories/RSAFactory.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 
 import {RevenueToken} from "../mock/RevenueToken.sol";
@@ -33,18 +34,20 @@ contract RevenueShareAgreementTest is Test {
     ISpigot.Setting[] private s;
 
     // RSA + Spigot stakeholder
+    RSAFactory factory;
     RevenueShareAgreement private rsa;
     address private operator;
     address private borrower;
     address private lender;
-    uint256 private initialPrincipal;
-    uint256 private totalOwed;
+    uint256 private initialPrincipal = 10_000 * 1e18;
+    uint256 private totalOwed = 13_000 * 1e18;
   
 
     function setUp() public {
         operator = vm.addr(2);
         borrower = vm.addr(3);
         lender = vm.addr(4);
+        factory = new RSAFactory();
         
         revenueToken = new RevenueToken();
         creditToken = new RevenueToken();
@@ -70,18 +73,20 @@ contract RevenueShareAgreementTest is Test {
 
     function test_deposit_lenderMustDepositInitialPrincipal() public {
         uint256 balance1 = creditToken.balanceOf(lender);
-        hoax(lender);
+        vm.startPrank(lender);
         rsa.deposit();
         uint256 balance2 = creditToken.balanceOf(lender);
         assertEq(balance1 - balance2, rsa.initialPrincipal());
+        vm.stopPrank();
     }
 
     function test_deposit_borrowerGetsInitialPrincipalOnDeposit() public {
         uint256 balance1 = creditToken.balanceOf(borrower);
-        hoax(lender);
+        vm.startPrank(lender);
         rsa.deposit();
         uint256 balance2 = creditToken.balanceOf(borrower);
-        assertEq(balance1 - balance2, rsa.initialPrincipal());
+        assertEq(balance2 - balance1, rsa.initialPrincipal());
+        vm.stopPrank();
     }
 
     /*********************
@@ -93,35 +98,48 @@ contract RevenueShareAgreementTest is Test {
     *********************/
 
     function test_initiateOrder_returnsOrderHash() public {
-        hoax(lender);
+        vm.startPrank(lender);
         rsa.deposit();
-        revert();
+        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, block.timestamp + 100 days);
+        assertTrue(orderHash != bytes32(0));
+        vm.stopPrank();
     }
 
     function invariant_initiateOrder_mustSellOver1Token() public {
-        hoax(lender);
+        vm.startPrank(lender);
         rsa.deposit();
-        vm.expectRevert("Invalid trade amoun");
+        vm.expectRevert("Invalid trade amount");
         rsa.initiateOrder(address(revenueToken), 0, 0, block.timestamp + 100 days);
+        vm.stopPrank();
     }
 
     function invariant_initiateOrder_cantTradeIfNoDebt() public {
         // havent deposited so no debt
-        vm.expectRevert("Trade not require");
+        vm.expectRevert("Trade not required");
         rsa.initiateOrder(address(revenueToken), 1, 0, block.timestamp + 100 days);
         hoax(lender);
         rsa.deposit();
     }
 
     function invariant_initiateOrder_cantSellCreditToken() public {
-        hoax(lender);
+        vm.startPrank(lender);
         rsa.deposit();
-        vm.expectRevert("Cant sell token beingbought");
+        vm.expectRevert("Cant sell token being bought");
         rsa.initiateOrder(address(creditToken), 1, 0, block.timestamp + 100 days);
+        vm.stopPrank();
     }
 
     function test_initiateOrder_lenderOrBorrowerCanSubmit() public {
-        revert();
+        vm.startPrank(lender);
+        rsa.deposit();
+        rsa.initiateOrder(address(revenueToken), 1, 0, block.timestamp + 100 days);
+        vm.stopPrank();
+        hoax(borrower);
+        rsa.initiateOrder(address(revenueToken), 1, 0, block.timestamp + 100 days);
+        
+        hoax(vm.addr(69));
+        vm.expectRevert("Caller must be stakeholder");
+        rsa.initiateOrder(address(revenueToken), 1, 0, block.timestamp + 100 days);
     }
 
     /*********************
@@ -164,7 +182,7 @@ contract RevenueShareAgreementTest is Test {
         uint256 _initialPrincipal,
         uint256 _totalOwed
     ) internal returns(RevenueShareAgreement newRSA) {
-        newRSA = new RevenueShareAgreement(
+        address _newRSA = factory.createRSA(
             _spigot,
             borrower,
             _token,
@@ -177,7 +195,8 @@ contract RevenueShareAgreementTest is Test {
 
         creditToken.mint(_lender, _initialPrincipal);
         hoax(_lender);
-        creditToken.approve(address(newRSA), type(uint256).max);
+        creditToken.approve(_newRSA, type(uint256).max);
+        return RevenueShareAgreement(_newRSA);
     }
 
     /**
