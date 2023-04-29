@@ -11,7 +11,7 @@ import {Denominations} from "chainlink/Denominations.sol";
 
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
-contract SpigotTest is Test {
+contract SpigotTest is Test, ISpigot {
    
     // spigot contracts/configurations to test against
     RevenueToken private token;
@@ -37,8 +37,8 @@ contract SpigotTest is Test {
     ISpigot.Setting[] private s;
 
     // Spigot Controller access control vars
-    address private owner;
-    address private operator;
+    address public owner;
+    address public operator;
   
 
     function setUp() public {
@@ -206,9 +206,11 @@ contract SpigotTest is Test {
             address(spigot).balance :
             RevenueToken(_token).balanceOf(address(spigot));
 
-        uint roundingFix = spigotBalance - (ownerTokens + operatorTokens);
+        uint256 roundingFix = spigotBalance - (ownerTokens + operatorTokens + overflow);
+        if(overflow > 0) {
+            assertEq(roundingFix > 1, false);
+        }
 
-        assertEq(roundingFix > 1, false);
         assertEq(
             spigot.getOwnerTokens(_token),
             ownerTokens,
@@ -216,15 +218,15 @@ contract SpigotTest is Test {
         );
 
         assertEq(
-            spigotBalance,
-            ownerTokens + operatorTokens + roundingFix, // revenue over max stays in contract unnaccounted
-            'Spigot balance vs escrow + overflow mismatch'
-        );
-
-        assertEq(
             spigot.getOperatorTokens(_token),
             maxRevenue - ownerTokens,
             'Invalid treasury payment amount for spigot revenue'
+        );
+
+        assertEq(
+            spigotBalance,
+            ownerTokens + operatorTokens + overflow + roundingFix, // revenue over max stays in contract unnaccounted
+            'Spigot balance vs escrow + overflow mismatch'
         );
     }
 
@@ -378,6 +380,30 @@ contract SpigotTest is Test {
 
         assertSpigotSplits(Denominations.ETH, ethRevenue);
         assertSpigotSplits(address(token), tokenRevenue);
+    }
+
+
+    function test_claimRevenue_emitsClaimRevenueEvent(uint256 _revenue) public {
+        uint256 revenue = bound(_revenue, 100, MAX_REVENUE);
+        _initSpigot(Denominations.ETH, 100, SimpleRevenueContract.claimPullPaymentWithToken.selector, transferOwnerFunc);
+
+        deal(revenueContract, revenue);
+        deal(address(token), revenueContract, revenue);
+
+        uint256 tokenRevenueForOwner = (revenue * settings.ownerSplit) / 100;
+        vm.expectEmit(true, false, false, true, address(spigot));
+        emit ClaimRevenue(revenueContract, address(token), revenue, tokenRevenueForOwner);
+        bytes memory tokenClaimData = abi.encodeWithSelector(SimpleRevenueContract.claimPullPaymentWithToken.selector, token);
+        assertEq(revenue, spigot.claimRevenue(revenueContract, address(token), tokenClaimData), 'invalid token revenue amount claimed');
+        
+        uint256 ethRevenueForOwner = (revenue * settings.ownerSplit) / 100;
+        vm.expectEmit(true, false, false, true, address(spigot));
+        emit ClaimRevenue(revenueContract, Denominations.ETH, revenue, ethRevenueForOwner);
+        bytes memory ethClaimData = abi.encodeWithSelector(SimpleRevenueContract.claimPullPaymentWithToken.selector, Denominations.ETH);
+        assertEq(revenue, spigot.claimRevenue(revenueContract, Denominations.ETH, ethClaimData), 'invalid ETH revenue amount claimed');
+
+        assertSpigotSplits(Denominations.ETH, revenue);
+        assertSpigotSplits(address(token), revenue);
     }
 
     // Claim escrow
@@ -831,4 +857,81 @@ contract SpigotTest is Test {
          spigot.addSpigot(address(revenueContract), altSettings);
     }
 
+
+
+    // dummy functions to get interfaces for RSA and SPpigot
+
+    function claimRevenue(
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external returns (uint256 claimed) { return 0; }
+
+    function operate(address revenueContract, bytes calldata data) external returns (bool) {
+        return  true;
+    }
+
+    // owner funcs
+
+    function claimOwnerTokens(address token) external returns (uint256 claimed) {
+        return 0;
+    }
+
+    function claimOperatorTokens(address token) external returns (uint256 claimed) {
+        return 0;
+    }
+
+    function addSpigot(address revenueContract, Setting memory setting) external returns (bool) {
+        return  true;
+    }
+
+    function removeSpigot(address revenueContract) external returns (bool) {
+        return  true;
+    }
+
+    // stakeholder funcs
+
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool) {
+        return  true;
+    }
+
+    function updateOwner(address newOwner) external returns (bool) {
+        return  true;
+    }
+
+    function updateOperator(address newOperator) external returns (bool) {
+        return  true;
+    }
+
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
+        return  true;
+    }
+
+    // Getters
+    // function owner() external view returns (address) {
+    //     return address(0);
+    // }
+
+    // function operator() external view returns (address) {
+    //     return address(0);
+    // }
+
+    function isWhitelisted(bytes4 func) external view returns (bool) {
+        return  true;
+    }
+
+    function getOwnerTokens(address token) external view returns (uint256) {
+        return 0;
+    }
+
+    function getOperatorTokens(address token) external view returns (uint256) {
+        return 0;
+    }
+
+    function getSetting(
+        address revenueContract
+    ) external view returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc) {
+        return (0, bytes4(0), bytes4(0));
+    }
 }
+

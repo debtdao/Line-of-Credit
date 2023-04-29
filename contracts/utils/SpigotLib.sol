@@ -19,11 +19,15 @@ struct SpigotState {
     mapping(address => ISpigot.Setting) settings; // revenue contract -> settings
 }
 
+
+
 /**
  * @notice - helper lib for Spigot
  * @dev see Spigot docs
  */
 library SpigotLib {
+    event log_named_uint2(string err, uint256 val);
+
     // Maximum numerator for Setting.ownerSplit param to ensure that the Owner can't claim more than 100% of revenue
     uint8 constant MAX_SPLIT = 100;
     // cap revenue per claim to avoid overflows on multiplication when calculating percentages
@@ -94,7 +98,7 @@ library SpigotLib {
             self.operatorTokens[token] = self.operatorTokens[token] + (claimed - ownerTokens);
         }
 
-        emit ClaimRevenue(token, claimed, ownerTokens, revenueContract);
+        emit ClaimRevenue(revenueContract, token, claimed, ownerTokens);
 
         return claimed;
     }
@@ -145,7 +149,7 @@ library SpigotLib {
 
         LineLib.sendOutTokenOrETH(token, self.owner, claimed);
 
-        emit ClaimOwnerTokens(token, claimed, self.owner);
+        emit ClaimOwnerTokens(token, self.owner, claimed);
 
         return claimed;
     }
@@ -166,7 +170,7 @@ library SpigotLib {
 
         LineLib.sendOutTokenOrETH(token, self.operator, claimed);
 
-        emit ClaimOperatorTokens(token, claimed, self.operator);
+        emit ClaimOperatorTokens(token, self.operator, claimed);
 
         return claimed;
     }
@@ -297,15 +301,15 @@ library SpigotLib {
 
     event RemoveSpigot(address indexed revenueContract);
 
-    event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
+    event UpdateWhitelistFunction(bytes4 indexed func, bool allowed);
 
-    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 split);
 
-    event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 ownerTokens, address revenueContract);
+    event ClaimRevenue(address indexed revenueContract, address indexed token, uint256 amount, uint256 ownerTokens);
 
-    event ClaimOwnerTokens(address indexed token, uint256 indexed amount, address owner);
+    event ClaimOwnerTokens(address indexed token, address indexed owner,  uint256 amount);
 
-    event ClaimOperatorTokens(address indexed token, uint256 indexed amount, address ooperator);
+    event ClaimOperatorTokens(address indexed token, address indexed operator,  uint256 amount);
 
     // Stakeholder Events
 

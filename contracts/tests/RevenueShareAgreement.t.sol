@@ -12,8 +12,9 @@ import {GPv2Order} from "../utils/GPv2Order.sol";
 
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {IRevenueShareAgreement} from "../interfaces/IRevenueShareAgreement.sol";
+import {ISpigot} from "../interfaces/ISpigot.sol";
 
-contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
+contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     using GPv2Order for GPv2Order.Data;
 
     // spigot contracts/configurations to test against
@@ -25,6 +26,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
     uint8 private lenderRevenueSplit = 47;
 
     // Named vars for common inputs
+    uint256 constant MAX_UINT = type(uint256).max;
     uint256 constant MAX_REVENUE = type(uint256).max / 100;
     // function signatures for mock revenue contract to pass as params to spigot
     bytes4 constant transferOwnerFunc =
@@ -36,7 +38,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
     // RSA + Spigot stakeholder
     RSAFactory factory;
     RevenueShareAgreement private rsa;
-    address private operator;
+    address public operator;
     address private borrower;
     address private lender;
     address private rando; // random address for ACL testing
@@ -285,6 +287,25 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
         assertEq(balance2 - balance1, rsa.initialPrincipal());
     }
 
+    function test_redeem_mustRedeemLessThanClaimableRevenue(uint256 _revenue, uint256 _redeemed) public {
+        uint256 revenue = bound(_revenue, 100, MAX_UINT);
+        uint256 redeemed = bound(_redeemed, 100, totalOwed);
+
+        _depositRSA(lender, rsa);
+        (uint256 claimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        rsa.claimRev(address(creditToken));
+
+        vm.prank(lender);
+        if(redeemed > claimableRev) {
+            vm.expectRevert(abi.encodeWithSelector(
+                IRevenueShareAgreement.ExceedClaimableTokens.selector,
+                claimableRev
+            ));
+        }
+        rsa.redeem(lender, lender, redeemed);
+        vm.stopPrank();
+    }
+
     function test_redeem_reducesClaimsTotalSupply(uint256 _redeemed) public {
         uint256 redeemed = bound(_redeemed, 100, totalOwed);
         assertEq(rsa.totalSupply(), 0);
@@ -468,6 +489,100 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
     *********************/
     // (trying not to do unit tests for Spigot and test in integration and assume basic stuff is handled in Spigot unit tests)
 
+    function test_claimRev_mustUpdateTokenBalances(uint256 _revenue) public {
+        // ensure our revenue logic matches with Spigot event
+        // manually generate revenue instead of _gerneateRevenue for granular checks
+
+        uint256 revenue = bound(_revenue, 100, MAX_REVENUE);
+        uint256 revenueForOwner = (revenue * lenderRevenueSplit) / 100;
+        revenueToken.mint(address(spigot), revenue);
+        bytes memory claimData = abi.encodeWithSelector(claimPushPaymentFunc);
+        vm.expectEmit(true, true, true, true); // cant check calldata bc we send other tx after claimRevneue in _genereateRevenue
+        emit ClaimRevenue(revenueContract, address(revenueToken), revenue, revenueForOwner);
+        spigot.claimRevenue(revenueContract, address(revenueToken), claimData);
+        (uint256 claimableRev, ) = _assertSpigotSplits(address(revenueToken), revenue, lenderRevenueSplit);
+
+        uint256 rsaBalance0 = revenueToken.balanceOf(address(rsa));
+        uint256 spigotBalance0 = revenueToken.balanceOf(address(spigot));
+
+        emit log_named_uint("balances", rsaBalance0);
+        emit log_named_uint("balances", spigotBalance0);
+
+        assertEq(rsaBalance0, 0);
+        assertEq(spigotBalance0, revenue);
+        // ensure our revenue logic matches with Spigot storage data
+        assertEq(spigot.getOwnerTokens(address(revenueToken)), claimableRev, "Spigot revenue doesnt match expected value");
+        assertGe(revenueForOwner, claimableRev, "ClaimRev event and Spigot storage data do not match");
+        
+        rsa.claimRev(address(revenueToken));
+
+        uint256 rsaBalance1 = revenueToken.balanceOf(address(rsa));
+        uint256 spigotBalance1 = revenueToken.balanceOf(address(spigot));
+        assertEq(rsaBalance1, claimableRev);
+        assertEq(spigotBalance1, revenue - claimableRev);
+        assertEq(spigot.getOwnerTokens(address(revenueToken)), 0);
+    }
+
+    function test_claimRev_mustAutoRepyIfRevenueInCreditToken(uint256 _revenue) public {
+        uint256 revenue = bound(_revenue, 100, totalOwed);
+        (uint256 claimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+
+        uint256 rsaBalance0 = creditToken.balanceOf(address(rsa));
+        assertEq(rsaBalance0, 0);
+        assertEq(rsa.claimableAmount(), 0);
+
+        rsa.claimRev(address(creditToken));
+
+        uint256 rsaBalance1 = creditToken.balanceOf(address(rsa));
+        assertEq(rsaBalance1, claimableRev);
+        assertEq(rsa.claimableAmount(), claimableRev);
+
+        uint256 rsaRevenueBalance0 = revenueToken.balanceOf(address(rsa));
+        assertEq(rsaRevenueBalance0, 0);
+        
+        (uint256 claimableRev1, ) = _generateRevenue(revenueContract, revenueToken, revenue);
+        rsa.claimRev(address(revenueToken));
+        // rsa has receieved revenue tokens
+        uint256 rsaRevenueBalance1 = revenueToken.balanceOf(address(rsa));
+        assertEq(rsaRevenueBalance1, claimableRev1);
+        // non creditToken revenue should not be auto-repaid
+        assertEq(rsa.claimableAmount(), claimableRev);
+    }
+
+    function test_claimRev_anyoneAnytime(uint256 _revenue) public {
+        uint256 revenue = bound(_revenue, 100, totalOwed);
+        
+        // can claim revenue anytime if RSA owns spigot and has claimable rev
+        // even if there is no debt
+        (uint256 preDepositClaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(rando);
+        rsa.claimRev(address(creditToken));
+
+        (uint256 preDepositClaimableRev2, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(borrower);
+        rsa.claimRev(address(creditToken));
+        
+        (uint256 preDepositClaimableRev3, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(lender);
+        rsa.claimRev(address(creditToken));
+
+        // ensure we can claim revenue after depositing too
+        _depositRSA(lender, rsa);
+
+        (uint256 postDepositClaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(rando);
+        rsa.claimRev(address(creditToken));
+
+        (uint256 postDepositClaimableRev2, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(borrower);
+        rsa.claimRev(address(creditToken));
+        
+        (uint256 postDepositClaimableRev3, ) = _generateRevenue(revenueContract, creditToken, revenue);
+        hoax(lender);
+        rsa.claimRev(address(creditToken));
+        
+    }
+
     // claimRev updates our token balance by amount spigot claimOwnerTokens event says we claimed
     // repay updates claimable amounts
     // repay emits Repay event
@@ -506,7 +621,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
 
     /*********************
     **********************
-    
+
     CowSwap Market Order Creation
 
     Integration Tests
@@ -644,6 +759,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
         assertEq(value, ERC_1271_MAGIC_VALUE);
     }
 
+    // TODO!!! need to test that the hardcoded order params that isValidSignature never passes if any of those conditions are met
+
 
     /*********************
     **********************
@@ -750,7 +867,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
         bytes memory claimData = abi.encodeWithSelector(claimFunc);
         spigot.claimRevenue(_revenueContract, address(_token), claimData);
         
-        return _assertSpigotSplits(address(_token), _amount);
+        return _assertSpigotSplits(address(_token), _amount, split);
     }
 
     /**
@@ -812,28 +929,31 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
      * @dev helper func to get max revenue payment claimable in Spigot.
      *      Prevents uint overflow on owner split calculations
     */
-    function _getMaxRevenue(uint256 totalRevenue) internal pure returns(uint256, uint256) {
-        if(totalRevenue > MAX_REVENUE) return(MAX_REVENUE, totalRevenue - MAX_REVENUE);
-        return (totalRevenue, 0);
+    function _getMaxRevenue(uint256 _totalRevenue) internal pure returns(uint256, uint256) {
+        if(_totalRevenue > MAX_REVENUE) return(MAX_REVENUE, _totalRevenue - MAX_REVENUE);
+        return (_totalRevenue, 0);
     }
 
     /**
      * @dev helper func to check revenue payment streams to `ownerTokens` and `operatorTokens` happened and Spigot is accounting properly.
     */
-    function _assertSpigotSplits(address _token, uint256 totalRevenue)
+    function _assertSpigotSplits(address _token, uint256 _totalRevenue, uint8 _split)
         internal
         returns(uint256 ownerTokens, uint256 operatorTokens)
     {
-        (uint256 maxRevenue, uint256 overflow) = _getMaxRevenue(totalRevenue);
-        ownerTokens = maxRevenue * settings.ownerSplit / 100;
+        (uint256 maxRevenue, uint256 overflow) = _getMaxRevenue(_totalRevenue);
+        ownerTokens = maxRevenue * _split / 100;
         operatorTokens = maxRevenue - ownerTokens;
         uint256 spigotBalance = _token == Denominations.ETH ?
             address(spigot).balance :
             RevenueToken(_token).balanceOf(address(spigot));
 
-        uint roundingFix = spigotBalance - (ownerTokens + operatorTokens);
+        uint256 roundingFix = spigotBalance - (ownerTokens + operatorTokens + overflow);
+        
+        if(overflow > 0) {
+            assertEq(roundingFix > 1, false);
+        }
 
-        assertEq(roundingFix > 1, false);
         assertEq(
             spigot.getOwnerTokens(_token),
             ownerTokens,
@@ -841,15 +961,92 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement {
         );
 
         assertEq(
-            spigotBalance,
-            ownerTokens + operatorTokens + roundingFix, // revenue over max stays in contract unnaccounted
-            'Spigot balance vs escrow + overflow mismatch'
-        );
-
-        assertEq(
             spigot.getOperatorTokens(_token),
             operatorTokens,
             'Invalid treasury payment amount for spigot revenue'
         );
+
+        assertEq(
+            spigotBalance,
+            ownerTokens + operatorTokens + overflow + roundingFix, // revenue over max stays in contract unnaccounted
+            'Spigot balance vs escrow + overflow mismatch'
+        );
+
+    }
+
+
+    // dummy functions to get interfaces for RSA and SPpigot
+
+    function claimRevenue(
+        address revenueContract,
+        address token,
+        bytes calldata data
+    ) external returns (uint256 claimed) { return 0; }
+
+    function operate(address revenueContract, bytes calldata data) external returns (bool) {
+        return  true;
+    }
+
+    // owner funcs
+
+    function claimOwnerTokens(address token) external returns (uint256 claimed) {
+        return 0;
+    }
+
+    function claimOperatorTokens(address token) external returns (uint256 claimed) {
+        return 0;
+    }
+
+    function addSpigot(address revenueContract, Setting memory setting) external returns (bool) {
+        return  true;
+    }
+
+    function removeSpigot(address revenueContract) external returns (bool) {
+        return  true;
+    }
+
+    // stakeholder funcs
+
+    function updateOwnerSplit(address revenueContract, uint8 ownerSplit) external returns (bool) {
+        return  true;
+    }
+
+    function updateOwner(address newOwner) external returns (bool) {
+        return  true;
+    }
+
+    function updateOperator(address newOperator) external returns (bool) {
+        return  true;
+    }
+
+    function updateWhitelistedFunction(bytes4 func, bool allowed) external returns (bool) {
+        return  true;
+    }
+
+    // Getters
+    function owner() external view returns (address) {
+        return address(0);
+    }
+
+    // function operator() external view returns (address) {
+    //     return address(0);
+    // }
+
+    function isWhitelisted(bytes4 func) external view returns (bool) {
+        return  true;
+    }
+
+    function getOwnerTokens(address token) external view returns (uint256) {
+        return 0;
+    }
+
+    function getOperatorTokens(address token) external view returns (uint256) {
+        return 0;
+    }
+
+    function getSetting(
+        address revenueContract
+    ) external view returns (uint8 split, bytes4 claimFunc, bytes4 transferFunc) {
+        return (0, bytes4(0), bytes4(0));
     }
 }

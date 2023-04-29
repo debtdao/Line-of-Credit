@@ -12,15 +12,15 @@ interface ISpigot {
 
     event RemoveSpigot(address indexed revenueContract, address token);
 
-    event UpdateWhitelistFunction(bytes4 indexed func, bool indexed allowed);
+    event UpdateWhitelistFunction(bytes4 indexed func, bool allowed);
 
-    event UpdateOwnerSplit(address indexed revenueContract, uint8 indexed split);
+    event UpdateOwnerSplit(address indexed revenueContract, uint8 split);
 
-    event ClaimRevenue(address indexed token, uint256 indexed amount, uint256 escrowed, address revenueContract);
+    event ClaimRevenue(address indexed revenueContract, address indexed token , uint256 amount, uint256 escrowed);
 
-    event ClaimOwnerTokens(address indexed token, uint256 indexed amount, address owner);
+    event ClaimOwnerTokens(address indexed token, address indexed owner, uint256 amount);
 
-    event ClaimOperatorTokens(address indexed token, uint256 indexed amount, address operator);
+    event ClaimOperatorTokens(address indexed token, address indexed operator, uint256 amount);
 
     // Stakeholder Events
 
