@@ -322,12 +322,9 @@ contract SecuredLineTest is Test {
         line.borrow(id, 1 ether);
 
         (uint p, uint i) = line.updateOutstandingDebt();
-        emit log_named_uint("principal", p);
-        emit log_named_uint("interest", i);
         assertGt(p, 0);
 
         uint32 cRatio = Escrow(address(line.escrow())).minimumCollateralRatio();
-        emit log_named_uint("cRatio before", cRatio);
 
         // increase the cRatio
         oracle.changePrice(address(supportedToken2), 990 * 1e8);
@@ -454,8 +451,6 @@ contract SecuredLineTest is Test {
         vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
         line.declareInsolvent();
     }
-
-
 
     function test_cannot_insolve_until_liquidate_all_escrowed_tokens() public {
         _addCredit(address(supportedToken1), 1 ether);

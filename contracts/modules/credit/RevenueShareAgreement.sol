@@ -3,11 +3,11 @@
 pragma solidity ^0.8.16;
 
 import {ERC20} from "solmate/tokens/ERC20.sol";
-import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
+
+import {GPv2Order} from "../../utils/GPv2Order.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
-// import {IRevenueShareAgreement} from "../../interfaces/IRevenueShareAgreement.sol";
-import {GPv2Order} from "../../utils/GPv2Order.sol";
+import {IRevenueShareAgreement} from "../../interfaces/IRevenueShareAgreement.sol";
 
 /**
 * @title Revenue Share Agreemnt
@@ -19,17 +19,16 @@ import {GPv2Order} from "../../utils/GPv2Order.sol";
 * Borrower or Lender can trade any revenue token at any time to the token owed to lender using CowSwap Smart Orders
 * @dev - reference  https://github.com/charlesndalton/milkman/blob/main/contracts/Milkman.sol
 */
-contract RevenueShareAgreement is ERC20 {
-    using ECDSA for bytes32;
+contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     using GPv2Order for GPv2Order.Data;
     
     // ERC-1271 signature
     uint256 internal constant MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
-    /// @dev The contract that settles all trades. Must approve sell tokens to this address.
-    address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
     /// @dev The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
     bytes32 internal constant COW_DOMAIN_SEPARATOR =
         0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
+    /// @dev The contract that settles all trades. Must approve sell tokens to this address.
+    address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
     bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
     bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
     uint8 internal constant MAX_REVENUE_SPLIT = 100;
@@ -40,31 +39,14 @@ contract RevenueShareAgreement is ERC20 {
     address public creditToken;
     uint8 public lenderRevenueSplit;
 
-    // denomainated in creditToken
+    // denominated in creditToken
     uint256 public initialPrincipal;
     uint256 public totalOwed;
-    uint256 public currentDeposits; // total repaid from revenue - total withdrawn by
+    uint256 public claimableAmount; // total repaid from revenue - total withdrawn by
 
     // data required to confirm order data from solver/settler
     mapping(bytes32 => uint256) public orders;
 
-    error InvalidPaymentSetting();
-    error InvalidRevenueSplit();
-    error CantSweepWhileInDebt();
-    error DepositsFull();
-    error InvalidTradeId();
-    error InvalidTradeData();
-    error ExceedClaimableTokens(uint256 claimable);
-    error NotBorrower();
-    error AlreadyInitialized();
-    error InvalidSpigotAddress();
-    error InvalidBorrowerAddress();
-    error InvalidTradeDomain();
-    error InvalidTradeDeadline();
-    error InvalidTradeTokens();
-    error InvalidTradeBalanceDestination();
-    error MustBeSellOrder();
-    error NotLender();
 
     constructor() ERC20("Debt DAO Revenue Share Agreement", "RSA", 18) {}
 
@@ -85,6 +67,7 @@ contract RevenueShareAgreement is ERC20 {
         if(_spigot == address(0)) {
             revert InvalidSpigotAddress();
         }
+
         if(_borrower == address(0)) {
             revert InvalidBorrowerAddress();
         }
@@ -96,19 +79,19 @@ contract RevenueShareAgreement is ERC20 {
         if(_revenueSplit > MAX_REVENUE_SPLIT) {
             revert InvalidRevenueSplit();
         }
+
         // ERC20 vars
         name = _name;
         symbol = _symbol;
         // RSA stakeholders
         borrower = _borrower;
         spigot = ISpigot(_spigot);
-        // RSA finanical terms
+        // RSA financial terms
         totalOwed = _totalOwed;
         creditToken = _creditToken;
         lenderRevenueSplit = _revenueSplit;
         initialPrincipal = _initialPrincipal;
     }
-
 
     /**
     * @notice Lets lenders deposit Borrower's requested loan amount into RSA and receive back redeemable shares of revenue stream
@@ -118,7 +101,8 @@ contract RevenueShareAgreement is ERC20 {
         if(lender != address(0)) {
             revert DepositsFull();
         }
-        // store who accepted borrower's offer. only 1 lender
+
+        // store who accepted borrower's offer. only 1 lender per RSA
         lender = msg.sender;
         // issue RSA token to lender to redeem later
         _mint(msg.sender, totalOwed);
@@ -126,6 +110,7 @@ contract RevenueShareAgreement is ERC20 {
         ERC20(creditToken).transferFrom(msg.sender, borrower, initialPrincipal);
 
         emit Deposit(lender);
+
         return true;
     }
 
@@ -135,20 +120,35 @@ contract RevenueShareAgreement is ERC20 {
     * @param _to - who to send claimed creditTokens to
     * @dev callable by anyone if offer not accepted yet
     */
-    function redeem(uint256 _amount, address _to) external returns(bool) {
-        // _burn only checks their RSA token balance and
-        // ERC20.transfer may move tokens we havent accounted for yet
-        if(_amount > currentDeposits) {
-            revert ExceedClaimableTokens(currentDeposits);
+    function redeem(address _owner, address _to, uint256 _amount) external returns(bool) {
+        if(_amount > claimableAmount) {
+            // _burn only checks their RSA token balance so
+            // creditToken.transfer may move tokens we havent
+            // properly accountted for as revenue yet.
+
+            // If creditToken.balanceOf(this) > _amount but redeem() fails then call
+            // repay() to account for the missing tokens.
+            revert ExceedClaimableTokens(claimableAmount);
+        }
+        
+        // check that caller has approval on _owner tokens
+        if(msg.sender != _owner) {
+            uint256 allowed = allowance[_owner][msg.sender]; // Saves gas for limited approvals.
+            if(allowed < _amount) {
+                revert InsufficientAllowance(_owner, msg.sender, _amount, allowed);
+            }
+            if (allowed != type(uint256).max) {
+                allowance[_owner][msg.sender] = allowed - _amount;
+            }
         }
         
         // anyone can redeem not restricted to original lender
-        currentDeposits -= _amount;
-        _burn(msg.sender, _amount);
+        claimableAmount -= _amount;
+        _burn(_owner, _amount);
 
         ERC20(creditToken).transfer(_to, _amount);
         
-        emit Redeem(_to, msg.sender, _amount);
+        emit Redeem(_to, _owner, msg.sender, _amount);
         return true;
     }
 
@@ -161,7 +161,7 @@ contract RevenueShareAgreement is ERC20 {
         claimed = spigot.claimOwnerTokens(_token);
         if(_token == creditToken) {
             // if revenue in creditToken, we can immediately paydown debt
-            _updateDebtBalance();
+            _repay();
         }
     }
 
@@ -169,24 +169,27 @@ contract RevenueShareAgreement is ERC20 {
     * @notice Accounts for all credit tokens bought and updates debt and deposit balances
     * @dev callable by anyone.
     */
-    function updateDebtBalance() external returns(uint256 claimed) {
-        return _updateDebtBalance();
+    function repay() external returns(uint256 claimed) {
+        return _repay();
     }
 
     /**
     * @notice Lets Borrower redeem any excess revenue not needed to repay lenders.
-    *         We do not track any tokens held in this contract so yeet entire balance to sweeper.
-    * @dev    Only callable if RSA not initiated yet or after RSA is fully repaid.
+    *         We assume any token in this contract is a revenue token and is collateral
+    *        so only callable if no lender deposits yet or after RSA is fully repaid.
+    *         Full token balance is swept to `_to`.
     * @param _token - amount of RSA tokens to redeem @ 1:1 ratio for creditToken
     * @param _to    - who to sweep tokens to
     */
     function sweep(address _token, address _to) external returns(bool) {
+        if(msg.sender != borrower) {
+            revert NotBorrower();
+        }
+
+        // can reclaim if no lender has deposited yet, else
         // cannot Redeem spigot until the RSA has been repaid
         if(lender != address(0) && totalOwed != 0) {
             revert CantSweepWhileInDebt();
-        }
-        if(msg.sender != borrower) {
-            revert NotBorrower();
         }
 
         ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)));
@@ -204,6 +207,7 @@ contract RevenueShareAgreement is ERC20 {
             revert NotBorrower();
         }
 
+        // can reclaim if no lender has deposited yet, else
         // cannot Redeem spigot until the RSA has been repaid
         if(lender != address(0) && totalOwed != 0) {
             revert CantSweepWhileInDebt();
@@ -225,11 +229,11 @@ contract RevenueShareAgreement is ERC20 {
         address _revenueToken,
         uint256 _sellAmount,
         uint256 _minBuyAmount,
-        uint256 _deadline
+        uint32 _deadline
     ) external returns(bytes32 tradeHash) {
-        require(totalOwed !=  0, "Trade not required");
-        require(_revenueToken !=  creditToken, "Cant sell token being bought");
-        require(_sellAmount !=  0, "Invalid trade amount");
+        require(lender !=  address(0), "Trade not required");
+        require(_revenueToken != creditToken, "Cant sell token being bought");
+        require(_sellAmount != 0 || _minBuyAmount != 0, "Invalid trade amount");
         require(_deadline >= block.timestamp, "Trade _deadline has passed");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
 
@@ -237,7 +241,7 @@ contract RevenueShareAgreement is ERC20 {
         // we always sell all revenue tokens
         ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
 
-        tradeHash = _encodeOrder(_revenueToken, _sellAmount, _minBuyAmount, _deadline);
+        tradeHash = generateOrder(_revenueToken, _sellAmount, _minBuyAmount, _deadline).hash(DOMAIN_SEPARATOR());
         orders[tradeHash] = 1;
         emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
     }
@@ -258,7 +262,7 @@ contract RevenueShareAgreement is ERC20 {
         GPv2Order.Data memory _order = abi.decode(_encodedOrder, (GPv2Order.Data));
         
         /* 
-        decide if we want dynamic price checker or user puts minOut+deadline in order creation
+        TODO decide if we want dynamic price checker or user puts minOut+deadline in order creation
         (
             GPv2Order.Data memory _order,
             address _orderCreator,
@@ -267,30 +271,29 @@ contract RevenueShareAgreement is ERC20 {
         ) = _decodeOrder(_encodedOrder);
         */
 
-        bytes32 _calculatedSwapHash = _encodeOrder(_order.sellToken, _order.sellAmount, _order.buyAmount, _order.validTo);
-
-        if(_calculatedSwapHash != _tradeHash) {
-             // same as checking `orders[_calculatedSwapHash] == 0` but cheaper
-            revert InvalidTradeData();
-            // might need to return ERC_1271_NON_MAGIC_VALUE here. Not sure what EIP says
-        }
-
-        if (orders[_calculatedSwapHash] == 0) {
-            // must've registered trade first in ordre to validate it
+        if(orders[_tradeHash] == 0) {
+            // check that we originated this trade with initiateOrder()
             revert InvalidTradeId();
         }
 
+        // ensure we have sufficient time to execute trade
+        // and prevent replay attacks 
+        if(_order.validTo >= block.timestamp + 5 minutes) {
+            revert InvalidTradeDeadline();
+        }
+
+        /*
+        We dont have to check any of these conditions bc
+        we create our own orders programmatically in generateOrder().
+        If orders[tradeId] passes then trade params are valid.
+        
+        // same as `orders[_tradeHash] == 0`. idk if more or less gas efficient
         if(_order.hash(COW_DOMAIN_SEPARATOR) != _tradeHash) {
             revert InvalidTradeDomain();
         } 
 
         if(_order.kind != GPv2Order.KIND_SELL) {
             revert MustBeSellOrder();
-        }
-
-        // ensure we have sufficient time to execute trade
-        if(_order.validTo >= block.timestamp + 10 minutes) {
-            revert InvalidTradeDeadline();
         }
 
         // ensure we are buying the right token. 
@@ -309,6 +312,7 @@ contract RevenueShareAgreement is ERC20 {
         ) {
             revert InvalidTradeBalanceDestination();
         }
+        */
 
         return ERC_1271_MAGIC_VALUE;
     }
@@ -358,46 +362,53 @@ contract RevenueShareAgreement is ERC20 {
         return true;
     }
 
-    function _updateDebtBalance() internal returns(uint256) {
-        uint256 newPayments = ERC20(creditToken).balanceOf(address(this)) - currentDeposits;
-        currentDeposits += newPayments;
-        totalOwed -= newPayments;
-        return newPayments;
+    function _repay() internal returns(uint256 repaid) {
+        // The lender can only deposit once so any new tokens are from revenue
+        // lent tokens aren't stored in this contract so we just check current revenue deposits
+        uint256 currBalance = ERC20(creditToken).balanceOf(address(this));
+        emit log_named_uint2("rsa claimable", claimableAmount);
+        emit log_named_uint2("rsa total balance", currBalance);
+        uint256 newPayments = currBalance - claimableAmount;
+        emit log_named_uint2("rsa new rev", newPayments);
+        emit log_named_uint2("rsa total owed", totalOwed);
+        
+        repaid = totalOwed; // cache in memory
+        if(newPayments > repaid) {
+            claimableAmount = repaid;
+            totalOwed = 0;
+            return repaid;
+            // borrower can sweep() funds + releaseSpigot()
+            // now that all debt is repaid
+        } else {
+            claimableAmount += newPayments;
+            totalOwed -= newPayments;
+            return newPayments;
+        }
     }
 
-    /**
-    * @notice   - Generates GnosisProtcool v2 structured trade order data with ERC712 signature.
-                This order will be signed by this RSA contract to authorize sales of revenue tokens
-    * @param _revenueToken - the token being sold
-    * @param _sellAmount -  amount of _revenueToken to sell
-    * @param _buyAmount - amount of creditToken to buy
-    * @param _deadline - until when ordershould be valid
-    * @return hash - trade hsh used to verify that the order is valid and from this contract
-    */
-    function _encodeOrder(address _revenueToken, uint256 _sellAmount, uint256 _buyAmount, uint256 _deadline) internal view returns (bytes32) {
-        bytes32 tradeHash = keccak256(abi.encodePacked(
-            "\\x19\\x01",
-            DOMAIN_SEPARATOR(),
-            keccak256(abi.encode(
-                GPv2Order.TYPE_HASH,
-                _revenueToken,  // sellToken
-                creditToken,    // buyToken
-                _sellAmount,    // sellAmount
-                _buyAmount,     // buyAmount
-                address(this),  // receiver
-                _deadline,      // validTo
-                "",             // appData
-                0,              // feeAmount
-                'sell',         // kind
-                true,           // partiallyFillable
-                'erc20',        // sellTokenBalance
-                'erc20',        // buyTokenBalance
-                'eip1271',      // signingScheme
-                address(this)   // from
-            ))
-        ));
-
-        return tradeHash;
+    function generateOrder(
+        address _sellToken, 
+        uint256 _sellAmount, 
+        uint256 _minBuyAmount, 
+        uint32 _deadline
+    )
+        public view
+        returns(GPv2Order.Data memory) 
+    {
+        return GPv2Order.Data({
+            kind: GPv2Order.KIND_SELL,
+            receiver: address(this), // hardcode so trades are trustless 
+            sellToken: creditToken,  // hardcode so trades are trustless 
+            buyToken: _sellToken,
+            sellAmount: _sellAmount,
+            buyAmount: _minBuyAmount,
+            feeAmount: 0,
+            validTo: _deadline,
+            appData: 0,
+            partiallyFillable: false,
+            sellTokenBalance: GPv2Order.BALANCE_ERC20,
+            buyTokenBalance: GPv2Order.BALANCE_ERC20
+        });
     }
 
     // decide if we want dynamic price checker or user puts minOut+deadline in order creation
@@ -416,21 +427,4 @@ contract RevenueShareAgreement is ERC20 {
     //         (GPv2Order.Data, address, address, bytes)
     //     );
     // }
-
-    event TradeInitiated(
-        bytes32 indexed tradeHash,
-        uint256 indexed sellAmount,
-        uint256 indexed minBuyAmount,
-        uint256 deadline
-    );
-
-    event Redeem(
-        address indexed receiver,
-        address indexed owner,
-        uint256 amount
-    );
-
-
-    event Deposit(address indexed lender);
-    event TradeFinalized(bytes32 indexed tradeHash);
 }
