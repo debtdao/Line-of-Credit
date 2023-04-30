@@ -638,6 +638,44 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
     /// @dev invariant
+    function test_initiateOrder_mustUseHardcodedOrderParams() public {
+        _depositRSA(lender, rsa);
+
+        address sellToken = address(revenueToken);
+        address buyToken = address(creditToken);
+        uint32 deadline = uint32(block.timestamp + 100 days);
+
+        bytes32 expectedHash = GPv2Order.Data({
+            kind: GPv2Order.KIND_SELL,
+            receiver: address(rsa), // hardcode so trades are trustless 
+            sellToken: sellToken,  // hardcode so trades are trustless 
+            buyToken: buyToken,
+            sellAmount: 1,
+            buyAmount: 0,
+            feeAmount: 0,
+            validTo: deadline,
+            appData: 0,
+            partiallyFillable: false,
+            sellTokenBalance: GPv2Order.BALANCE_ERC20,
+            buyTokenBalance: GPv2Order.BALANCE_ERC20
+        }).hash(rsa.DOMAIN_SEPARATOR());
+        
+        vm.startPrank(lender);
+        bytes32 orderHash = rsa.initiateOrder(sellToken, 1, 0, deadline);
+        vm.stopPrank();
+        
+        assertEq(orderHash, expectedHash);
+    }
+
+    function test_initiateOrder_mustOwnSellAmount() public {
+        _depositRSA(lender, rsa);
+        vm.startPrank(lender);
+        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        assertTrue(orderHash != bytes32(0));
+        vm.stopPrank();
+    }
+
+    /// @dev invariant
     function test_initiateOrder_mustSellOver1Token() public {
         _depositRSA(lender, rsa);
         vm.startPrank(lender);

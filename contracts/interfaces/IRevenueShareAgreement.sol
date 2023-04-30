@@ -18,6 +18,7 @@ interface IRevenueShareAgreement {
     error InvalidTradeTokens();
     error InvalidTradeBalanceDestination();
     error MustBeSellOrder();
+    error WETHDepositFailed();
     error NotLender();
     error InsufficientAllowance(address, address, uint256, uint256);
 

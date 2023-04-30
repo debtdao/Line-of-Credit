@@ -29,6 +29,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
     /// @dev The contract that settles all trades. Must approve sell tokens to this address.
     address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
+    address internal constant WETH = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
     bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
     bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
     uint8 internal constant MAX_REVENUE_SPLIT = 100;
@@ -165,6 +166,22 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         }
     }
 
+
+    /**
+    * @notice Wraps ETH to WETH because CoWswap only supports ERC20 tokens.
+    *         This is easier than using their ETH flow.
+    *         We dont allow native ETH as creditToken so any ETH is revenue and should be wrapped.
+    * @dev callable by anyone. no state change, MEV, exploit potential
+    * @return amount - amount of ETH wrapped 
+    */
+    function wrapETH() external returns(uint256 amount) {
+        amount = address(this).balance;
+        (bool success,) = WETH.call{value: amount}(abi.encodeWithSignature("deposit()"));
+        if(!success) {
+            revert WETHDepositFailed();
+        }
+    }
+
     /**
     * @notice Accounts for all credit tokens bought and updates debt and deposit balances
     * @dev callable by anyone.
@@ -178,6 +195,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     *         We assume any token in this contract is a revenue token and is collateral
     *        so only callable if no lender deposits yet or after RSA is fully repaid.
     *         Full token balance is swept to `_to`.
+    * @dev   If you need to sweep raw ETH call wrapETH() first.
     * @param _token - amount of RSA tokens to redeem @ 1:1 ratio for creditToken
     * @param _to    - who to sweep tokens to
     */
@@ -233,9 +251,13 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     ) external returns(bytes32 tradeHash) {
         require(lender !=  address(0), "Trade not required");
         require(_revenueToken != creditToken, "Cant sell token being bought");
+        /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
         require(_sellAmount != 0 || _minBuyAmount != 0, "Invalid trade amount");
         require(_deadline >= block.timestamp, "Trade _deadline has passed");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
+        // not sure if we need to check balance, order would just fail.
+        // might be an issue with approving an invalid order that could be exploited later
+        require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
 
         // increase so multiple revenue streams in same token dont override each other
         // we always sell all revenue tokens
@@ -366,11 +388,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // The lender can only deposit once so any new tokens are from revenue
         // lent tokens aren't stored in this contract so we just check current revenue deposits
         uint256 currBalance = ERC20(creditToken).balanceOf(address(this));
-        emit log_named_uint2("rsa claimable", claimableAmount);
-        emit log_named_uint2("rsa total balance", currBalance);
         uint256 newPayments = currBalance - claimableAmount;
-        emit log_named_uint2("rsa new rev", newPayments);
-        emit log_named_uint2("rsa total owed", totalOwed);
         
         repaid = totalOwed; // cache in memory
         if(newPayments > repaid) {
@@ -396,7 +414,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         returns(GPv2Order.Data memory) 
     {
         return GPv2Order.Data({
-            kind: GPv2Order.KIND_SELL,
+            kind: GPv2Order.KIND_SELL,// market sell revenue tokens, dont specify zamount bought.
             receiver: address(this), // hardcode so trades are trustless 
             sellToken: creditToken,  // hardcode so trades are trustless 
             buyToken: _sellToken,
