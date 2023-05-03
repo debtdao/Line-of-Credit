@@ -21,11 +21,10 @@ import {IRevenueShareAgreement} from "../../interfaces/IRevenueShareAgreement.so
 */
 contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     using GPv2Order for GPv2Order.Data;
-    
-    // ERC-1271 signature
+
     uint256 internal constant MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
     /// @dev The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
-    bytes32 internal constant COW_DOMAIN_SEPARATOR =
+    bytes32 internal constant COWSWAP_DOMAIN_SEPARATOR =
         0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
     /// @dev The contract that settles all trades. Must approve sell tokens to this address.
     address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
@@ -61,25 +60,15 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         string memory _name,
         string memory _symbol
     ) external {
-        if(borrower != address(0)) {
-            revert AlreadyInitialized();
-        }
+        if(borrower != address(0))              revert AlreadyInitialized();
 
-        if(_spigot == address(0)) {
-            revert InvalidSpigotAddress();
-        }
+        if(_spigot == address(0))               revert InvalidSpigotAddress();
+        // prevent re-initialization
+        if(_borrower == address(0))             revert InvalidBorrowerAddress();
 
-        if(_borrower == address(0)) {
-            revert InvalidBorrowerAddress();
-        }
+        if(_initialPrincipal > _totalOwed)      revert InvalidPaymentSetting();
 
-        if(_initialPrincipal > _totalOwed) {
-            revert InvalidPaymentSetting();
-        }
-
-        if(_revenueSplit > MAX_REVENUE_SPLIT) {
-            revert InvalidRevenueSplit();
-        }
+        if(_revenueSplit > MAX_REVENUE_SPLIT)   revert InvalidRevenueSplit();
 
         // ERC20 vars
         name = _name;
@@ -135,9 +124,6 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // check that caller has approval on _owner tokens
         if(msg.sender != _owner) {
             uint256 allowed = allowance[_owner][msg.sender]; // Saves gas for limited approvals.
-            if(allowed < _amount) {
-                revert InsufficientAllowance(_owner, msg.sender, _amount, allowed);
-            }
             if (allowed != type(uint256).max) {
                 allowance[_owner][msg.sender] = allowed - _amount;
             }
@@ -166,6 +152,44 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         }
     }
 
+
+    /**
+    * @notice Gives Borrower AND Lender the ability to trade any revenue token into the token owed by lenders
+    * @param _revenueToken - The token claimed from Spigot to sell for creditToken
+    * @param _sellAmount - How many revenue tokens to sell. MUST be > 0
+    * @param _minBuyAmount - Minimum amount of creditToken to buy during trade. Can be 0
+    * @param _deadline - block timestamp that trade is valid until
+    */
+    function initiateOrder(
+        address _revenueToken,
+        uint256 _sellAmount,
+        uint256 _minBuyAmount,
+        uint32 _deadline
+    ) external returns(bytes32 tradeHash) {
+        require(lender !=  address(0), "Trade not required");
+        require(_revenueToken != creditToken, "Cant sell token being bought");
+        /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
+        require(_sellAmount != 0 || _minBuyAmount != 0, "Invalid trade amount");
+        require(_deadline >= block.timestamp, "Trade _deadline has passed");
+        require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
+        // not sure if we need to check balance, order would just fail.
+        // might be an issue with approving an invalid order that could be exploited later
+        require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
+
+        // increase so multiple revenue streams in same token dont override each other
+        // we always sell all revenue tokens
+        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
+
+        tradeHash = generateOrder(
+            _revenueToken,
+            _sellAmount,
+            _minBuyAmount,
+            _deadline
+        ).hash(COWSWAP_DOMAIN_SEPARATOR); // hash order with settlement contract as EIP-712 verifier
+
+        orders[tradeHash] = 1;
+        emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
+    }
 
     /**
     * @notice Wraps ETH to WETH because CoWswap only supports ERC20 tokens.
@@ -210,7 +234,14 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             revert CantSweepWhileInDebt();
         }
 
-        ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)));
+        if(_token == creditToken) {
+            // If all debt is repaid but lenders still havent claimed underlying
+            // keep enough underlying for redemptions
+            ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)) - totalSupply);
+        } else {
+            ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)));
+        }
+
         
         return true;
     }   
@@ -235,54 +266,9 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         
         return true;
     }
-
-    /**
-    * @notice Gives Borrower AND Lender the ability to trade any revenue token into the token owed by lenders
-    * @param _revenueToken - The token claimed from Spigot to sell for creditToken
-    * @param _sellAmount - How many revenue tokens to sell. MUST be > 0
-    * @param _minBuyAmount - Minimum amount of creditToken to buy during trade. Can be 0
-    * @param _deadline - block timestamp that trade is valid until
-    */
-    function initiateOrder(
-        address _revenueToken,
-        uint256 _sellAmount,
-        uint256 _minBuyAmount,
-        uint32 _deadline
-    ) external returns(bytes32 tradeHash) {
-        require(lender !=  address(0), "Trade not required");
-        require(_revenueToken != creditToken, "Cant sell token being bought");
-        /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
-        require(_sellAmount != 0 || _minBuyAmount != 0, "Invalid trade amount");
-        require(_deadline >= block.timestamp, "Trade _deadline has passed");
-        require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
-        // not sure if we need to check balance, order would just fail.
-        // might be an issue with approving an invalid order that could be exploited later
-        require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
-
-        // increase so multiple revenue streams in same token dont override each other
-        // we always sell all revenue tokens
-        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
-
-        tradeHash = generateOrder(_revenueToken, _sellAmount, _minBuyAmount, _deadline).hash(DOMAIN_SEPARATOR());
-        orders[tradeHash] = 1;
-        emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
-    }
-
-    /*
-    function finalizeOrder(
-        bytes calldata _completedOrder
-    ) external returns(bool) {
-        // bc of offchain solver and execution we dont know actual price we execute out
-        // would be nice to submit somekinf of proof to say how many tokens were bought in a sepcific trade
-        // would make the orders mapping actually useful and can do TradeRevenue event like in LineOfCredit
-        return false;
-    }
-    */
-
    
     function isValidSignature(bytes32 _tradeHash, bytes calldata _encodedOrder) external view returns (bytes4) {
         GPv2Order.Data memory _order = abi.decode(_encodedOrder, (GPv2Order.Data));
-        
         /* 
         TODO decide if we want dynamic price checker or user puts minOut+deadline in order creation
         (
@@ -293,50 +279,70 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         ) = _decodeOrder(_encodedOrder);
         */
 
-        if(orders[_tradeHash] == 0) {
-            // check that we originated this trade with initiateOrder()
+
+        // if order created by RSA with initiateTrade() then auto-approve.
+        if(orders[_tradeHash] != 0) {
+
+            if(_order.validTo < block.timestamp) {
+                // check that trade isnt its their deadline
+                // prevent stale orders + replay attacks
+                revert InvalidTradeDeadline();
+            }
+
+            return ERC_1271_MAGIC_VALUE;
+        } else {
             revert InvalidTradeId();
+            /*
+            Dont currently support offchain signing of orders
+            bc if anyone submits vs lender/borrower changes 
+            game theoretic assumpotions about submitting optimal orders
+            
+            We currently dont have to check any of these conditions bc
+            we create our own orders programmatically in generateOrder().
+            If orders[tradeId] passes then trade params are valid.
+            */
+
+            // // Secondary verification option for fully offchain order submissions
+            // // w/o initiateOrder() to allow fully gasless UX for users
+            // // If order not created by RSA then manually check order data and verify signature with EIP712
+            // // Not valid because anyone could submit orders on behalf of RSA not just lender/borrower like in initiateOrder
+            // // Can resolve by passing custom data but would need order signed by either party,
+            // // decode and recover signer address in isValidSignature, then resign with EIP1271 as RSA?
+
+            
+            // // check that order was created for/signed by this RSA
+            // if(_order.hash(DOMAIN_SEPARATOR()) != _tradeHash) {
+            //     // same as `orders[_tradeHash] != 0` if they had used initiateOrder()
+            //     revert InvalidTradeDomain();
+            // }
+
+            // if(_order.kind != GPv2Order.KIND_SELL) {
+            //     revert MustBeSellOrder();
+            // }
+
+            // if(_order.sellAmount == 0) {
+            //     revert MustSellMoreThan0();
+            // }
+
+            // // ensure we are buying the right token. 
+            // // Cant sell creditToken to prevent griefing
+            // if(_order.sellToken == creditToken || _order.buyToken != creditToken) {
+            //     revert InvalidTradeTokens();
+            // }
+
+            // // pretty sure we dont care about fill status
+            // // if(_order.partiallyFillable) { revert MustFillOrder(); }
+
+            // // ensure tokens are sent directly to contracts and not stored in Balancer vault.
+            // if(
+            //     _order.sellTokenBalance == GPv2Order.BALANCE_ERC20 && 
+            //     _order.buyTokenBalance == GPv2Order.BALANCE_ERC20
+            // ) {
+            //     revert InvalidTradeBalanceDestination();
+            // }
+
+            // return ERC_1271_MAGIC_VALUE;
         }
-
-        // ensure we have sufficient time to execute trade
-        // and prevent replay attacks 
-        if(_order.validTo >= block.timestamp + 5 minutes) {
-            revert InvalidTradeDeadline();
-        }
-
-        /*
-        We dont have to check any of these conditions bc
-        we create our own orders programmatically in generateOrder().
-        If orders[tradeId] passes then trade params are valid.
-        
-        // same as `orders[_tradeHash] == 0`. idk if more or less gas efficient
-        if(_order.hash(COW_DOMAIN_SEPARATOR) != _tradeHash) {
-            revert InvalidTradeDomain();
-        } 
-
-        if(_order.kind != GPv2Order.KIND_SELL) {
-            revert MustBeSellOrder();
-        }
-
-        // ensure we are buying the right token. 
-        // Cant sell creditToken to prevent griefing
-        if(_order.sellToken == creditToken || _order.buyToken != creditToken) {
-            revert InvalidTradeTokens();
-        }
-
-        // pretty sure we dont care about fill status
-        // if(_order.partiallyFillable) { revert MustFillOrder(); }
-
-        // ensure tokens are sent directly to contracts and not stored in Balancer vault.
-        if(
-            _order.sellTokenBalance == GPv2Order.BALANCE_ERC20 && 
-            _order.buyTokenBalance == GPv2Order.BALANCE_ERC20
-        ) {
-            revert InvalidTradeBalanceDestination();
-        }
-        */
-
-        return ERC_1271_MAGIC_VALUE;
     }
 
     /**
@@ -356,7 +362,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     }
 
     /**
-    * @notice Allowsborrower to add more revenue streams to their RSA to increase repayment speed
+    * @notice Allows lender to approve more revenue streams to their RSA to increase repayment speed
     * @param revenueContract - the contract to add revenue for
     * @param claimFunc - Function to call on revenue contract tto claim revenue into the Spigot.
     * @param transferFunc - Function on revenue contract to call to transfer ownership. MUST only take 1 parameter that is the new owner
@@ -364,8 +370,8 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     *
     */
     function addSpigot(address revenueContract, bytes4 claimFunc, bytes4 transferFunc) external returns(bool) {
-        if(msg.sender != borrower) {
-            revert NotBorrower();
+        if(msg.sender != lender) {
+            revert NotLender();
         }
 
         spigot.addSpigot(revenueContract, ISpigot.Setting(lenderRevenueSplit, claimFunc, transferFunc));
@@ -385,8 +391,8 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     }
 
     function _repay() internal returns(uint256 repaid) {
-        // The lender can only deposit once so any new tokens are from revenue
-        // lent tokens aren't stored in this contract so we just check current revenue deposits
+        // The lender can only deposit once and lent tokens are NOT stored in this contract
+        // so any new tokens are from revenue and we just check against current revenue deposits
         uint256 currBalance = ERC20(creditToken).balanceOf(address(this));
         uint256 newPayments = currBalance - claimableAmount;
         
@@ -395,7 +401,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             claimableAmount = repaid;
             totalOwed = 0;
             return repaid;
-            // borrower can sweep() funds + releaseSpigot()
+            // borrower can sweep() excess funds + releaseSpigot()
             // now that all debt is repaid
         } else {
             claimableAmount += newPayments;
@@ -414,15 +420,15 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         returns(GPv2Order.Data memory) 
     {
         return GPv2Order.Data({
-            kind: GPv2Order.KIND_SELL,// market sell revenue tokens, dont specify zamount bought.
-            receiver: address(this), // hardcode so trades are trustless 
-            sellToken: creditToken,  // hardcode so trades are trustless 
-            buyToken: _sellToken,
+            kind: GPv2Order.KIND_SELL,  // market sell revenue tokens, dont specify zamount bought.
+            receiver: address(this),    // hardcode so trades are trustless 
+            sellToken: _sellToken,
+            buyToken: creditToken,      // hardcode so trades are trustless 
             sellAmount: _sellAmount,
             buyAmount: _minBuyAmount,
             feeAmount: 0,
             validTo: _deadline,
-            appData: 0,
+            appData: 0,                 // no custom data for isValidsignature
             partiallyFillable: false,
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20

@@ -9,6 +9,7 @@ import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
 import {Denominations} from "chainlink/Denominations.sol";
 import {GPv2Order} from "../utils/GPv2Order.sol";
+import {SpigotLib} from "../utils/SpigotLib.sol";
 
 import {ISpigot} from "../interfaces/ISpigot.sol";
 import {IRevenueShareAgreement} from "../interfaces/IRevenueShareAgreement.sol";
@@ -34,6 +35,9 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     bytes4 constant claimPushPaymentFunc = bytes4(0);
     bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
     bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
+    /// @dev The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
+    bytes32 internal constant COWSWAP_DOMAIN_SEPARATOR =
+        0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
 
     // RSA + Spigot stakeholder
     RSAFactory factory;
@@ -196,6 +200,15 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         );
     }
 
+    function test_initialize_canSetPrincipalTo0() public {
+        _initRSA(
+            address(creditToken),
+            0,
+            totalOwed,
+            lenderRevenueSplit
+        );
+    }
+
     // any tets for Proxy that we need to check e.g. same byte code for all deployed contracts?]
 
 
@@ -233,6 +246,17 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         // RSA should receive/hold no balance
         assertEq(rsaBalance1, rsaBalance0, 'bad post deposit() rsa balance');
     }
+
+    function test_deposit_mustSetLender() public {
+        address lendy = rsa.lender();
+        assertEq(lendy, address(0));
+        
+        _depositRSA(lender, rsa);
+
+        address lendy2 = rsa.lender();
+        assertEq(lendy2, lender);
+    }
+
 
     function test_deposit_increasesTotalSupplyByTotalClaims() public {
         uint256 rsaSupply0 = rsa.totalSupply();
@@ -426,10 +450,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(randoAllowance0, 0);
 
         vm.prank(rando);
-        vm.expectRevert(abi.encodeWithSelector(
-            IRevenueShareAgreement.InsufficientAllowance.selector,
-            lender, rando, claimableRev, 0
-        ));
+        vm.expectRevert();
         rsa.redeem(lender, lender, claimableRev);
         vm.stopPrank();
 
@@ -478,6 +499,29 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(randoAllowance1, randoAllowance0 - claimableRev);
     }
 
+    function test_deposit_with0Principal() public {
+        /**
+        * @notice - allowing functionality bc could be used as a new crowdfunding method
+        * with principal = 0, can bootstrap your own token as claims on future revenue instead of equity
+        * so you deposit() yourself and get RSA tokens and sell those to investors for capital
+        * probably at a deep discount e.g 1/5th of the value of the underlying revenue
+        */
+        RevenueShareAgreement _rsa = RevenueShareAgreement(_initRSA(
+            address(creditToken),
+            0,
+            totalOwed,
+            lenderRevenueSplit
+        ));
+        uint256 balance1 = creditToken.balanceOf(borrower);
+        _depositRSA(lender, _rsa);
+        uint256 balance2 = creditToken.balanceOf(borrower);
+        
+        assertEq(balance1, 0); // had no tokens
+        assertEq(balance2, balance1); // still have no tokens
+        assertEq(_rsa.initialPrincipal(), balance1 - balance2); // supposed to give 0 tokens
+        assertEq(_rsa.balanceOf(lender), totalOwed); // got all claims
+    }
+
     /*********************
     **********************
     
@@ -523,7 +567,14 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(spigot.getOwnerTokens(address(revenueToken)), 0);
     }
 
-    function test_claimRev_mustAutoRepyIfRevenueInCreditToken(uint256 _revenue) public {
+    /// @dev invariant
+    function test_claimRev_repayParity(uint256 _revenue) public {
+        // semantic naming to show feature parity between claimRev and repay
+        // separate from actual repay functionality
+        test_claimRev_mustRepayOnCreditTokenRevenue(_revenue);
+    }
+
+    function test_claimRev_mustRepayOnCreditTokenRevenue(uint256 _revenue) public {
         uint256 revenue = bound(_revenue, 100, totalOwed);
         (uint256 claimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
 
@@ -549,54 +600,391 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(rsa.claimableAmount(), claimableRev);
     }
 
-    function test_claimRev_anyoneAnytime(uint256 _revenue) public {
-        uint256 revenue = bound(_revenue, 100, totalOwed);
-        
-        // can claim revenue anytime if RSA owns spigot and has claimable rev
-        // even if there is no debt
-        (uint256 preDepositClaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(rando);
-        rsa.claimRev(address(creditToken));
+    /**
+    * @notice - can claim revenue anytime if RSA owns spigot and has claimable rev
+                even if there is no debt
+    */
+    function test_claimRev_anyoneAnytime(uint256 _totalOwed, uint256 _revenue) public {
+        uint256 totalDebt = bound(_totalOwed, initialPrincipal, MAX_REVENUE);
+        uint256 revenue = bound(_revenue, 100, MAX_REVENUE);
+        uint256 totalRevenue;
+        address[3] memory claimers = [rando, borrower, lender];
 
-        (uint256 preDepositClaimableRev2, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(borrower);
-        rsa.claimRev(address(creditToken));
-        
-        (uint256 preDepositClaimableRev3, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(lender);
-        rsa.claimRev(address(creditToken));
+        for(uint256 i; i < 3; i++) {
+            // deploy new rsa to test for claimer to reset debt so we can repay again
+            RevenueShareAgreement newRSA = _initRSA(
+                address(creditToken),
+                initialPrincipal,
+                totalDebt,
+                lenderRevenueSplit
+            );
 
-        // ensure we can claim revenue after depositing too
-        _depositRSA(lender, rsa);
+            // pay off last RSA so we can transfer Spigot on next loop
+            creditToken.mint(address(rsa), rsa.totalOwed());
+            rsa.repay();
+            assertEq(rsa.totalOwed(), 0, "bad debt");
+            hoax(borrower);
+            rsa.releaseSpigot(address(newRSA));
+            
+            vm.startPrank(claimers[i]);
+            // claim rev to RSA before even depositing to RSA
+            (uint256 preDepositlaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+            uint256 preDepositClaimableBalance0 = creditToken.balanceOf(address(newRSA));
+            assertEq(preDepositClaimableBalance0, totalRevenue, "pre deposit rev #1");
+            uint256 revClaimed = newRSA.claimRev(address(creditToken));
+            assertEq(preDepositlaimableRev, revClaimed, "claimable rev #1");
+            totalRevenue += revClaimed;
+            uint256 preDepositClaimableBalance1 = creditToken.balanceOf(address(newRSA));
+            assertEq(preDepositClaimableBalance1, totalRevenue, "pre deposit rev #2");
+            vm.stopPrank();
+            
+            // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+            hoax(operator);
+            spigot.claimOperatorTokens(address(creditToken));
 
-        (uint256 postDepositClaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(rando);
-        rsa.claimRev(address(creditToken));
+            // ensure we can claim revenue after depositing too
+            _depositRSA(lender, newRSA);
 
-        (uint256 postDepositClaimableRev2, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(borrower);
-        rsa.claimRev(address(creditToken));
-        
-        (uint256 postDepositClaimableRev3, ) = _generateRevenue(revenueContract, creditToken, revenue);
-        hoax(lender);
-        rsa.claimRev(address(creditToken));
-        
+            vm.startPrank(claimers[i]);
+            // claim rev to RSA after depositing to RSA
+            (uint256 postDepositClaimableRev, ) = _generateRevenue(revenueContract, creditToken, revenue);
+            uint256 postDepositClaimableBalance0 = creditToken.balanceOf(address(newRSA));
+            assertEq(postDepositClaimableBalance0, totalRevenue, "post deposit rev #1");
+            uint256 revClaimed2 = newRSA.claimRev(address(creditToken));
+            assertEq(postDepositClaimableRev, revClaimed2, 'claimable rev #2');
+            totalRevenue += revClaimed2;
+            uint256 postDepositClaimableBalance1 = creditToken.balanceOf(address(newRSA));
+            assertEq(postDepositClaimableBalance1, totalRevenue, "post deposit rev #2");
+            vm.stopPrank();
+
+
+            // update old rsa for transferring for next iteration
+            rsa = newRSA;
+            // clear out old revenue vars from last iteration
+            totalRevenue = 0;
+            // reset rev for new rsa
+            // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+            hoax(operator);
+            spigot.claimOperatorTokens(address(creditToken));
+
+        }
     }
 
+    function test_repay_mustWorkBeforeLenderDeposits() public {
+        // no deposit helper called here
+        creditToken.mint(address(rsa), rsa.totalOwed());
+        rsa.repay();
+    }
+
+    function test_repay_acceptsNonSpigotPayment() public {
+        _depositRSA(lender, rsa);
+        creditToken.mint(address(rsa), rsa.totalOwed());
+        rsa.repay();
+    }
+
+    function test_repay_acceptsTradedRevenueRepayments(uint128 _revenue) public {
+        uint256 revenue = bound(_revenue, 100, MAX_UINT);
+        _depositRSA(lender, rsa);
+        
+        (uint256 revenueClaimed, ) = _generateRevenue(revenueContract, revenueToken, revenue);
+        rsa.claimRev(address(revenueToken));
+        
+        // now have revenue but no claimableCredits credit tokens
+        assertEq(revenueToken.balanceOf(address(rsa)), revenueClaimed, "bad pre trade rev token balance");
+        assertEq(creditToken.balanceOf(address(rsa)), 0, "bad pre trade cred token balance");
+        assertEq(rsa.claimableAmount(), 0);
+        assertEq(rsa.totalOwed(), totalOwed);
+
+        uint256 bought = _tradeRevenue(revenueToken, revenueClaimed, totalOwed);
+        uint256 claimableCredits = bound(bought, 0, totalOwed);
+
+        // debt hasnt been updated even though we traded revenue
+        // should only update in repay() call
+        assertEq(revenueToken.balanceOf(address(rsa)), 0, "bad prepay rev token RSA balance");
+        assertEq(creditToken.balanceOf(address(rsa)), bought, "bad prepay credit token RSA balance");
+        assertEq(rsa.claimableAmount(), 0);
+        assertEq(rsa.totalOwed(), totalOwed);
+
+        rsa.repay();
+        
+        assertEq(revenueToken.balanceOf(address(rsa)), 0, "bad final rev token RSA balance");
+        assertEq(creditToken.balanceOf(address(rsa)), bought, "bad final credit token RSA balance");
+        assertEq(rsa.claimableAmount(), claimableCredits);
+        assertEq(rsa.totalOwed(), totalOwed - bought);
+    }
+
+    function test_repay_mustWorkAfterLenderDeposits() public {
+        _depositRSA(lender, rsa);
+        _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
+        rsa.claimRev(address(creditToken));
+    }
+
+    function test_repay_storesPaymentInRSA() public {
+        // ensure we do not send token to lender either as a negative case
+        _depositRSA(lender, rsa);
+
+        _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
+        uint256 claimed = rsa.claimRev(address(creditToken));
+        // RSA holds full revenue amount even if greater than owed for borrowerto sweep after lender claims
+        assertEq(creditToken.balanceOf(address(rsa)), claimed);
+        assertEq(creditToken.balanceOf(lender), 0);
+        assertEq(creditToken.balanceOf(borrower), initialPrincipal);
+    }
+
+    function test_repay_doesNotTransferTokensToLender() public {
+        // wrapper function for semantics
+        test_repay_storesPaymentInRSA();
+    }
+
+    /// @dev invariant
+    function test_repay_mustIncreaseClaimableAmount() public {
+        // ensure we do not send token to lender either as a negative case
+        assertEq(rsa.claimableAmount(), 0);
+        _depositRSA(lender, rsa);
+
+        _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
+        assertEq(rsa.claimableAmount(), 0);
+
+        uint256 claimed = rsa.claimRev(address(creditToken));
+        uint256 claimable = claimed > totalOwed ? totalOwed : claimed;
+        assertEq(creditToken.balanceOf(address(rsa)), claimed);
+        assertEq(rsa.claimableAmount(), claimable);
+        assertGe(claimable, 0); // mustve increased something
+    }
+
+        /// @dev invariant
+    function test_repay_increasesClaimableAmountByCurrentBalanceMinusExistingClaimable() public {
+        _depositRSA(lender, rsa);
+        _generateRevenue(revenueContract, creditToken, initialPrincipal);
+        // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+        hoax(operator);
+        spigot.claimOperatorTokens(address(creditToken));
+
+        assertEq(creditToken.balanceOf(address(rsa)), 0);
+        assertEq(rsa.claimableAmount(), 0);
+
+        uint256 claimed = rsa.claimRev(address(creditToken));
+        uint256 claimable = claimed > totalOwed ? totalOwed : claimed;
+        assertEq(creditToken.balanceOf(address(rsa)), claimed);
+        assertGe(claimable, 0); //must actually claim for test to be valid
+        assertEq(rsa.claimableAmount(), claimable); // updated claimable properly
+
+
+        _generateRevenue(revenueContract, creditToken, initialPrincipal);
+        // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+        hoax(operator);
+        spigot.claimOperatorTokens(address(creditToken));
+
+        uint256 claimed2 = rsa.claimRev(address(creditToken));
+        uint256 claimable2 = claimed2 > totalOwed ? totalOwed : claimed2;
+        assertGe(claimable2, 0); //must actually claim for test to be valid
+        assertEq(creditToken.balanceOf(address(rsa)), claimed + claimed2);
+        assertEq(rsa.claimableAmount(), claimable + claimable2); // updated claimable properly
+    }
+
+
+    function test_repay_partialAmountsMultipleTimes(uint256 _revenue) public {
+        _depositRSA(lender, rsa);
+        uint256 stillOwed = totalOwed;
+        uint256 totalRevenue;
+        while(stillOwed > 0) {
+            assertEq(stillOwed, rsa.totalOwed());
+            uint256 revenue = bound(_revenue, initialPrincipal / 5, initialPrincipal / 3);
+            _generateRevenue(revenueContract, creditToken, revenue);
+            
+            uint256 claimed = rsa.claimRev(address(creditToken));
+            // update testing param
+            totalRevenue += claimed;
+            if(claimed > stillOwed) {
+                stillOwed = 0;
+            } else {
+                stillOwed -= claimed;
+            }
+            // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+            hoax(operator);
+            spigot.claimOperatorTokens(address(creditToken));
+
+            // rsa.repay(); // claimRev auto calls repay() for us
+            // TODO test actual repay()?
+            // ensure we have tokens that we think were repaid
+            assertEq(creditToken.balanceOf(address(rsa)), totalRevenue);
+        }
+    }
+
+    function test_repay_capsRepaymentToToalOwed() public {
+        // semantic wrapper
+        test_repay_fullAmountMultipleTimes();
+    }
+
+    function test_repay_fullAmountMultipleTimes() public {
+        _depositRSA(lender, rsa);
+
+        _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
+        uint256 claimed = rsa.claimRev(address(creditToken));
+        assertEq(0, rsa.totalOwed());
+        assertEq(creditToken.balanceOf(address(rsa)), claimed);
+        assertGe(creditToken.balanceOf(address(rsa)), totalOwed);
+
+        // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+        hoax(operator);
+        spigot.claimOperatorTokens(address(creditToken));
+
+        _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
+        uint256 claimed2 = rsa.claimRev(address(creditToken));
+        assertEq(0, rsa.totalOwed());
+        assertEq(creditToken.balanceOf(address(rsa)), claimed + claimed2);
+
+        // rsa.repay(); // claimRev auto calls repay() for us
+        // TODO test actual repay()?
+
+        // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
+        hoax(operator);
+        spigot.claimOperatorTokens(address(creditToken));
+    }
+
+    /// @dev invariant
+    function test_repay_mustHaveGreaterOrEqualCreditTokenBalanceThanClaimableAmount() public {
+        // functions that can affect claimableAmount = repay(), redeem(), claimRev(), sweep() 
+    }
+
+    function test_addSpigot_mustRevertIfNoDebt() public {
+        address _revContract = vm.addr(0xdebf);
+        (uint8 split, , bytes4 _transferFunc) = spigot.getSetting(_revContract);
+         // ensure contract uninitialized and acutally setting new split
+        assertEq(split, 0);
+        assertEq(_transferFunc, bytes4(0));
+
+        vm.startPrank(lender);
+        vm.expectRevert(IRevenueShareAgreement.NotLender.selector);
+        rsa.addSpigot(_revContract, claimPushPaymentFunc, transferOwnerFunc);
+        vm.stopPrank();
+    }
+
+    /// @dev invariant
+    function test_addSpigot_mustUseInitializedRevenueSplit() public {
+        address _revContract = vm.addr(0xdebf);
+        (uint8 split, , bytes4 _transferFunc) = spigot.getSetting(_revContract);
+         // ensure contract uninitialized and acutally setting new split
+        assertEq(split, 0);
+        assertEq(_transferFunc, bytes4(0));
+
+        _depositRSA(lender, rsa);
+        vm.startPrank(lender);
+        rsa.addSpigot(_revContract, claimPushPaymentFunc, transferOwnerFunc);
+        vm.stopPrank();
+        (uint8 split2, , bytes4 _transferFunc2) = spigot.getSetting(_revContract);
+        assertEq(split2, lenderRevenueSplit);
+        assertEq(_transferFunc2, transferOwnerFunc);
+    }
+
+    function test_addSpigot_mustBeLender() public {
+        address _revContract = vm.addr(0xdebf);
+        (uint8 split, , bytes4 _transferFunc) = spigot.getSetting(_revContract);
+         // ensure contract uninitialized and acutally setting new split
+        assertEq(split, 0);
+        assertEq(_transferFunc, bytes4(0));
+        
+        _depositRSA(lender, rsa);
+        vm.startPrank(lender);
+        rsa.addSpigot(_revContract, claimPushPaymentFunc, transferOwnerFunc);
+        vm.stopPrank();
+        (uint8 split2, , bytes4 _transferFunc2) = spigot.getSetting(_revContract);
+        assertEq(split2, lenderRevenueSplit);
+        assertEq(_transferFunc2, transferOwnerFunc);
+    }
+
+
+    /// @dev invariant
+    function test_addSpigot_updatesCorrectRevenueContract() public {
+        // semantic wrapper since both tests check same thing by default
+        test_addSpigot_mustUseInitializedRevenueSplit();
+    }
+
+    function test_updateWhitelist_mustBeLender() public {
+        bytes4 operateFunc = bytes4(0x12345678);
+        
+        // no lender pre deposit so fails
+        vm.expectRevert(IRevenueShareAgreement.NotLender.selector);
+        rsa.updateWhitelist(operateFunc, true);
+
+        // set lender in contract
+        _depositRSA(lender, rsa);
+        
+        vm.startPrank(lender);
+        rsa.updateWhitelist(operateFunc, true);
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        vm.expectRevert(IRevenueShareAgreement.NotLender.selector);
+        rsa.updateWhitelist(operateFunc, true);
+        vm.stopPrank();
+
+        vm.startPrank(rando);
+        vm.expectRevert(IRevenueShareAgreement.NotLender.selector);
+        rsa.updateWhitelist(operateFunc, true);
+        vm.stopPrank();
+    }
+
+    function test_updateWhitelist_mustUpdateSpigot() public {
+        bytes4 operateFunc = bytes4(0x12345678);
+        assertEq(spigot.isWhitelisted(operateFunc), false);
+        
+        // no lender pre deposit so fails
+        vm.expectRevert(IRevenueShareAgreement.NotLender.selector);
+        rsa.updateWhitelist(operateFunc, true);
+        assertEq(spigot.isWhitelisted(operateFunc), false);
+
+        // set lender in contract
+        _depositRSA(lender, rsa);
+        
+        vm.startPrank(lender);
+        rsa.updateWhitelist(operateFunc, true);
+        vm.stopPrank();
+        assertEq(spigot.isWhitelisted(operateFunc), true);
+    }
+
+    function test_setRevenueSplit_mustUseInitializedRevenueSplit() public {
+        uint8 badSplit = 10;
+        address _revContract = _addRevenueContract(spigot, address(rsa), address(revenueToken), badSplit, claimPushPaymentFunc, transferOwnerFunc);
+        (uint8 split, , bytes4 _transferFunc) = spigot.getSetting(_revContract);
+
+         // ensure contract uninitialized and acutally setting new split
+        assertEq(split, badSplit);
+        // assertEq(_transferFunc, bytes4(0)); // cant know rev contract addres to check before we deploy, ideally we would check this
+
+        rsa.setRevenueSplit(_revContract);
+        (uint8 split2, , bytes4 _transferFunc2) = spigot.getSetting(_revContract);
+        assertEq(split2, lenderRevenueSplit);
+        assertEq(_transferFunc2, transferOwnerFunc);
+    }
+
+    function test_setRevenueSplit_anyoneAnytime(uint8 _badRevenueSplit) public {
+        address[3] memory claimers = [rando, borrower, lender];
+        uint8 badSplit = uint8(bound(_badRevenueSplit, 0, SpigotLib.MAX_SPLIT));
+
+        for(uint256 i; i < 3; i++) {
+            // init new Revenue Contract and give it a bad split
+            address _revContract = _addRevenueContract(spigot, address(rsa), address(revenueToken), badSplit, claimPushPaymentFunc, transferOwnerFunc);
+            (uint8 split, , bytes4 _transferFunc) = spigot.getSetting(_revContract);
+
+            // ensure contract uninitialized and acutally setting new split
+            assertEq(split, badSplit);
+            // assertEq(_transferFunc, bytes4(0)); // cant know rev contract addres to check before we deploy, ideally we would check this
+            hoax(claimers[i]);
+            rsa.setRevenueSplit(_revContract);
+            (uint8 split2, , bytes4 _transferFunc2) = spigot.getSetting(_revContract);
+            assertEq(split2, lenderRevenueSplit);
+            assertEq(_transferFunc2, transferOwnerFunc);
+            vm.stopPrank();
+        }
+    }
+
+
+
     // claimRev updates our token balance by amount spigot claimOwnerTokens event says we claimed
-    // repay updates claimable amounts
     // repay emits Repay event
-    // repay can only increase claimable amount
-    // repay does not transfer tokens out of RSA
-    // repay increases claimbale by `token.balance - self.claimable`
-    // repay caps total claimable to total debt if newPayment > total debt
-    // addSpigot only borrower callable
-    // addSpigot invariant only og initialized rev split
-    // setRevenueSplit invariant can only set split to initialized rev split
+    // addSpigot only lender callable
     // setWhitelist only lender callable
-
-
-
 
     /*********************
     **********************
@@ -616,6 +1004,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     // releaseSpigot updates spigot owner to _to (don't need to block rsa address bc can just call releaseSpigot again)
     // sweep updates _token balance of rsa
     // sweep updates _token balance of _to
+    // test cant sweep() creditToken greater than rsa.totalSupply()  (claimabe amount invariant should cover this)!!!!
 
 
 
@@ -642,10 +1031,28 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _depositRSA(lender, rsa);
 
         address sellToken = address(revenueToken);
+        uint32 deadline = uint32(block.timestamp + 100 days);
+
+        GPv2Order.Data memory expectedOrder = rsa.generateOrder(sellToken, 1, 0, deadline);
+        bytes32 expectedHash = expectedOrder.hash(COWSWAP_DOMAIN_SEPARATOR);
+
+        vm.startPrank(lender);
+        bytes32 orderHash = rsa.initiateOrder(sellToken, 1, 0, deadline);
+        vm.stopPrank();
+        
+        assertEq(orderHash, expectedHash);
+    }
+
+
+    /// @dev invariant
+    function test_generateOrder_mustUseHardcodedOrderParams() public {
+        _depositRSA(lender, rsa);
+
+        address sellToken = address(revenueToken);
         address buyToken = address(creditToken);
         uint32 deadline = uint32(block.timestamp + 100 days);
 
-        bytes32 expectedHash = GPv2Order.Data({
+         GPv2Order.Data memory expectedOrder = GPv2Order.Data({
             kind: GPv2Order.KIND_SELL,
             receiver: address(rsa), // hardcode so trades are trustless 
             sellToken: sellToken,  // hardcode so trades are trustless 
@@ -658,13 +1065,21 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
             partiallyFillable: false,
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20
-        }).hash(rsa.DOMAIN_SEPARATOR());
+        });
+        bytes32 expectedHash = expectedOrder.hash(COWSWAP_DOMAIN_SEPARATOR);
+
+        GPv2Order.Data memory order = rsa.generateOrder(sellToken, 1, 0, deadline);
+        bytes32 orderHash = order.hash(COWSWAP_DOMAIN_SEPARATOR);
         
-        vm.startPrank(lender);
-        bytes32 orderHash = rsa.initiateOrder(sellToken, 1, 0, deadline);
-        vm.stopPrank();
-        
-        assertEq(orderHash, expectedHash);
+        assertEq(expectedHash, orderHash);
+    }
+
+
+    /// @dev invariant
+    function test_generateOrder_mustReturnCowswapOrderFormat() public {
+        // semantic wrapper
+        // we  already manually import GPv2 library and check against generateOrder
+        test_generateOrder_mustUseHardcodedOrderParams();
     }
 
     function test_initiateOrder_mustOwnSellAmount() public {
@@ -729,7 +1144,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     function test_initiateOrder_storesOrderData() public {
         _depositRSA(lender, rsa);
-        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(rsa.DOMAIN_SEPARATOR());
+        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(orderId), 0);
 
         vm.startPrank(lender);
@@ -744,17 +1159,11 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         return rsa.initiateOrder(address(_sellToken), _sellAmount, 0, _deadline);
     }
 
-    /*********************
-    **********************
-    
-    EIP-2981 Order Verification
-    
-    **********************
-    *********************/
+    /********************* EIP-2981 Order Verification *********************/
 
     function test_verifySignature_mustInitiateOrderFirst() public {
         GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        bytes32 expectedOrderId = order.hash(rsa.DOMAIN_SEPARATOR());
+        bytes32 expectedOrderId = order.hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(expectedOrderId), 0);
 
         vm.expectRevert(IRevenueShareAgreement.InvalidTradeId.selector);
@@ -831,11 +1240,11 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     function test_initiateOrder_emitsTradeInitiatedEvent() public {
         _depositRSA(lender, rsa);
-        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(rsa.DOMAIN_SEPARATOR());
+        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(orderId), 0);
 
         vm.startPrank(lender);
-        vm.expectEmit(true, true, false, true, address(rsa));
+        vm.expectEmit(true, true, true, true, address(rsa));
         emit TradeInitiated(orderId, 1, 0, uint32(block.timestamp + 100 days));
         rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
         assertEq(rsa.orders(orderId), 1);
@@ -906,6 +1315,26 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         spigot.claimRevenue(_revenueContract, address(_token), claimData);
         
         return _assertSpigotSplits(address(_token), _amount, split);
+    }
+
+
+    /**
+     * @dev sends tokens through spigot and makes claimable for owner and operator
+     */
+    function _tradeRevenue(
+        RevenueToken _revenueToken,
+        uint256 _minRevenueSold,
+        uint256 _minCreditsBought
+    ) internal returns(uint256 tokensBought) {
+        // dont actually need to initiate trade since we can update EVM state manually
+        // keep to document flow and hopefully check bugs related to process
+        hoax(lender);
+        rsa.initiateOrder(address(_revenueToken), _minRevenueSold, _minCreditsBought, uint32(MAX_UINT));
+
+        creditToken.mint(address(rsa), _minCreditsBought);
+        _revenueToken.burnFrom(address(rsa), _minRevenueSold);
+
+        return _minCreditsBought;
     }
 
     /**
@@ -987,21 +1416,20 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
             RevenueToken(_token).balanceOf(address(spigot));
 
         uint256 roundingFix = spigotBalance - (ownerTokens + operatorTokens + overflow);
-        
         if(overflow > 0) {
-            assertEq(roundingFix > 1, false);
+            assertLe(roundingFix, 1, "Spigot rounding error too large");
         }
 
         assertEq(
             spigot.getOwnerTokens(_token),
             ownerTokens,
-            'Invalid escrow amount for spigot revenue'
+            'Invalid Owner amount for spigot revenue'
         );
 
         assertEq(
             spigot.getOperatorTokens(_token),
             operatorTokens,
-            'Invalid treasury payment amount for spigot revenue'
+            'Invalid Operator payment amount for spigot revenue'
         );
 
         assertEq(
@@ -1009,7 +1437,6 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
             ownerTokens + operatorTokens + overflow + roundingFix, // revenue over max stays in contract unnaccounted
             'Spigot balance vs escrow + overflow mismatch'
         );
-
     }
 
 

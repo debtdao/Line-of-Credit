@@ -20,6 +20,7 @@ interface IRevenueShareAgreement {
     error MustBeSellOrder();
     error WETHDepositFailed();
     error NotLender();
+    error MustSellMoreThan0();
     error InsufficientAllowance(address, address, uint256, uint256);
 
     event log_named_uint2(string err, uint256 val);
