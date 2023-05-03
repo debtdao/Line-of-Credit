@@ -4,6 +4,7 @@ import "forge-std/Test.sol";
 import {Spigot} from "../modules/spigot/Spigot.sol";
 
 import {SpigotLib} from "../utils/SpigotLib.sol";
+import {LineLib} from "../utils/LineLib.sol";
 
 import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleRevenueContract} from "../mock/SimpleRevenueContract.sol";
@@ -99,6 +100,25 @@ contract SpigotTest is Test, ISpigot {
         _revenueContract.call(
             abi.encodeWithSelector(_newOwnerFunc, address(spigot))
         );
+    }
+
+        /**
+     * @dev sends tokens through spigot and makes claimable for owner and operator
+     */
+    function _generateRevenue(
+        address _revenueContract,
+        RevenueToken _token,
+        uint256 _amount
+    ) internal returns(uint256 ownerTokens, uint256 operatorTokens) {
+
+        (uint8 split, bytes4 claimFunc, ) = spigot.getSetting(_revenueContract);
+        _token.mint(address(spigot), _amount);
+        /// @dev assumes claim func is push payment bc thats easiest to test
+        /// need to pass in claim data as param to support claim payments
+        bytes memory claimData = abi.encodeWithSelector(claimFunc);
+        spigot.claimRevenue(_revenueContract, address(_token), claimData);
+        
+        return assertSpigotSplits(address(_token), _amount);
     }
 
     // Claiming functions
@@ -198,35 +218,37 @@ contract SpigotTest is Test, ISpigot {
     /**
      * @dev helper func to check revenue payment streams to `ownerTokens` and `operatorTokens` happened and Spigot is accounting properly.
     */
-    function assertSpigotSplits(address _token, uint256 totalRevenue) internal {
+    function assertSpigotSplits(address _token, uint256 totalRevenue) internal
+        returns(uint256 ownerTokens, uint256 operatorTokens)
+    {
         (uint256 maxRevenue, uint256 overflow) = getMaxRevenue(totalRevenue);
-        uint256 ownerTokens = maxRevenue * settings.ownerSplit / 100;
-        uint256 operatorTokens = maxRevenue - ownerTokens;
+        ownerTokens = maxRevenue * settings.ownerSplit / 100;
+        operatorTokens = maxRevenue - ownerTokens;
         uint256 spigotBalance = _token == Denominations.ETH ?
             address(spigot).balance :
             RevenueToken(_token).balanceOf(address(spigot));
 
         uint256 roundingFix = spigotBalance - (ownerTokens + operatorTokens + overflow);
         if(overflow > 0) {
-            assertEq(roundingFix > 1, false);
+            assertLe(roundingFix, 1, "Spigot rounding error too large");
         }
 
         assertEq(
             spigot.getOwnerTokens(_token),
             ownerTokens,
-            'Invalid escrow amount for spigot revenue'
+            'Invalid Owner amount for spigot revenue'
         );
 
         assertEq(
             spigot.getOperatorTokens(_token),
             maxRevenue - ownerTokens,
-            'Invalid treasury payment amount for spigot revenue'
+            'Invalid Operator amount for spigot revenue'
         );
 
         assertEq(
             spigotBalance,
             ownerTokens + operatorTokens + overflow + roundingFix, // revenue over max stays in contract unnaccounted
-            'Spigot balance vs escrow + overflow mismatch'
+            'Spigot balance vs Owner + Operator + overflow mismatch'
         );
     }
 
@@ -380,6 +402,62 @@ contract SpigotTest is Test, ISpigot {
 
         assertSpigotSplits(Denominations.ETH, ethRevenue);
         assertSpigotSplits(address(token), tokenRevenue);
+    }
+
+
+    function test_claimRevenue_updatesStoredStokensOnMultipleClaims(uint256 _revenue) public {
+        uint256 totalRevenue;
+        uint256 ownerTokens;
+        uint256 operatorTokens;
+        uint8 revenueSplit = 70;
+        _initSpigot(Denominations.ETH, revenueSplit, claimPushPaymentFunc, transferOwnerFunc);
+
+        while(totalRevenue < MAX_REVENUE) {
+            uint256 revenue = bound(_revenue, MAX_REVENUE / 20, MAX_REVENUE / 5);
+            emit log_named_uint(' -- New Revenue -- ', revenue);
+            token.mint(address(spigot), revenue);
+            
+            bytes memory claimData = abi.encodeWithSelector(claimPushPaymentFunc,  token);
+            uint256 claimed = spigot.claimRevenue(revenueContract, address(token), claimData);
+            
+            uint256 spigotBalance = token.balanceOf(address(spigot));
+            
+            (uint256 maxRevenue, uint256 overflow) = getMaxRevenue(revenue);
+            uint256 expectedOwnerTokens = maxRevenue * revenueSplit / 100;
+            uint256 expectedOperatorTokens = maxRevenue - expectedOwnerTokens;
+
+            assertEq(token.balanceOf(address(spigot)), totalRevenue + revenue);
+
+            assertEq(
+                spigot.getOwnerTokens(address(token)),
+                ownerTokens + expectedOwnerTokens,
+                'Invalid Owner amount for spigot revenue'
+            );
+            assertEq(
+                spigot.getOperatorTokens(address(token)),
+                operatorTokens + expectedOperatorTokens,
+                'Invalid Operator amount for spigot revenue'
+            );
+
+            assertEq(
+                spigotBalance,
+                totalRevenue + revenue, // revenue over max stays in contract unnaccounted
+                'Spigot balance vs Owner + Operator + overflow mismatch'
+            );
+
+            assertEq(
+                revenue,
+                claimed + overflow, // revenue over max stays in contract unnaccounted
+                'total revenue vs overflow + claimed mismatch'
+            );
+
+            // update teeting vars with totals
+            ownerTokens += expectedOwnerTokens;
+            operatorTokens += expectedOperatorTokens;
+            totalRevenue += claimed + overflow;
+
+            emit log_named_uint(' -- Total Revenue -- ', totalRevenue);
+        }
     }
 
 

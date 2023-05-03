@@ -274,11 +274,11 @@ contract SpigotedLineTest is Test, Events {
 
       uint claimable = spigot.getOwnerTokens(address(revenueToken));
 
-      // if(claimable == 0) { // ensure claimAndRepay doesnt fail from claimEscrow()
+      if(claimable == 0) { // ensure claimAndRepay doesnt fail from claimEscrow()
         deal(address(revenueToken), address(spigot),  MAX_REVENUE);
         spigot.claimRevenue(revenueContract, address(revenueToken),  "");
         claimable = spigot.getOwnerTokens(address(revenueToken));
-      // }
+      }
       
       // no extra tokens
       assertEq(line.unused(address(creditToken)), 0);

@@ -51,7 +51,7 @@ library SpigotLib {
             // TODO: test this with multiple revenue streams
 
             // claimed = total balance - already accounted for balance
-            claimed = existingBalance - self.ownerTokens[token];
+            claimed = existingBalance - self.ownerTokens[token] - self.operatorTokens[token];
             // underflow revert ensures we have more tokens than we started with and actually claimed revenue
         } else {
             // pull payments
