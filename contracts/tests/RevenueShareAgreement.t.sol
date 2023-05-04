@@ -15,6 +15,10 @@ import {ISpigot} from "../interfaces/ISpigot.sol";
 import {IRevenueShareAgreement} from "../interfaces/IRevenueShareAgreement.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
+
+// TODO: cant do invariants bc setup funcs like _deposit and _initOrder affect state not being tested
+// Setup helper test contract with deposit() and redeem() initiaiteOrder() defined with setup logic before those funcs get called 
+
 contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     using GPv2Order for GPv2Order.Data;
 
@@ -499,13 +503,13 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(randoAllowance1, randoAllowance0 - claimableRev);
     }
 
+    /**
+    * @notice - allowing functionality bc could be used as a new crowdfunding method
+    * with principal = 0, can bootstrap your own token as claims on future revenue instead of equity
+    * so you deposit() yourself and get RSA tokens and sell those to investors for capital
+    * probably at a deep discount e.g 1/5th of the value of the underlying revenue
+    */
     function test_deposit_with0Principal() public {
-        /**
-        * @notice - allowing functionality bc could be used as a new crowdfunding method
-        * with principal = 0, can bootstrap your own token as claims on future revenue instead of equity
-        * so you deposit() yourself and get RSA tokens and sell those to investors for capital
-        * probably at a deep discount e.g 1/5th of the value of the underlying revenue
-        */
         RevenueShareAgreement _rsa = RevenueShareAgreement(_initRSA(
             address(creditToken),
             0,
@@ -590,7 +594,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
         uint256 rsaRevenueBalance0 = revenueToken.balanceOf(address(rsa));
         assertEq(rsaRevenueBalance0, 0);
-        
+
         (uint256 claimableRev1, ) = _generateRevenue(revenueContract, revenueToken, revenue);
         rsa.claimRev(address(revenueToken));
         // rsa has receieved revenue tokens
@@ -666,7 +670,6 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
             // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
             hoax(operator);
             spigot.claimOperatorTokens(address(creditToken));
-
         }
     }
 
@@ -752,7 +755,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertGe(claimable, 0); // mustve increased something
     }
 
-        /// @dev invariant
+    /// @dev invariant
     function test_repay_increasesClaimableAmountByCurrentBalanceMinusExistingClaimable() public {
         _depositRSA(lender, rsa);
         _generateRevenue(revenueContract, creditToken, initialPrincipal);
@@ -811,7 +814,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         }
     }
 
-    function test_repay_capsRepaymentToToalOwed() public {
+    function test_repay_mustCapRepaymentToToalOwed() public {
         // semantic wrapper
         test_repay_fullAmountMultipleTimes();
     }
@@ -821,6 +824,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
         _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
         uint256 claimed = rsa.claimRev(address(creditToken));
+
         assertEq(0, rsa.totalOwed());
         assertEq(creditToken.balanceOf(address(rsa)), claimed);
         assertGe(creditToken.balanceOf(address(rsa)), totalOwed);
@@ -831,8 +835,11 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
         _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
         uint256 claimed2 = rsa.claimRev(address(creditToken));
+
         assertEq(0, rsa.totalOwed());
+        assertEq(totalOwed, rsa.claimableAmount());
         assertEq(creditToken.balanceOf(address(rsa)), claimed + claimed2);
+        assertGe(claimed + claimed2, totalOwed);
 
         // rsa.repay(); // claimRev auto calls repay() for us
         // TODO test actual repay()?
@@ -843,8 +850,9 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
     /// @dev invariant
-    function test_repay_mustHaveGreaterOrEqualCreditTokenBalanceThanClaimableAmount() public {
-        // functions that can affect claimableAmount = repay(), redeem(), claimRev(), sweep() 
+    function invariant_repay_mustHaveClaimableAmountAsMinimumCreditTokenBalance() public {
+        assertGe(creditToken.balanceOf(address(rsa)), rsa.claimableAmount());
+        assertLe(rsa.claimableAmount(), totalOwed);
     }
 
     function test_addSpigot_mustRevertIfNoDebt() public {
@@ -979,12 +987,6 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         }
     }
 
-
-
-    // claimRev updates our token balance by amount spigot claimOwnerTokens event says we claimed
-    // repay emits Repay event
-    // addSpigot only lender callable
-    // setWhitelist only lender callable
 
     /*********************
     **********************
@@ -1290,7 +1292,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         address _lender,
         RevenueShareAgreement _rsa
     ) internal {
-        creditToken.mint(_lender, rsa.initialPrincipal());
+        creditToken.mint(_lender, _rsa.initialPrincipal());
         // deal(address(creditToken), _lender, rsa.initialPrincipal());
         vm.startPrank(_lender);
         creditToken.approve(address(_rsa), type(uint256).max);

@@ -61,10 +61,10 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         string memory _symbol
     ) external {
         if(borrower != address(0))              revert AlreadyInitialized();
-
-        if(_spigot == address(0))               revert InvalidSpigotAddress();
         // prevent re-initialization
         if(_borrower == address(0))             revert InvalidBorrowerAddress();
+
+        if(_spigot == address(0))               revert InvalidSpigotAddress();
 
         if(_initialPrincipal > _totalOwed)      revert InvalidPaymentSetting();
 
@@ -73,9 +73,11 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // ERC20 vars
         name = _name;
         symbol = _symbol;
+
         // RSA stakeholders
         borrower = _borrower;
         spigot = ISpigot(_spigot);
+
         // RSA financial terms
         totalOwed = _totalOwed;
         creditToken = _creditToken;
@@ -390,20 +392,22 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         return true;
     }
 
-    function _repay() internal returns(uint256 repaid) {
+    function _repay() internal returns(uint256) {
         // The lender can only deposit once and lent tokens are NOT stored in this contract
         // so any new tokens are from revenue and we just check against current revenue deposits
         uint256 currBalance = ERC20(creditToken).balanceOf(address(this));
         uint256 newPayments = currBalance - claimableAmount;
-        
-        repaid = totalOwed; // cache in memory
+        uint256 repaid = totalOwed; // cache in memory
+
         if(newPayments > repaid) {
+            // if revenue > debt then repay all debt
+            // and return excess to borrower
             claimableAmount = repaid;
             totalOwed = 0;
             return repaid;
-            // borrower can sweep() excess funds + releaseSpigot()
-            // now that all debt is repaid
+            // borrower can now sweep() excess funds + releaseSpigot()
         } else {
+
             claimableAmount += newPayments;
             totalOwed -= newPayments;
             return newPayments;
