@@ -21,7 +21,8 @@ interface IRevenueShareAgreement {
     error WETHDepositFailed();
     error NotLender();
     error MustSellMoreThan0();
-    error InsufficientAllowance(address, address, uint256, uint256);
+    error InvalidWETHDeposit();
+    error InsufficientAllowance();
 
     event log_named_uint2(string err, uint256 val);
 
@@ -29,8 +30,10 @@ interface IRevenueShareAgreement {
         bytes32 indexed tradeHash,
         uint256 indexed sellAmount,
         uint256 indexed minBuyAmount,
-        uint256 deadline
+        uint32 deadline
     );
+
+    event Repay(uint256 amount);
 
     event Redeem(
         address indexed receiver,

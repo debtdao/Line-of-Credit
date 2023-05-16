@@ -7,7 +7,9 @@ import {ERC20} from "solmate/tokens/ERC20.sol";
 import {GPv2Order} from "../../utils/GPv2Order.sol";
 
 import {ISpigot} from "../../interfaces/ISpigot.sol";
+import {IWETH} from "../../interfaces/IWETH.sol";
 import {IRevenueShareAgreement} from "../../interfaces/IRevenueShareAgreement.sol";
+import { getWrapper, UnsupportedNetwork } from "../../utils/Multichain.sol";
 
 /**
 * @title Revenue Share Agreemnt
@@ -21,17 +23,17 @@ import {IRevenueShareAgreement} from "../../interfaces/IRevenueShareAgreement.so
 */
 contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     using GPv2Order for GPv2Order.Data;
-
-    uint256 internal constant MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
-    /// @dev The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
+    /// @notice The contract that settles all trades. Must approve sell tokens to this address.
+    /// @dev Same address acorss all chains
+    address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
+    /// @notice The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
+    /// @dev Same acorss all chains because settlement address is the same
     bytes32 internal constant COWSWAP_DOMAIN_SEPARATOR =
         0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
-    /// @dev The contract that settles all trades. Must approve sell tokens to this address.
-    address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
-    address internal constant WETH = 0xC92E8bdf79f0507f65a392b0ab4667716BFE0110;
     bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
     bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
     uint8 internal constant MAX_REVENUE_SPLIT = 100;
+    IWETH internal WETH;
 
     ISpigot public spigot;
     address public lender;
@@ -83,13 +85,14 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         creditToken = _creditToken;
         lenderRevenueSplit = _revenueSplit;
         initialPrincipal = _initialPrincipal;
+        _setWrapperForNetwork();
     }
 
     /**
     * @notice Lets lenders deposit Borrower's requested loan amount into RSA and receive back redeemable shares of revenue stream
     * @dev callable by anyone if offer not accepted yet
     */
-    function deposit() external returns(bool) {
+    function deposit(address _receiver) external returns(bool) {
         if(lender != address(0)) {
             revert DepositsFull();
         }
@@ -97,7 +100,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // store who accepted borrower's offer. only 1 lender per RSA
         lender = msg.sender;
         // issue RSA token to lender to redeem later
-        _mint(msg.sender, totalOwed);
+        _mint(_receiver, totalOwed);
         // extend credit to borrower
         ERC20(creditToken).transferFrom(msg.sender, borrower, initialPrincipal);
 
@@ -127,7 +130,8 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         if(msg.sender != _owner) {
             uint256 allowed = allowance[_owner][msg.sender]; // Saves gas for limited approvals.
             if (allowed != type(uint256).max) {
-                allowance[_owner][msg.sender] = allowed - _amount;
+                if(_amount > allowed) revert InsufficientAllowance();
+                else allowance[_owner][msg.sender] -= _amount;
             }
         }
         
@@ -168,43 +172,52 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         uint256 _minBuyAmount,
         uint32 _deadline
     ) external returns(bytes32 tradeHash) {
-        require(lender !=  address(0), "Trade not required");
-        require(_revenueToken != creditToken, "Cant sell token being bought");
+        // require()s ordered by least gas intensive
         /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
-        require(_sellAmount != 0 || _minBuyAmount != 0, "Invalid trade amount");
+        require(_sellAmount != 0, "Invalid trade amount");
         require(_deadline >= block.timestamp, "Trade _deadline has passed");
+        require(totalOwed != 0, "No debt to trade for");
+        require(lender != address(0), "agreement unitinitiated");
+        require(_revenueToken != creditToken, "Cant sell token being bought");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
+
         // not sure if we need to check balance, order would just fail.
         // might be an issue with approving an invalid order that could be exploited later
-        require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
+        // require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
 
-        // increase so multiple revenue streams in same token dont override each other
-        // we always sell all revenue tokens
-        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, MAX_UINT);
+        // call max so multiple orders/revenue streams with same token dont override each other
+        // we always specify a specific amount of revenue tokens to sell but not all tokens support increaseAllowance
+        ERC20(_revenueToken).approve(COWSWAP_SETTLEMENT_ADDRESS, type(uint256).max);
 
         tradeHash = generateOrder(
             _revenueToken,
             _sellAmount,
             _minBuyAmount,
             _deadline
-        ).hash(COWSWAP_DOMAIN_SEPARATOR); // hash order with settlement contract as EIP-712 verifier
+        ).hash(COWSWAP_DOMAIN_SEPARATOR);
+        // hash order with settlement contract as EIP-712 verifier
+        // Then settlement calls back to our isValidSignature to verify trade
 
         orders[tradeHash] = 1;
         emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
     }
 
     /**
-    * @notice Wraps ETH to WETH because CoWswap only supports ERC20 tokens.
+    * @notice Wraps ETH to WETH (or other respective asset) because CoWswap only supports ERC20 tokens.
     *         This is easier than using their ETH flow.
     *         We dont allow native ETH as creditToken so any ETH is revenue and should be wrapped.
     * @dev callable by anyone. no state change, MEV, exploit potential
     * @return amount - amount of ETH wrapped 
     */
-    function wrapETH() external returns(uint256 amount) {
+    function wrap() external returns(uint256 amount) {
+        uint256 initialBalance = WETH.balanceOf(address(this));
         amount = address(this).balance;
-        (bool success,) = WETH.call{value: amount}(abi.encodeWithSignature("deposit()"));
-        if(!success) {
-            revert WETHDepositFailed();
+
+        WETH.deposit{value: amount}();
+        
+        uint256 postBalance = WETH.balanceOf(address(this));
+        if(postBalance - initialBalance != amount) {
+            revert InvalidWETHDeposit();
         }
     }
 
@@ -219,7 +232,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     /**
     * @notice Lets Borrower redeem any excess revenue not needed to repay lenders.
     *         We assume any token in this contract is a revenue token and is collateral
-    *        so only callable if no lender deposits yet or after RSA is fully repaid.
+    *         so only callable if no lender deposits yet or after RSA is fully repaid.
     *         Full token balance is swept to `_to`.
     * @dev   If you need to sweep raw ETH call wrapETH() first.
     * @param _token - amount of RSA tokens to redeem @ 1:1 ratio for creditToken
@@ -230,18 +243,18 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             revert NotBorrower();
         }
 
-        // can reclaim if no lender has deposited yet, else
-        // cannot Redeem spigot until the RSA has been repaid
         if(lender != address(0) && totalOwed != 0) {
             revert CantSweepWhileInDebt();
         }
 
+        uint256 balance = ERC20(_token).balanceOf(address(this));
         if(_token == creditToken) {
             // If all debt is repaid but lenders still havent claimed underlying
             // keep enough underlying for redemptions
-            ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)) - totalSupply);
+            // NOTE: totalSupply == 0 until deposit() called
+            ERC20(_token).transfer(_to, balance - totalSupply);
         } else {
-            ERC20(_token).transfer(_to, ERC20(_token).balanceOf(address(this)));
+            ERC20(_token).transfer(_to, balance);
         }
 
         
@@ -397,19 +410,20 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // so any new tokens are from revenue and we just check against current revenue deposits
         uint256 currBalance = ERC20(creditToken).balanceOf(address(this));
         uint256 newPayments = currBalance - claimableAmount;
-        uint256 repaid = totalOwed; // cache in memory
+        uint256 maxPayable = totalOwed; // cache in memory
 
-        if(newPayments > repaid) {
+        if(newPayments > maxPayable) {
             // if revenue > debt then repay all debt
             // and return excess to borrower
-            claimableAmount = repaid;
+            claimableAmount = maxPayable;
             totalOwed = 0;
-            return repaid;
+            emit Repay(maxPayable);
+            return maxPayable;
             // borrower can now sweep() excess funds + releaseSpigot()
         } else {
-
             claimableAmount += newPayments;
             totalOwed -= newPayments;
+            emit Repay(newPayments);
             return newPayments;
         }
     }
@@ -437,6 +451,21 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20
         });
+    }
+
+    /**
+    * @dev do not need to worry about network forks affecting wrapper contract address
+    * so dont need to update like EIP721 domain separator
+    */
+    function _setWrapperForNetwork() internal {
+        emit log_named_uint2("chain id", block.chainid);
+        address newWraper = getWrapper();
+
+        if(address(0) == newWraper) {
+            revert UnsupportedNetwork();
+        }
+
+        WETH = IWETH(newWraper);
     }
 
     // decide if we want dynamic price checker or user puts minOut+deadline in order creation

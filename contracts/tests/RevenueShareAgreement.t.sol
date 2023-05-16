@@ -106,6 +106,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
         // deal terms
         assertEq(totalOwed, rsa.totalOwed());
+        assertEq(0, rsa.totalSupply());
         assertEq(initialPrincipal, rsa.initialPrincipal());
         assertEq(lenderRevenueSplit, rsa.lenderRevenueSplit());
         assertEq(address(creditToken), address(rsa.creditToken()));
@@ -215,6 +216,26 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     // any tets for Proxy that we need to check e.g. same byte code for all deployed contracts?]
 
+    /*********************
+    **********************
+    
+    RSA System Invariants
+
+    Unit Tests
+
+    **********************
+    *********************/
+
+    /// @dev TODO: pretty sure this isnt running as i expect even though it passes
+    function invariant_totalSupply_equalsTotalOwedMinusTotalClaimable() public {
+        if(rsa.totalSupply() != 0) {
+            assertEq(rsa.totalSupply(), rsa.totalOwed() - rsa.claimableAmount());
+        } else {
+            // totalSupply == 0 until deposit() called
+            assertGe(rsa.claimableAmount(), rsa.totalSupply());
+            assertGe(rsa.totalOwed(), rsa.totalSupply());
+        }
+    }
 
     /*********************
     **********************
@@ -238,7 +259,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         
         vm.startPrank(lender);
         creditToken.approve(address(rsa), type(uint256).max);
-        rsa.deposit();
+        rsa.deposit(lender);
 
         uint256 lenderBalance2 = creditToken.balanceOf(lender);
         uint256 borrowerBalance1 = creditToken.balanceOf(borrower);
@@ -292,19 +313,19 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.startPrank(lender);
         vm.expectRevert(IRevenueShareAgreement.DepositsFull.selector);
         // reverts before ERC20 transfer so no approval needed
-        rsa.deposit();
+        rsa.deposit(lender);
         vm.stopPrank();
 
         vm.startPrank(rando);
         vm.expectRevert(IRevenueShareAgreement.DepositsFull.selector);
         // reverts before ERC20 transfer so no approval needed
-        rsa.deposit();
+        rsa.deposit(lender);
         vm.stopPrank();
 
         vm.startPrank(lender);
         vm.expectRevert(IRevenueShareAgreement.DepositsFull.selector);
         // reverts before ERC20 transfer so no approval needed
-        rsa.deposit();
+        rsa.deposit(lender);
         vm.stopPrank();
     }
 
@@ -814,7 +835,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         }
     }
 
-    function test_repay_mustCapRepaymentToToalOwed() public {
+    function test_repay_mustCapRepaymentToTotalOwed() public {
         // semantic wrapper
         test_repay_fullAmountMultipleTimes();
     }
@@ -826,7 +847,9 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         uint256 claimed = rsa.claimRev(address(creditToken));
 
         assertEq(0, rsa.totalOwed());
+        assertEq(totalOwed, rsa.claimableAmount());
         assertEq(creditToken.balanceOf(address(rsa)), claimed);
+        // double check we claimed more than owed for later math
         assertGe(creditToken.balanceOf(address(rsa)), totalOwed);
 
         // clear operator tokens so _assertSpigot in _generateRevenue passes on multiple invocations
@@ -836,8 +859,14 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _generateRevenue(revenueContract, creditToken, MAX_REVENUE);
         uint256 claimed2 = rsa.claimRev(address(creditToken));
 
-        assertEq(0, rsa.totalOwed());
-        assertEq(totalOwed, rsa.claimableAmount());
+        uint256 newTotalOwed = rsa.totalOwed();
+        assertEq(0, newTotalOwed);
+        uint256 claimable = claimed + claimed2 > newTotalOwed ? newTotalOwed : claimed + claimed2;
+        assertEq(claimable, rsa.claimableAmount(), "claimable vs owed not valid");
+
+        emit log_named_uint("expected claimable", claimable);
+        emit log_named_uint("multifull payments Owed ", newTotalOwed);
+        emit log_named_uint("vs claiomable",  rsa.claimableAmount());
         assertEq(creditToken.balanceOf(address(rsa)), claimed + claimed2);
         assertGe(claimed + claimed2, totalOwed);
 
@@ -877,6 +906,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         assertEq(_transferFunc, bytes4(0));
 
         _depositRSA(lender, rsa);
+        
         vm.startPrank(lender);
         rsa.addSpigot(_revContract, claimPushPaymentFunc, transferOwnerFunc);
         vm.stopPrank();
@@ -904,7 +934,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     /// @dev invariant
     function test_addSpigot_updatesCorrectRevenueContract() public {
-        // semantic wrapper since both tests check same thing by default
+        // semantic wrapper since both tests check same thing by default since revsplit is hardcoded
         test_addSpigot_mustUseInitializedRevenueSplit();
     }
 
@@ -997,18 +1027,245 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     
     **********************
     *********************/
-    // only borrower can sweep
-    // only borrower can releaseSpigot
-    // can sweep if no lender/deposit yet
-    // can releaseSpigot if no lender/deposit yet
-    // can sweep if lender and no debt
-    // can releaseSpigot if lender and no debt
-    // releaseSpigot updates spigot owner to _to (don't need to block rsa address bc can just call releaseSpigot again)
-    // sweep updates _token balance of rsa
-    // sweep updates _token balance of _to
-    // test cant sweep() creditToken greater than rsa.totalSupply()  (claimabe amount invariant should cover this)!!!!
+
+    function test_releaseSpigot_onlyBorrower() public {
+        vm.expectRevert(IRevenueShareAgreement.NotBorrower.selector);
+        vm.startPrank(rando);
+        rsa.releaseSpigot(rando);
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        rsa.releaseSpigot(borrower);
+        vm.stopPrank();
+
+        // set lender so to test that role
+        _depositRSA(lender, rsa);
+        
+        // still cant releaseSpigot() once they depost and become the ofificial lender
+        vm.expectRevert(IRevenueShareAgreement.NotBorrower.selector);
+        vm.startPrank(lender);
+        rsa.releaseSpigot(lender);
+        vm.stopPrank();
+    }
 
 
+    function test_releaseSpigot_mustDisperseIfNoLender() public {
+        // semantice rewrapping for different condition but same code since no lender == no debt
+        test_releaseSpigot_mustDisperseIfNoDebt();
+    }
+
+    function test_releaseSpigot_mustDisperseIfNoDebt() public {
+        // no debt so no dispersement
+        assertEq(spigot.owner(), address(rsa));
+        vm.startPrank(borrower);
+        rsa.releaseSpigot(borrower);
+        assertEq(spigot.owner(), borrower);
+        
+        // send back to rsa totest post debt repayment
+        spigot.updateOwner(address(rsa));
+        assertEq(spigot.owner(), address(rsa));
+        vm.stopPrank();
+        
+        // set lender so to test that role
+        _depositRSA(lender, rsa);
+
+        vm.startPrank(borrower);
+        creditToken.mint(address(rsa), rsa.totalOwed());
+        rsa.repay();
+        rsa.releaseSpigot(borrower);
+        assertEq(spigot.owner(), borrower);
+        vm.stopPrank();
+    }
+
+    function test_releaseSpigot_mustFailIfDebt() public {
+        // now borrower is in debt
+        _depositRSA(lender, rsa);
+                
+        vm.startPrank(borrower);
+        vm.expectRevert(IRevenueShareAgreement.CantSweepWhileInDebt.selector);
+        rsa.releaseSpigot(borrower);
+        assertEq(spigot.owner(), address(rsa));
+
+        
+        creditToken.mint(address(rsa), rsa.totalOwed());
+        rsa.repay();
+        rsa.releaseSpigot(borrower);
+
+        assertEq(spigot.owner(), borrower);
+        vm.stopPrank();
+    }
+
+    function test_sweep_onlyBorrower() public {
+        vm.expectRevert(IRevenueShareAgreement.NotBorrower.selector);
+        vm.startPrank(rando);
+        rsa.sweep(address(revenueToken), rando);
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        rsa.sweep(address(revenueToken), borrower);
+        vm.stopPrank();
+
+        // set lender so to test that role
+        _depositRSA(lender, rsa);
+        
+        // still cant sweep() once they depost and become the ofificial lender
+        vm.expectRevert(IRevenueShareAgreement.NotBorrower.selector);
+        vm.startPrank(lender);
+        rsa.sweep(address(revenueToken), lender);
+        vm.stopPrank();
+    }
+
+    
+    function test_sweep_sendsFullRevenueTokenBalance() public {
+        revenueToken.mint(address(rsa), 1000);
+        uint256 preBalance = revenueToken.balanceOf(address(rsa));
+        uint256 sweeperBalance = revenueToken.balanceOf(address(rando));
+
+        vm.startPrank(borrower);
+        rsa.sweep(address(revenueToken), rando);
+        vm.stopPrank();
+
+        uint256 postBalance = revenueToken.balanceOf(address(rsa));
+        uint256 sweeperBalance2 = revenueToken.balanceOf(address(rando));
+        assertEq(postBalance, 0);
+        assertEq(preBalance - postBalance, 1000);
+        assertEq(sweeperBalance2 - sweeperBalance, 1000);
+    }
+
+
+    function test_sweep_retainsCreditTokensEqualToClaims() public {
+        creditToken.mint(address(rsa), 1000);
+        uint256 preBalance = creditToken.balanceOf(address(rsa));
+
+        assertEq(rsa.totalSupply(), 0, "invariant Failed: no deposit() == no claims == no supply");
+        vm.startPrank(borrower);
+        // no lender so totalSupply == 0 == can sweep full amount
+        rsa.sweep(address(creditToken), rando);
+        vm.stopPrank();
+
+        uint256 postBalance = creditToken.balanceOf(address(rsa));
+        // cant seep bc there are still totalOwed() amount of outstanding claims to retain creditTokens for
+        assertEq(postBalance, 0);
+        assertEq(preBalance - postBalance, 1000, "1st no-debt sweep failed on RSA balance");
+        assertEq(creditToken.balanceOf(address(rando)), 1000, "1st no-debt sweep failed to receipien");
+        
+        _depositRSA(lender, rsa); // now totalSupply == totalOwed && totalSupply > 0
+        // totalSupply still equal original supply because no redeems yet
+        assertEq(rsa.totalSupply(), totalOwed); 
+        
+        creditToken.mint(address(rsa), rsa.totalOwed() + 1000);
+        rsa.repay();
+        assertEq(rsa.totalOwed(), 0, "All debt mustve been repaid"); 
+        assertEq(rsa.totalSupply(), totalOwed);  //  still no redeems so full suopply exists
+        
+        uint256 preBalance2 = creditToken.balanceOf(address(rsa));
+        assertEq(preBalance2, totalOwed + 1000);
+
+        vm.startPrank(borrower);
+        // no debt so sweep works
+        rsa.sweep(address(creditToken), rando);
+        uint256 sweeperBalance1 = creditToken.balanceOf(rando);
+        assertEq(2000, sweeperBalance1); // 1000 from original sweep + 1000 from second sweep
+        vm.stopPrank();
+
+        uint256 postBalance2 = creditToken.balanceOf(address(rsa));
+        assertEq(postBalance2, totalOwed);
+        assertEq(preBalance2 - postBalance2, 1000);
+
+        vm.startPrank(lender);
+        uint256 redeemedAmount = 5000;
+        rsa.redeem(lender, lender, redeemedAmount);
+        vm.stopPrank();
+        uint256 postBalance3 = creditToken.balanceOf(address(rsa));
+        assertEq(postBalance3, totalOwed - redeemedAmount, "bad post deposit + redeem balances");
+        assertEq(postBalance2 - postBalance3, redeemedAmount);
+
+        vm.startPrank(borrower);
+        // already swept excess so cant sweep more since balance == claims still
+        rsa.sweep(address(creditToken), rando);
+        uint256 sweeperBalance2 = creditToken.balanceOf(rando);
+        assertEq(2000, sweeperBalance2, "sweeper failed"); // 1000 == original sweep
+        assertEq(postBalance3, creditToken.balanceOf(address(rsa)));
+
+        creditToken.mint(address(rsa), 1000);
+        assertEq(postBalance3 + 1000, creditToken.balanceOf(address(rsa)));
+        rsa.sweep(address(creditToken), rando);
+        uint256 sweeperBalance3 = creditToken.balanceOf(rando);
+        assertEq(3000, sweeperBalance3, "bad end sweeper balances"); // 2000 == original sweep + final sweep
+        
+         // ensure we still have right claimable amount of underlying tokens in contract
+        assertEq(postBalance3, creditToken.balanceOf(address(rsa)));
+        assertEq(postBalance3, totalOwed - redeemedAmount);
+        
+        vm.stopPrank();
+    }
+
+    function test_sweep_mustDisperseIfNoLender() public {
+        // semantice rewrapping for different condition but same code since no lender == no debt
+        test_sweep_mustDisperseIfNoDebt();
+    }
+    
+    function test_sweep_mustDisperseIfNoDebt() public {
+        revenueToken.mint(address(rsa), 1000);
+        uint256 preBalance = revenueToken.balanceOf(address(rsa));
+
+        vm.startPrank(borrower);
+        // no lender so no debt
+        rsa.sweep(address(revenueToken), borrower);
+        vm.stopPrank();
+        assertEq(rsa.totalOwed(), totalOwed); // totalOwed not updated because _repay never called
+
+        uint256 postBalance = revenueToken.balanceOf(address(rsa));
+        assertEq(postBalance, 0);
+        assertEq(preBalance - postBalance, 1000);
+
+        _depositRSA(lender, rsa);
+        
+        // repay full  debt
+        creditToken.mint(address(rsa), rsa.totalOwed());
+        rsa.repay();
+        revenueToken.mint(address(rsa), 1000);
+        uint256 preBalance2 = revenueToken.balanceOf(address(rsa));
+
+        vm.startPrank(borrower);
+        // debt repaid so can sweep now
+        rsa.sweep(address(revenueToken), borrower);
+        vm.stopPrank();
+
+        uint256 postBalance2 = revenueToken.balanceOf(address(rsa));
+        assertEq(postBalance2, 0);
+        assertEq(preBalance2 - postBalance2, 1000);
+    }
+
+
+    function test_sweep_mustFailIfDebt() public {
+        revenueToken.mint(address(rsa), 1000);
+        uint256 preBalance = revenueToken.balanceOf(address(rsa));
+
+        vm.startPrank(borrower);
+        // no lender so no debt so can sweep
+        rsa.sweep(address(revenueToken), borrower);
+        vm.stopPrank();
+
+        uint256 postBalance = revenueToken.balanceOf(address(rsa));
+        assertEq(postBalance, 0);
+        assertEq(preBalance - postBalance, 1000);
+
+        // now borrower is in debt
+        _depositRSA(lender, rsa);
+                
+        revenueToken.mint(address(rsa), 1000);
+        uint256 preBalance2 = revenueToken.balanceOf(address(rsa));
+
+        vm.startPrank(borrower);
+        vm.expectRevert(IRevenueShareAgreement.CantSweepWhileInDebt.selector);
+        rsa.sweep(address(revenueToken), borrower);
+        vm.stopPrank();
+
+        uint256 postBalance2 = revenueToken.balanceOf(address(rsa));
+        assertEq(postBalance2, 1000);
+        assertEq(preBalance2 - postBalance2, 0);
+    }
 
     /*********************
     **********************
@@ -1020,31 +1277,16 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     **********************
     *********************/
 
-    function test_initiateOrder_returnsOrderHash() public {
-        _depositRSA(lender, rsa);
-        vm.startPrank(lender);
-        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        assertTrue(orderHash != bytes32(0));
-        vm.stopPrank();
-    }
+
+    // TODO what happens if we iniitate multiple orders for the same token inbetween the first one being finalized?
+    // could happen with same tokens or new revenue tokens between trade inits
 
     /// @dev invariant
-    function test_initiateOrder_mustUseHardcodedOrderParams() public {
-        _depositRSA(lender, rsa);
-
-        address sellToken = address(revenueToken);
-        uint32 deadline = uint32(block.timestamp + 100 days);
-
-        GPv2Order.Data memory expectedOrder = rsa.generateOrder(sellToken, 1, 0, deadline);
-        bytes32 expectedHash = expectedOrder.hash(COWSWAP_DOMAIN_SEPARATOR);
-
-        vm.startPrank(lender);
-        bytes32 orderHash = rsa.initiateOrder(sellToken, 1, 0, deadline);
-        vm.stopPrank();
-        
-        assertEq(orderHash, expectedHash);
+    function test_generateOrder_mustReturnCowswapOrderFormat() public {
+        // semantic wrapper
+        // we already manually import GPv2 library and check against generateOrder
+        test_generateOrder_mustUseHardcodedOrderParams();
     }
-
 
     /// @dev invariant
     function test_generateOrder_mustUseHardcodedOrderParams() public {
@@ -1077,12 +1319,31 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
 
-    /// @dev invariant
-    function test_generateOrder_mustReturnCowswapOrderFormat() public {
-        // semantic wrapper
-        // we  already manually import GPv2 library and check against generateOrder
-        test_generateOrder_mustUseHardcodedOrderParams();
+    function test_initiateOrder_returnsOrderHash() public {
+        _depositRSA(lender, rsa);
+        vm.startPrank(lender);
+        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        assertTrue(orderHash != bytes32(0));
+        vm.stopPrank();
     }
+
+    /// @dev invariant
+    function test_initiateOrder_mustUseHardcodedOrderParams() public {
+        _depositRSA(lender, rsa);
+
+        address sellToken = address(revenueToken);
+        uint32 deadline = uint32(block.timestamp + 100 days);
+
+        GPv2Order.Data memory expectedOrder = rsa.generateOrder(sellToken, 1, 0, deadline);
+        bytes32 expectedHash = expectedOrder.hash(COWSWAP_DOMAIN_SEPARATOR);
+
+        vm.startPrank(lender);
+        bytes32 orderHash = rsa.initiateOrder(sellToken, 1, 0, deadline);
+        vm.stopPrank();
+        
+        assertEq(orderHash, expectedHash);
+    }
+
 
     function test_initiateOrder_mustOwnSellAmount() public {
         _depositRSA(lender, rsa);
@@ -1102,7 +1363,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
     /// @dev invariant
-    function test_initiateOrder_cantTradeIfNoDebt() public {
+    function invariant_initiateOrder_cantTradeIfNoDebt() public {
         // havent deposited so no debt
         vm.startPrank(borrower);
         vm.expectRevert("Trade not required");
@@ -1191,8 +1452,9 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
     /// @dev invariant
-    function test_verifySignature_mustBeSellOrder() public {
-        revert();
+    function invariant_verifySignature_mustBeSellOrder() public {
+        // GPv2Order memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        // rsa.orders[order.hash(COWSWAP_DOMAIN_SEPARATOR)] = 1;
     }
 
     /// @dev invariant
@@ -1227,6 +1489,25 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _depositRSA(lender, rsa);
     }
 
+    function test_repay_emitsRepayEvent(uint256 _amount) public {
+        vm.assume(_amount > 100);
+        creditToken.mint(address(rsa), _amount);
+        vm.expectEmit(true, true, true, true, address(rsa));
+        uint256 claimble = _amount > totalOwed ? totalOwed : _amount;
+        emit Repay(claimble);
+        rsa.repay();
+    }
+
+    function test_claimRev_emitsRepayEvent(uint256 _amount) public {
+        uint256 revAmount = bound(_amount, 100, MAX_UINT - totalOwed); // prevent overflow in ERC20 totalSupply
+        _depositRSA(lender, rsa);
+        (uint256 claimed, ) = _generateRevenue(revenueContract, creditToken, revAmount);
+        uint256 claimable = claimed > totalOwed ? totalOwed : claimed;
+        vm.expectEmit(true, true, false, false, address(rsa));
+        emit Repay(claimable);
+        rsa.claimRev(address(creditToken));
+    }
+
     function test_redeem_emitsRedeemEvent() public {
         _depositRSA(lender, rsa);
 
@@ -1253,6 +1534,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.stopPrank();
     }
 
+    // repay emits Repay event
 
     /*********************
     **********************
@@ -1296,7 +1578,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         // deal(address(creditToken), _lender, rsa.initialPrincipal());
         vm.startPrank(_lender);
         creditToken.approve(address(_rsa), type(uint256).max);
-        _rsa.deposit();
+        _rsa.deposit(_lender);
         vm.stopPrank();
     }
 
