@@ -26,11 +26,13 @@ interface IRevenueShareAgreement {
 
     event log_named_uint2(string err, uint256 val);
 
-    event TradeInitiated(
-        bytes32 indexed tradeHash,
-        uint256 indexed sellAmount,
-        uint256 indexed minBuyAmount,
-        uint32 deadline
+    event OrderInitiated(
+        address indexed creditToken,
+        address indexed revenueToken,
+        bytes32 tradeHash,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        uint32 validTo
     );
 
     event Repay(uint256 amount);

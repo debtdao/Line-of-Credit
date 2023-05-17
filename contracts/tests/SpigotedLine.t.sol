@@ -66,7 +66,8 @@ contract SpigotedLineTest is Test, Events {
         revenueToken = new RevenueToken();
 
         oracle = new SimpleOracle(address(revenueToken), address(creditToken));
-        spigot = new Spigot(address(this), borrower);
+        spigot = new Spigot(); 
+ spigot.initialize(address(this), borrower);
         
         line = new SpigotedLine(
           address(oracle),

@@ -5,6 +5,8 @@ import {LineLib} from "../utils/LineLib.sol";
 import {ISpigot} from "../interfaces/ISpigot.sol";
 
 struct SpigotState {
+    /// @notice if spigot stakeholder access control has been setup after deployment
+    bool initialized;
     /// @notice Economic owner of Spigot revenue streams
     address owner;
     /// @notice account in charge of running onchain ops of spigoted contracts on behalf of owner
@@ -26,8 +28,6 @@ struct SpigotState {
  * @dev see Spigot docs
  */
 library SpigotLib {
-    event log_named_uint2(string err, uint256 val);
-
     // Maximum numerator for Setting.ownerSplit param to ensure that the Owner can't claim more than 100% of revenue
     uint8 constant MAX_SPLIT = 100;
     // cap revenue per claim to avoid overflows on multiplication when calculating percentages

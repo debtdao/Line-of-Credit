@@ -29,6 +29,8 @@ interface ISpigot {
     event UpdateOperator(address indexed newOperator);
 
     // Errors
+    error SpigotAlreadyInitialized();
+
     error BadFunction();
 
     error OperatorFnNotWhitelisted();

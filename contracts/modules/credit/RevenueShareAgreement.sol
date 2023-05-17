@@ -199,7 +199,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // Then settlement calls back to our isValidSignature to verify trade
 
         orders[tradeHash] = 1;
-        emit TradeInitiated(tradeHash, _sellAmount, _minBuyAmount, _deadline);
+        emit OrderInitiated(creditToken, _revenueToken, tradeHash, _sellAmount, _minBuyAmount, _deadline);
     }
 
     /**

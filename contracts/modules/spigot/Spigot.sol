@@ -27,7 +27,9 @@ contract Spigot is ISpigot, ReentrancyGuard {
      * @param _operator - An active address for non-Owner that can execute whitelisted functions to manage and maintain product operations
      *                  - on revenue generating contracts controlled by the Spigot.
      */
-    constructor(address _owner, address _operator) {
+    function initialize(address _owner, address _operator) public {
+        if(state.initialized != false) revert SpigotAlreadyInitialized();
+        state.initialized = true;
         state.owner = _owner;
         state.operator = _operator;
     }

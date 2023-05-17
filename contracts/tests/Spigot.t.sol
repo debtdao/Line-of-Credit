@@ -67,7 +67,8 @@ contract SpigotTest is Test, ISpigot {
         bytes4 _claimFunc,
         bytes4 _newOwnerFunc
     ) internal {
-        spigot = new Spigot(owner, operator);
+        spigot = new Spigot(); 
+         spigot.initialize(owner, operator);
 
         // deploy new revenue contract with settings
         revenueContract = address(new SimpleRevenueContract(owner, _token));
@@ -914,7 +915,8 @@ contract SpigotTest is Test, ISpigot {
 
         settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
 
-        spigot = new Spigot(owner, operator);
+        spigot = new Spigot(); 
+         spigot.initialize(owner, operator);
 
         vm.expectRevert(SpigotLib.InvalidRevenueContract.selector);
         spigot.addSpigot(address(spigot), settings);
@@ -925,7 +927,8 @@ contract SpigotTest is Test, ISpigot {
 
         settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
 
-        spigot = new Spigot(owner, operator);
+        spigot = new Spigot(); 
+         spigot.initialize(owner, operator);
 
         spigot.addSpigot(address(revenueContract), settings);
 

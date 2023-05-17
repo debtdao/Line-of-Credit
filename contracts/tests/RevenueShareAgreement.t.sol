@@ -138,7 +138,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     function test_initialize_mustBorrowNonNullAddress() public {
         vm.expectRevert(IRevenueShareAgreement.InvalidBorrowerAddress.selector);
-        factory.createRSA(
+        factory.deployRSA(
             address(spigot),
             address(0), // here
             address(creditToken),
@@ -152,7 +152,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     function test_initialize_mustSpigotNonNullAddress() public {
         vm.expectRevert(IRevenueShareAgreement.InvalidSpigotAddress.selector);
-        factory.createRSA(
+        factory.deployRSA(
             address(0),  // here
             borrower,
             address(creditToken),
@@ -1521,14 +1521,14 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.stopPrank();
     }
 
-    function test_initiateOrder_emitsTradeInitiatedEvent() public {
+    function test_initiateOrder_emitsOrderInitiatedEvent() public {
         _depositRSA(lender, rsa);
         bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(orderId), 0);
 
         vm.startPrank(lender);
         vm.expectEmit(true, true, true, true, address(rsa));
-        emit TradeInitiated(orderId, 1, 0, uint32(block.timestamp + 100 days));
+        emit OrderInitiated(address(creditToken), address(revenueToken), orderId, 1, 0, uint32(block.timestamp + 100 days));
         rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
         assertEq(rsa.orders(orderId), 1);
         vm.stopPrank();
@@ -1557,7 +1557,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         uint256 _totalOwed,
         uint8 _revSplit
     ) internal returns(RevenueShareAgreement newRSA) {
-        address _newRSA = factory.createRSA(
+        address _newRSA = factory.deployRSA(
             address(spigot),
             borrower,
             _token,
@@ -1630,7 +1630,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         bytes4 _claimFunc,
         bytes4 _newOwnerFunc
     ) internal returns(address) {
-        spigot = new Spigot(borrower, operator);
+        spigot = new Spigot(); 
+        spigot.initialize(borrower, operator);
 
         // deploy new revenue contract with settings
         revenueContract = _addRevenueContract(spigot, borrower, _token, _split, _claimFunc, _newOwnerFunc);

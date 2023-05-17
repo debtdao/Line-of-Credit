@@ -1,7 +1,7 @@
 pragma solidity ^0.8.16;
 
 interface IRSAFactory {
-    function createRSA(
+    function deployRSA(
         address _spigot,
         address _borrower,
         address _creditToken,
@@ -13,12 +13,15 @@ interface IRSAFactory {
     ) external returns(address);
 
     // move to factory
-    event DeployRSA(
+    event DeployedRSA(
         address indexed borrower,
         address indexed spigot,
         address indexed creditToken,
+        address rsa,
         uint256 initialPrinciple,
         uint256 totalOwed,
         uint8 lenderRevenueSplit
     );
+
+    event DeployedSpigot(address spigot, address indexed owner, address indexed operator);
 }
