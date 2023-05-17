@@ -53,8 +53,8 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     constructor() ERC20("Debt DAO Revenue Share Agreement", "RSA", 18) {}
 
     function initialize(
-        address _spigot,
         address _borrower,
+        address _spigot,
         address _creditToken,
         uint8 _revenueSplit,
         uint256 _initialPrincipal,

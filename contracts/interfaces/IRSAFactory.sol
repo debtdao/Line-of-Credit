@@ -2,8 +2,8 @@ pragma solidity ^0.8.16;
 
 interface IRSAFactory {
     function deployRSA(
-        address _spigot,
         address _borrower,
+        address _spigot,
         address _creditToken,
         uint8 _revenueSplit,
         uint256 _initialPrincipal,

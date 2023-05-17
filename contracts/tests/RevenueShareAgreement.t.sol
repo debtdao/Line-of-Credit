@@ -139,8 +139,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     function test_initialize_mustBorrowNonNullAddress() public {
         vm.expectRevert(IRevenueShareAgreement.InvalidBorrowerAddress.selector);
         factory.deployRSA(
-            address(spigot),
             address(0), // here
+            address(spigot),
             address(creditToken),
             lenderRevenueSplit,
             initialPrincipal,
@@ -153,8 +153,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     function test_initialize_mustSpigotNonNullAddress() public {
         vm.expectRevert(IRevenueShareAgreement.InvalidSpigotAddress.selector);
         factory.deployRSA(
-            address(0),  // here
             borrower,
+            address(0),  // here
             address(creditToken),
             lenderRevenueSplit,
             initialPrincipal,
@@ -168,8 +168,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.prank(borrower);
         vm.expectRevert(IRevenueShareAgreement.AlreadyInitialized.selector);
         rsa.initialize(
-            address(spigot),
             borrower,
+            address(spigot),
             address(creditToken),
             lenderRevenueSplit,
             initialPrincipal,
@@ -181,8 +181,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.prank(lender);
         vm.expectRevert(IRevenueShareAgreement.AlreadyInitialized.selector);
         rsa.initialize(
-            address(spigot),
             borrower,
+            address(spigot),
             address(creditToken),
             lenderRevenueSplit,
             initialPrincipal,
@@ -194,8 +194,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         vm.prank(rando);
         vm.expectRevert(IRevenueShareAgreement.AlreadyInitialized.selector);
         rsa.initialize(
-            address(spigot),
             borrower,
+            address(spigot),
             address(creditToken),
             lenderRevenueSplit,
             initialPrincipal,
@@ -1558,8 +1558,8 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         uint8 _revSplit
     ) internal returns(RevenueShareAgreement newRSA) {
         address _newRSA = factory.deployRSA(
-            address(spigot),
             borrower,
+            address(spigot),
             _token,
             _revSplit,
             _initialPrincipal,
