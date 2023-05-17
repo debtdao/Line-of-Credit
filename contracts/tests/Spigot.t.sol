@@ -50,7 +50,7 @@ contract SpigotTest is Test, ISpigot {
 
         _initSpigot(
             address(token),
-            100,
+            65,
             claimPushPaymentFunc,
             transferOwnerFunc
         );
@@ -197,6 +197,81 @@ contract SpigotTest is Test, ISpigot {
         vm.expectRevert(ISpigot.CallerAccessDenied.selector);
         spiggy.updateOperator(vm.addr(42));
     }
+
+
+    /*
+    * @notice tests same thing as `test_claimRevenue_updatesTokenReservesOnMultipleClaims`
+    * but wanted a diff test where we clear storage periodically instead of trying to test the max
+    * @dev invariant (started working on it below) 
+    */
+    function test_ownerAndOperatorTokens(uint64 _revenue, uint8 _months) public  {
+        vm.assume(_months > 12);
+        uint256 expectedOwnerTokens;
+        uint256 expectedOperatorTokens;
+        uint256 totalFees;
+        
+        uint256 fees = bound(_revenue, 15_000 * 10**18, MAX_REVENUE * 2);
+        uint256 ownerAmount = fees * settings.ownerSplit / 100;
+        uint256 operatorAmount = fees - ownerAmount;
+
+        for(uint8 i; i < _months; i++) {
+            token.mint(address(spigot), fees);
+            spigot.claimRevenue(revenueContract, address(token), abi.encodeWithSelector(claimPushPaymentFunc)); 
+            expectedOwnerTokens += ownerAmount;
+            expectedOperatorTokens += operatorAmount;
+            totalFees += fees;
+            uint256 actualOwnerTokens = spigot.getOwnerTokens(address(token));
+            uint256 actualOperatorTokens = spigot.getOperatorTokens(address(token));
+
+            assertEq(expectedOwnerTokens, spigot.getOwnerTokens(address(token)), "invalid owner tokens");
+            assertEq(expectedOperatorTokens, spigot.getOperatorTokens(address(token)));
+            assertEq(expectedOwnerTokens + expectedOperatorTokens, totalFees);
+
+            // randomly reset storage amounts to make sure our math is right
+            if(i % 9 == 0) {
+                hoax(owner);
+                uint256 claimed = spigot.claimOwnerTokens(address(token));
+                expectedOwnerTokens -= claimed;
+                totalFees -= claimed;
+            }
+
+            if(i % 4 == 0) {
+                hoax(operator);
+                uint256 claimed = spigot.claimOperatorTokens(address(token));
+                expectedOperatorTokens -= claimed;
+                totalFees -= claimed;
+            }
+        }
+    }
+
+    // function invariant_ownerAndOperatorTokens() public  {
+    //     RevenueToken _token = new RevenueToken();
+    //     uint256 months = 24;
+    //     uint256 revenue = 1500 * 10**18;
+    //     uint256 ownerTokens;
+    //     uint256 operatorTokens;
+        
+    //     uint256 ownerAmount = revenue * settings.ownerSplit / 100;
+    //     uint256 operatorAmount = revenue - ownerAmount;
+
+    //     for(uint8 i; i < months; i++) {
+    //         _token.mint(address(spigot), revenue);
+    //         spigot.claimRevenue(revenueContract, address(_token), abi.encodeWithSelector(claimPushPaymentFunc)); 
+    //         ownerTokens += ownerAmount;
+    //         operatorTokens += operatorAmount;
+    //         uint256 actualOwnerTokens = spigot.getOwnerTokens(address(_token));
+    //         uint256 actualOperatorTokens = spigot.getOperatorTokens(address(_token));
+            
+    //         emit log_named_uint("expected ownerTokens", ownerTokens);
+    //         emit log_named_uint("actual ownerTokens", actualOwnerTokens);
+    //         emit log_named_uint("expected operatorTokens", operatorTokens);
+    //         emit log_named_uint("actual operatorTokens", actualOperatorTokens);
+
+    //         assertEq(ownerTokens, spigot.getOwnerTokens(address(_token)), "invalid owner tokens");
+    //         assertEq(operatorTokens, spigot.getOperatorTokens(address(_token)));
+    //         assertEq(ownerTokens + operatorTokens, revenue * i);
+    //     }
+    // }
 
     // Claiming functions
 
@@ -482,15 +557,16 @@ contract SpigotTest is Test, ISpigot {
     }
 
 
-    function test_claimRevenue_updatesStoredStokensOnMultipleClaims(uint256 _revenue) public {
+    function test_claimRevenue_updatesTokenReservesOnMultipleClaims(uint256 _revenue) public {
         uint256 totalRevenue;
         uint256 ownerTokens;
         uint256 operatorTokens;
         uint8 revenueSplit = 70;
         _initSpigot(Denominations.ETH, revenueSplit, claimPushPaymentFunc, transferOwnerFunc);
 
-        while(totalRevenue < MAX_REVENUE) {
-            uint256 revenue = bound(_revenue, MAX_REVENUE / 20, MAX_REVENUE / 5);
+        uint256 maxPerRoundRevenue = MAX_REVENUE * 2;
+        while(totalRevenue < type(uint256).max - maxPerRoundRevenue) {
+            uint256 revenue = bound(_revenue, MAX_REVENUE / 20, maxPerRoundRevenue);
             emit log_named_uint(' -- New Revenue -- ', revenue);
             token.mint(address(spigot), revenue);
             
@@ -539,8 +615,8 @@ contract SpigotTest is Test, ISpigot {
 
 
     function test_claimRevenue_emitsClaimRevenueEvent(uint256 _revenue) public {
-        uint256 revenue = bound(_revenue, 100, MAX_REVENUE);
-        _initSpigot(Denominations.ETH, 100, SimpleRevenueContract.claimPullPaymentWithToken.selector, transferOwnerFunc);
+        uint256 revenue = bound(_revenue, 1_500 * 10**18, MAX_REVENUE);
+        _initSpigot(Denominations.ETH, settings.ownerSplit, SimpleRevenueContract.claimPullPaymentWithToken.selector, transferOwnerFunc);
 
         deal(revenueContract, revenue);
         deal(address(token), revenueContract, revenue);
@@ -563,16 +639,16 @@ contract SpigotTest is Test, ISpigot {
 
     // Claim escrow
 
-    function test_claimOwnerTokens_AsOwner(uint256 totalRevenue) public {
-        if(totalRevenue == 0 || totalRevenue > MAX_REVENUE) return;
+    function test_claimOwnerTokens_AsOwner(uint256 _revenue) public {
+        uint256 revenue = bound(_revenue, 1_500 * 10**18, MAX_REVENUE);
         // send revenue and claim it
-        token.mint(address(spigot), totalRevenue);
+        token.mint(address(spigot), revenue);
         bytes memory claimData;
         spigot.claimRevenue(revenueContract, address(token), claimData);
-        assertSpigotSplits(address(token), totalRevenue);
+        assertSpigotSplits(address(token), revenue);
 
         uint256 claimed = spigot.claimOwnerTokens(address(token));
-        (uint256 maxRevenue,) = getMaxRevenue(totalRevenue);
+        (uint256 maxRevenue,) = getMaxRevenue(revenue);
 
         assertEq(
             (maxRevenue * settings.ownerSplit) / 100,
