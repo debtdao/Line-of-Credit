@@ -329,7 +329,7 @@ contract LineTest is Test, Events {
         line.depositAndRepay(1 ether);
         (uint256 p2, uint256 i2) = line.updateOutstandingDebt();
         assertEq(p2 + i2, 0, "Line outstanding credit should be 0");
-        assertEq(p2, 0, "Principle should be 0");
+        assertEq(p2, 0, "initialPrincipal should be 0");
         assertEq(i2, 0, "No interest should have been accrued");
     }
 

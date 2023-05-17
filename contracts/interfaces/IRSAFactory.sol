@@ -18,7 +18,7 @@ interface IRSAFactory {
         address indexed spigot,
         address indexed creditToken,
         address rsa,
-        uint256 initialPrinciple,
+        uint256 initialPrincipal,
         uint256 totalOwed,
         uint8 lenderRevenueSplit
     );
