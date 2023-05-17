@@ -1462,12 +1462,20 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         revert();
     }
 
-    function test_verifySignature_returnsMagicValue() public {
+    function test_verifySignature_returnsMagicValueForValidOrders() public {
         GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
         bytes32 orderId = _initOrder(address(revenueToken), 1, uint32(block.timestamp + 100 days));
         // signature should be valid now that we initiated order
         bytes4 value = rsa.isValidSignature(orderId, abi.encode(order)); // orderId is the signed orderdata
         assertEq(value, ERC_1271_MAGIC_VALUE);
+    }
+
+    function test_verifySignature_returnsNonMagicValueForInvalidOrders() public {
+        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        bytes32 badOrderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
+        // signature should be valid now that we initiated order
+        bytes4 value = rsa.isValidSignature(badOrderId, abi.encode(order)); // orderId is the signed orderdata
+        assertEq(value, ERC_1271_NON_MAGIC_VALUE);
     }
 
     // TODO!!! need to test that the hardcoded order params that isValidSignature never passes if any of those conditions are met

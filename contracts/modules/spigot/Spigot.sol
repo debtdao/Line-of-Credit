@@ -30,8 +30,9 @@ contract Spigot is ISpigot, ReentrancyGuard {
     function initialize(address _owner, address _operator) public {
         if(state.initialized != false) revert SpigotAlreadyInitialized();
         state.initialized = true;
-        state.owner = _owner;
-        state.operator = _operator;
+        state.owner = msg.sender; // give caller admin access to initialize vars
+        state.updateOperator(_operator); // owner can set operator
+        state.updateOwner(_owner); // override caller admin access with intended owner
     }
 
     function owner() external view returns (address) {
@@ -40,6 +41,10 @@ contract Spigot is ISpigot, ReentrancyGuard {
 
     function operator() external view returns (address) {
         return state.operator;
+    }
+
+    function isInitialized() external view returns (bool) {
+        return state.initialized;
     }
 
     // ##########################

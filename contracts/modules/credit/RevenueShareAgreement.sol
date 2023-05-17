@@ -306,7 +306,6 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
 
             return ERC_1271_MAGIC_VALUE;
         } else {
-            revert InvalidTradeId();
             /*
             Dont currently support offchain signing of orders
             bc if anyone submits vs lender/borrower changes 
@@ -356,7 +355,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             //     revert InvalidTradeBalanceDestination();
             // }
 
-            // return ERC_1271_MAGIC_VALUE;
+            return ERC_1271_NON_MAGIC_VALUE;
         }
     }
 
@@ -454,6 +453,8 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     }
 
     /**
+    * @notice gets the contract to wrap chains native asset into ERC20 for trading.
+    *       MUST conform to WETH interface even if ETH is not native asset
     * @dev do not need to worry about network forks affecting wrapper contract address
     * so dont need to update like EIP721 domain separator
     */

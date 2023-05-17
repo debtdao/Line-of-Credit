@@ -68,7 +68,7 @@ contract SpigotTest is Test, ISpigot {
         bytes4 _newOwnerFunc
     ) internal {
         spigot = new Spigot(); 
-         spigot.initialize(owner, operator);
+        spigot.initialize(owner, operator);
 
         // deploy new revenue contract with settings
         revenueContract = address(new SimpleRevenueContract(owner, _token));
@@ -120,6 +120,82 @@ contract SpigotTest is Test, ISpigot {
         spigot.claimRevenue(_revenueContract, address(_token), claimData);
         
         return assertSpigotSplits(address(_token), _amount);
+    }
+
+    // Spigot Initialization 
+
+    function test_initialize_cantInitTwice() public {
+        Spigot spiggy = new Spigot(); 
+        
+        assertEq(spiggy.isInitialized(), false);
+
+        spiggy.initialize(owner, operator);
+        assertEq(spiggy.isInitialized(), true);
+
+        vm.expectRevert(ISpigot.SpigotAlreadyInitialized.selector);
+        spiggy.initialize(owner, operator);
+        
+        hoax(owner);
+        vm.expectRevert(ISpigot.SpigotAlreadyInitialized.selector);
+        spiggy.initialize(owner, operator);
+        
+        hoax(operator);
+        vm.expectRevert(ISpigot.SpigotAlreadyInitialized.selector);
+        spiggy.initialize(owner, operator);
+
+        assertEq(spiggy.isInitialized(), true);
+    }
+
+    function test_initialize_setsStakeholderValues() public {
+        Spigot spiggy = new Spigot(); 
+        assertEq(spiggy.isInitialized(), false);
+        assertEq(spiggy.owner(), address(0));
+        assertEq(spiggy.operator(), address(0));
+    
+        spiggy.initialize(owner, operator);
+        assertEq(spiggy.owner(), owner);
+        assertEq(spiggy.operator(), operator);
+        assertEq(spiggy.isInitialized(), true);
+    }
+
+    function test_initialize_anyoneCanInitialize() public {
+        hoax(vm.addr(42)); // deply as random address
+        Spigot spiggy = new Spigot(); 
+        
+        assertEq(spiggy.isInitialized(), false);
+
+        hoax(vm.addr(69)); // init as a different random address
+        spiggy.initialize(owner, operator);
+        assertEq(spiggy.isInitialized(), true);
+    }
+
+    function test_initialize_nullStakeholderAddresses() public {
+        Spigot spiggy = new Spigot(); 
+        assertEq(spiggy.isInitialized(), false);
+        
+        vm.expectRevert();
+        spiggy.initialize(address(0), operator);
+        assertEq(spiggy.isInitialized(), false);
+        
+        vm.expectRevert();
+        spiggy.initialize(owner, address(0));
+        assertEq(spiggy.isInitialized(), false);
+    }
+
+    function test_initialize_cantUseSpigotUntilInitialized() public {
+        Spigot spiggy = new Spigot(); 
+        assertEq(spiggy.isInitialized(), false);
+        
+        // If we cant add revenue contracts, we cant claim revenue
+        // so no potential loss of funds by sending them to address(0)
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+        spiggy.addSpigot(revenueContract, settings);
+        
+        // cant get back door access to stakeholder roles
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+        spiggy.updateOwner(vm.addr(42));
+        vm.expectRevert(ISpigot.CallerAccessDenied.selector);
+        spiggy.updateOperator(vm.addr(42));
     }
 
     // Claiming functions
@@ -916,7 +992,7 @@ contract SpigotTest is Test, ISpigot {
         settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
 
         spigot = new Spigot(); 
-         spigot.initialize(owner, operator);
+        spigot.initialize(owner, operator);
 
         vm.expectRevert(SpigotLib.InvalidRevenueContract.selector);
         spigot.addSpigot(address(spigot), settings);
@@ -928,7 +1004,7 @@ contract SpigotTest is Test, ISpigot {
         settings = ISpigot.Setting(10, bytes4(""), bytes4("1234"));
 
         spigot = new Spigot(); 
-         spigot.initialize(owner, operator);
+        spigot.initialize(owner, operator);
 
         spigot.addSpigot(address(revenueContract), settings);
 
