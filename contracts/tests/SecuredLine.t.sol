@@ -114,24 +114,6 @@ contract SecuredLineTest is Test {
         vm.stopPrank();
     }
 
-    function test_can_liquidate_escrow_if_cratio_below_min() public {
-        _addCredit(address(supportedToken1), 1 ether);
-        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
-        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
-        
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-        (uint p,) = line.updateOutstandingDebt();
-        assertGt(p, 0);
-        console.log('checkpoint');
-        oracle.changePrice(address(supportedToken2), 1);
-        line.liquidate(1 ether, address(supportedToken2));
-        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
-        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
-        
-    }
-
     function test_line_is_uninitilized_on_deployment() public {
         Spigot s = new Spigot(arbiter, borrower);
         Escrow e = new Escrow(minCollateralRatio, address(oracle), arbiter, borrower);
@@ -161,52 +143,6 @@ contract SecuredLineTest is Test {
         }
         assertEq(c, count);
     }
-
-    function test_line_is_uninitilized_if_escrow_not_owned() public {
-        address mock = address(new MockLine(0, address(3)));
-        Spigot s = new Spigot(arbiter, borrower);
-        Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
-        SecuredLine l = new SecuredLine(
-            address(oracle),
-            arbiter,
-            borrower,
-            payable(address(0)),
-            address(s),
-            address(e),
-            150 days,
-            0
-        );
-
-        // configure other modules
-        s.updateOwner(address(l));
-        
-        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
-        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(e)));
-        l.init();
-    }
-
-    function test_line_is_uninitilized_if_spigot_not_owned() public {
-        Spigot s = new Spigot(arbiter, borrower);
-        Escrow e = new Escrow(minCollateralRatio, address(oracle), address(this), borrower);
-        SecuredLine l = new SecuredLine(
-            address(oracle),
-            arbiter,
-            borrower,
-            payable(address(0)),
-            address(s),
-            address(e),
-            150 days,
-            0
-        );
-
-        // configure other modules
-        e.updateLine(address(l));
-        
-        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
-        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(s)));
-        l.init();
-    }
-
 
     function setupQueueTest(uint amount) internal returns (address[] memory) {
       address[] memory tokens = new address[](amount);
@@ -240,16 +176,6 @@ contract SecuredLineTest is Test {
     }
 
 
-    function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
-         
-        _addCredit(address(supportedToken1), 100 ether);
-        bytes32 id = line.ids(0);
-        vm.expectRevert(ILineOfCredit.BorrowFailed.selector); 
-        hoax(borrower);
-        line.borrow(id, 100 ether);
-    }
-
-    
 
     function test_cannot_borrow_if_not_active() public {
         assert(line.healthcheck() == LineLib.STATUS.ACTIVE);
@@ -272,15 +198,6 @@ contract SecuredLineTest is Test {
         line.liquidate(1 ether, address(supportedToken2));
     }
 
-    function test_health_becomes_liquidatable_if_cratio_below_min() public {
-        assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
-        _addCredit(address(supportedToken1), 1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.LIQUIDATABLE));
-    }
 
     
     function test_can_liquidate_if_debt_when_deadline_passes() public {
@@ -311,78 +228,6 @@ contract SecuredLineTest is Test {
         vm.warp(ttl + 1);
         vm.expectRevert(ILineOfCredit.NotLiquidatable.selector);
         line.liquidate(1 ether, address(supportedToken2));
-    }
-
-    // test should liquidate if above cratio after deadline
-    function test_can_liquidate_after_deadline_if_above_min_cRatio() public {
-        _addCredit(address(supportedToken2), 1 ether);
-        bytes32 id = line.ids(0);
-
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-
-        (uint p, uint i) = line.updateOutstandingDebt();
-        emit log_named_uint("principal", p);
-        emit log_named_uint("interest", i);
-        assertGt(p, 0);
-
-        uint32 cRatio = Escrow(address(line.escrow())).minimumCollateralRatio();
-        emit log_named_uint("cRatio before", cRatio);
-
-        // increase the cRatio
-        oracle.changePrice(address(supportedToken2), 990 * 1e8);
-
-        vm.warp(ttl + 1);
-        line.liquidate(1 ether, address(supportedToken2));
-    }
-
-    // should not be liquidatable if all positions closed (needs mo's PR)
-
-    // CONDITIONS for liquidation:
-    // dont pay debt by deadline
-    // under minimum collateral value ( changing the oracle price )
-    
-    // test should fail to liquidate if above cratio before deadline
-    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
-        hoax(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-
-        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
-        line.liquidate(1 ether, address(supportedToken2));
-    }
-
-    function test_health_is_not_liquidatable_if_cratio_above_min() public {
-        assertTrue(line.healthcheck() != LineLib.STATUS.LIQUIDATABLE);
-    }
-
-       // test should succeed to liquidate when collateral ratio is below min cratio
-    function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
-        _addCredit(address(supportedToken1), 1 ether);
-        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
-        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-        (uint p, uint i) = line.updateOutstandingDebt();
-        assertGt(p, 0);
-        oracle.changePrice(address(supportedToken2), 1);
-        line.liquidate(1 ether, address(supportedToken2));
-        assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
-        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
-    }
-
-
-    function test_health_becomes_liquidatable_when_cratio_below_min() public {
-        _addCredit(address(supportedToken1), 1 ether);
-        bytes32 id = line.ids(0);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-        oracle.changePrice(address(supportedToken2), 1);
-        assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
     }
 
     function test_cannot_liquidate_as_anon() public {

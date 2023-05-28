@@ -114,59 +114,56 @@ contract EscrowedLineTest is Test {
     }
 
     
+    /** Borrowing and Lending  */
 
-    /** LIQUIDATIONS */
-   function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+    function test_cannot_borrow_from_credit_position_if_under_collateralised() public {
+        _addCredit(address(supportedToken1), 100 ether);
+        bytes32 id = line.ids(0);
+        vm.expectRevert(ILineOfCredit.BorrowFailed.selector); 
         hoax(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        hoax(lender);
-        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        hoax(borrower);
-        line.borrow(id, 1 ether);
-
-        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
-        line.liquidate(1 ether, address(supportedToken2));
+        line.borrow(id, 100 ether);
     }
 
-    function test_can_liquidate_escrow_if_cratio_below_min() public {
+    /** LIQUIDATIONS */
+
+    function test_health_becomes_liquidatable_if_cratio_below_min() public {
+        assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.ACTIVE));
         _addCredit(address(supportedToken1), 1 ether);
-        uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
-        uint balanceOfArbiter = supportedToken2.balanceOf(arbiter);
-        
         bytes32 id = line.ids(0);
         hoax(borrower);
         line.borrow(id, 1 ether);
-        (uint p,) = line.updateOutstandingDebt();
-        assertGt(p, 0);
-        console.log('checkpoint');
         oracle.changePrice(address(supportedToken2), 1);
+        assertEq(uint(line.healthcheck()), uint(LineLib.STATUS.LIQUIDATABLE));
+    }
+
+    // test should liquidate if above cratio after deadline
+    function test_can_liquidate_after_deadline_if_above_min_cRatio() public {
+        _addCredit(address(supportedToken2), 1 ether);
+        bytes32 id = line.ids(0);
+
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        (uint p, uint i) = line.updateOutstandingDebt();
+        emit log_named_uint("principal", p);
+        emit log_named_uint("interest", i);
+        assertGt(p, 0);
+
+        uint32 cRatio = Escrow(address(line.escrow())).minimumCollateralRatio();
+        emit log_named_uint("cRatio before", cRatio);
+
+        // increase the cRatio
+        oracle.changePrice(address(supportedToken2), 990 * 1e8);
+
+        vm.warp(ttl + 1);
         line.liquidate(1 ether, address(supportedToken2));
-        assertEq(
-        balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
-        assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
     }
 
-    function test_line_is_uninitilized_if_escrow_not_owned() public {
-        address mock = address(new MockLine(0, address(3)));
-        
-        Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
-        MockEscrowedLine l = new MockEscrowedLine(
-            address(escrow),
-            address(oracle),
-            arbiter,
-            borrower,
-            ttl
-        );
-
-        // configure other modules
-       
-        
-        // assertEq(uint(l.init()), uint(LineLib.STATUS.UNINITIALIZED));
-
-        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(escrow)));
-        l.init();
+    function test_health_is_not_liquidatable_if_cratio_above_min() public {
+        assertTrue(line.healthcheck() != LineLib.STATUS.LIQUIDATABLE);
     }
 
+       // test should succeed to liquidate when collateral ratio is below min cratio
     function test_can_liquidate_anytime_if_escrow_cratio_below_min() public {
         _addCredit(address(supportedToken1), 1 ether);
         uint balanceOfEscrow = supportedToken2.balanceOf(address(escrow));
@@ -181,13 +178,56 @@ contract EscrowedLineTest is Test {
         assertEq(balanceOfEscrow, supportedToken1.balanceOf(address(escrow)) + 1 ether, "Escrow balance should have increased by 1e18");
         assertEq(balanceOfArbiter, supportedToken2.balanceOf(arbiter) - 1 ether, "Arbiter balance should have decreased by 1e18");
     }
-    
-    function test_cannot_be_liquidatable_if_debt_is_0() public {
 
+
+    function test_health_becomes_liquidatable_when_cratio_below_min() public {
+        _addCredit(address(supportedToken1), 1 ether);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+        oracle.changePrice(address(supportedToken2), 1);
+        assert(line.healthcheck() == LineLib.STATUS.LIQUIDATABLE);
+    }
+
+   function test_cannot_liquidate_escrow_if_cratio_above_min() public {
+        hoax(borrower);
+        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        hoax(lender);
+        bytes32 id = line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
+        hoax(borrower);
+        line.borrow(id, 1 ether);
+
+        vm.expectRevert(ILineOfCredit.NotLiquidatable.selector); 
+        line.liquidate(1 ether, address(supportedToken2));
+    }
+
+    function test_line_is_uninitilized_if_escrow_not_owned() public {
+        address mock = address(new MockLine(0, address(3)));
+        
+        Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
+        MockEscrowedLine l = new MockEscrowedLine(
+            address(escrow),
+            address(oracle),
+            arbiter,
+            borrower,
+            ttl
+        );
+
+        // configure other modules if necessaty
+
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(escrow)));
+        l.init();
+    }
+    
+    function invariant_cannot_be_liquidatable_if_debt_is_0() public {
+        (uint256 p1, uint256 i1) = line.updateOutstandingDebt();
+        assertEq(p1 + i1, 0);
         assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.ACTIVE));
     }
 
+    
     /** ORACLE INTEGRATION */
+
     function test_can_create_position_with_tokens_unsupported_by_oracle()
         public
     {
@@ -257,7 +297,7 @@ contract EscrowedLineTest is Test {
         assertEq(p3 + i3, uint256(oracle.getLatestAnswer(address(supportedToken1))) * 1 ether / 1e18);
     }
 
-    function test_becomes_liquidatable_after_price_added_to_previously_unsupported_token()
+    function test_becomes_liquidatable_after_price_added_to_previously_unsupported_credit_token()
         public
     {
         vm.startPrank(borrower);
@@ -281,6 +321,26 @@ contract EscrowedLineTest is Test {
 
         (uint256 p3, uint256 i3) = line.updateOutstandingDebt();
         assertEq(p3 + i3, mintAmount * uint256(newTokenPrice) / 1 ether);
+        assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.LIQUIDATABLE));
+    }
+
+    function test_becomes_liquidatable_after_price_removed_for_collateral_token()
+        public
+    {
+        vm.startPrank(lender);
+        line.addCredit(dRate, fRate, mintAmount, address(supportedToken1), lender);
+        vm.stopPrank();
+
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, mintAmount, address(supportedToken1), lender);
+        line.borrow(line.ids(0), 2e18);
+        vm.stopPrank();
+
+        assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.ACTIVE));
+
+        oracle.changePrice(address(supportedToken2), 0);
+        
+        assertEq(escrow.getCollateralValue(), 0);
         assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.LIQUIDATABLE));
     }
 }

@@ -164,6 +164,26 @@ contract SpigotedLineTest is Test, Events {
     }
 
 
+
+    function test_line_is_uninitilized_if_spigot_not_owned() public {
+        Spigot s = new Spigot(arbiter, borrower);
+        SpigotedLine l = new SpigotedLine(
+            address(oracle),
+            arbiter,
+            borrower,
+            address(s),
+            payable(address(0)),
+            150 days,
+            0
+        );
+
+        // configure other modules
+
+        vm.expectRevert(abi.encodeWithSelector(ILineOfCredit.BadModule.selector, address(s)));
+        l.init();
+    }
+
+
     // claimAndTrade 
     
     // TODO add raw ETH tests
