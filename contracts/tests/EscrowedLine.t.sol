@@ -1,6 +1,8 @@
 pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
+import { Denominations } from "chainlink/Denominations.sol";
+
 import { IEscrow } from "../interfaces/IEscrow.sol";
 import { LineLib } from "../utils/LineLib.sol";
 import { IEscrowedLine } from "../interfaces/IEscrowedLine.sol";
@@ -9,7 +11,6 @@ import { SimpleOracle } from "../mock/SimpleOracle.sol";
 import { RevenueToken } from "../mock/RevenueToken.sol";
 import { Escrow } from "../modules/escrow/Escrow.sol";
 import { MockEscrowedLine } from '../mock/MockEscrowedLine.sol';
-import { Denominations } from "chainlink/Denominations.sol";
 import { ZeroEx } from "../mock/ZeroEx.sol";
 import { MockLine } from "../mock/MockLine.sol";
 
@@ -114,6 +115,7 @@ contract EscrowedLineTest is Test {
 
     
 
+    /** LIQUIDATIONS */
    function test_cannot_liquidate_escrow_if_cratio_above_min() public {
         hoax(borrower);
         line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
@@ -149,7 +151,6 @@ contract EscrowedLineTest is Test {
         
         Escrow e = new Escrow(minCollateralRatio, address(oracle), mock, borrower);
         MockEscrowedLine l = new MockEscrowedLine(
-       
             address(escrow),
             address(oracle),
             arbiter,
@@ -184,5 +185,102 @@ contract EscrowedLineTest is Test {
     function test_cannot_be_liquidatable_if_debt_is_0() public {
 
         assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.ACTIVE));
+    }
+
+    /** ORACLE INTEGRATION */
+    function test_can_create_position_with_tokens_unsupported_by_oracle()
+        public
+    {
+        hoax(borrower);
+        line.addCredit(
+            dRate,
+            fRate,
+            1 ether,
+            address(unsupportedToken),
+            lender
+        );
+        hoax(lender);
+        line.addCredit(
+            dRate,
+            fRate,
+            1 ether,
+            address(unsupportedToken),
+            lender
+        );
+    }
+
+    function test_can_create_position_with_tokens_supported_by_oracle()
+        public
+    {
+        hoax(borrower);
+        line.addCredit(
+            dRate,
+            fRate,
+            1 ether,
+            address(supportedToken1),
+            lender
+        );
+        hoax(lender);
+        line.addCredit(
+            dRate,
+            fRate,
+            1 ether,
+            address(supportedToken1),
+            lender
+        );
+    }
+
+    function test_outstanding_debt_does_not_include_unsupported_tokens()
+        public
+    {
+        vm.startPrank(borrower);
+        line.addCredit(dRate,fRate,1 ether,address(supportedToken1), lender);
+        line.addCredit(dRate,fRate,1 ether,address(unsupportedToken), lender);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        bytes32 goodPosition = line.addCredit(dRate,fRate,1 ether,address(supportedToken1), lender);
+        bytes32 toxicPosition =line.addCredit(dRate,fRate,1 ether,address(unsupportedToken), lender);
+        vm.stopPrank();
+
+        (uint256 p1, uint256 i1) = line.updateOutstandingDebt();
+        assertEq(p1 + i1, 0);
+
+        hoax(borrower);
+        line.borrow(toxicPosition, 1 ether);
+        (uint256 p2, uint256 i2) = line.updateOutstandingDebt();
+        assertEq(p2 + i2, 0);
+        
+        hoax(borrower);
+        line.borrow(goodPosition, 1 ether);
+        (uint256 p3, uint256 i3) = line.updateOutstandingDebt();
+        assertEq(p3 + i3, uint256(oracle.getLatestAnswer(address(supportedToken1))) * 1 ether / 1e18);
+    }
+
+    function test_becomes_liquidatable_after_price_added_to_previously_unsupported_token()
+        public
+    {
+        vm.startPrank(borrower);
+        line.addCredit(dRate, fRate, mintAmount, address(unsupportedToken), lender);
+        vm.stopPrank();
+
+        vm.startPrank(lender);
+        bytes32 toxicPosition =line.addCredit(dRate, fRate, mintAmount, address(unsupportedToken), lender);
+        vm.stopPrank();
+
+        (uint256 p1, uint256 i1) = line.updateOutstandingDebt();
+        assertEq(p1 + i1, 0);
+
+        hoax(borrower);
+        line.borrow(toxicPosition, mintAmount);
+        (uint256 p2, uint256 i2) = line.updateOutstandingDebt();
+        assertEq(p2 + i2, 0);
+        
+        int newTokenPrice = 100_000 * 1e8;
+        oracle.changePrice(address(unsupportedToken), newTokenPrice);
+
+        (uint256 p3, uint256 i3) = line.updateOutstandingDebt();
+        assertEq(p3 + i3, mintAmount * uint256(newTokenPrice) / 1 ether);
+        assertEq(uint256(line.healthcheck()), uint256(LineLib.STATUS.LIQUIDATABLE));
     }
 }

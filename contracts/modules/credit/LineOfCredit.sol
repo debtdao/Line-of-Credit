@@ -182,6 +182,9 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return _updateOutstandingDebt();
     }
 
+
+    // should be in EscrowedLine but that creates inheritence issues in SecuredLine
+    // even when using separate contract to define storage variables to share across contracts
     function _updateOutstandingDebt() internal returns (uint256 principal, uint256 interest) {
         // use full length not count because positions might not be packed in order
         uint256 len = ids.length;
@@ -388,8 +391,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
             id,
             amount,
             lender,
-            token,
-            address(oracle)
+            token
         );
 
         ids.push(id); // add lender to end of repayment queue

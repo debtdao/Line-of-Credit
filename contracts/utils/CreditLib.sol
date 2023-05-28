@@ -99,20 +99,13 @@ library CreditLib {
     /**
      * see ILineOfCredit._createCredit
      * @notice called by LineOfCredit._createCredit during every repayment function
-     * @param oracle - interset rate contract used by line that will calculate interest owed
      */
     function create(
         bytes32 id,
         uint256 amount,
         address lender,
-        address token,
-        address oracle
-    ) external returns (ILineOfCredit.Credit memory credit) {
-        int price = IOracle(oracle).getLatestAnswer(token);
-        if (price <= 0) {
-            revert NoTokenPrice();
-        }
-
+        address token
+    ) external returns (Credit memory credit) {
         (bool passed, bytes memory result) = token.call(abi.encodeWithSignature("decimals()"));
 
         if (!passed || result.length == 0) {

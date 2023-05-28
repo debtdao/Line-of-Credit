@@ -967,27 +967,6 @@ contract LineTest is Test, Events {
         line.borrow(id, 100 ether);
     }
 
-    function test_cannot_create_credit_with_tokens_unsupported_by_oracle()
-        public
-    {
-        hoax(borrower);
-        line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(unsupportedToken),
-            lender
-        );
-        vm.expectRevert("SimpleOracle: unsupported token");
-        hoax(lender);
-        line.addCredit(
-            dRate,
-            fRate,
-            1 ether,
-            address(unsupportedToken),
-            lender
-        );
-    }
 
     function test_cannot_borrow_against_closed_position() public {
         _addCredit(address(supportedToken1), 1 ether);
@@ -1169,17 +1148,6 @@ contract LineTest is Test, Events {
         vm.expectEmit(true, true, true, true);
         emit Borrow(id, amount);
         line.borrow(id, amount);
-        vm.stopPrank();
-    }
-
-    function test_revert_no_token_price() public {
-        oracle.changePrice(address(supportedToken1), -1);
-        vm.startPrank(borrower);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
-        vm.stopPrank();
-        vm.prank(lender);
-        vm.expectRevert(CreditLib.NoTokenPrice.selector);
-        line.addCredit(dRate, fRate, 1 ether, address(supportedToken1), lender);
         vm.stopPrank();
     }
 
