@@ -1,5 +1,5 @@
 pragma solidity 0.8.16;
-import {IInterestRateCredit} from "../interfaces/IInterestRateCredit.sol";
+import {IFixedInterestRateCalculator} from "../interfaces/IFixedInterestRateCalculator.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";

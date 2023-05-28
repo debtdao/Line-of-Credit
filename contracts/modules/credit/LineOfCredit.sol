@@ -6,13 +6,13 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin/security/ReentrancyGuard.sol";
 
 import {LineLib} from "../../utils/LineLib.sol";
-import {CreditLib} from "../../utils/CreditLib.sol";
+import {Credit, CreditLib} from "../../utils/CreditLib.sol";
 import {CreditListLib} from "../../utils/CreditListLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
-import {InterestRateCredit} from "../interest-rate/InterestRateCredit.sol";
+import {FixedInterestRateCalculator} from "../interest-rate/FixedInterestRateCalculator.sol";
 
-import {IOracle} from "../../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
+import {IOracle} from "../../interfaces/IOracle.sol";
 
 /**
  * @title  - Debt DAO Unsecured Line of Credit
@@ -39,7 +39,7 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
     IOracle public immutable oracle;
 
     /// @notice - contract responsible for calculating interest owed on debt positions
-    InterestRateCredit public immutable interestRate;
+    FixedInterestRateCalculator public immutable interestRate;
 
     /// @notice - current amount of active positions (aka non-null ids) in `ids` list
     uint256 private count;
@@ -59,18 +59,18 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
      * @dev               - A Borrower and a first Lender agree on terms. Then the Borrower deploys the contract using the constructor below.
      *                      Later, both Lender and Borrower must call _mutualConsent() during addCredit() to actually enable funds to be deposited.
      * @param oracle_     - The price oracle to use for getting all token values.
-     * @param arbiter_    - A neutral party with some special priviliges on behalf of Borrower and Lender.
      * @param borrower_   - The debitor for all credit lines in this contract.
      * @param ttl_        - The time to live for all credit lines for the Line of Credit facility (sets the maturity/term of the Line of Credit)
+     * @param arbiter_    - A neutral party with some special priviliges on behalf of Borrower and Lender.
      */
     constructor(address oracle_, address arbiter_, address borrower_, uint256 ttl_) {
-        oracle = IOracle(oracle_);
         arbiter = arbiter_;
         borrower = borrower_;
         deadline = block.timestamp + ttl_; //the deadline is the term/maturity/expiry date of the Line of Credit facility
-        interestRate = new InterestRateCredit();
+        interestRate = new FixedInterestRateCalculator();
+        oracle = IOracle(oracle_);
 
-        emit DeployLine(oracle_, arbiter_, borrower_);
+        emit DeployLine(borrower_, arbiter_, oracle_, deadline);
     }
 
     function init() external virtual {
@@ -173,6 +173,17 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         return true;
     }
 
+    /// see ILineOfCredit.accrueInterest
+    function accrueInterest() external override {
+        uint256 len = ids.length;
+        bytes32 id;
+        for (uint256 i; i < len; ++i) {
+            id = ids[i];
+            Credit memory credit = credits[id];
+            credits[id] = _accrue(credit, id);
+        }
+    }
+
     /// see ILineOfCredit.updateOutstandingDebt
     function updateOutstandingDebt()
         external
@@ -214,16 +225,6 @@ contract LineOfCredit is ILineOfCredit, MutualConsent, ReentrancyGuard {
         }
     }
 
-    /// see ILineOfCredit.accrueInterest
-    function accrueInterest() external override {
-        uint256 len = ids.length;
-        bytes32 id;
-        for (uint256 i; i < len; ++i) {
-            id = ids[i];
-            Credit memory credit = credits[id];
-            credits[id] = _accrue(credit, id);
-        }
-    }
 
     /// see ILineOfCredit.addCredit
     function addCredit(

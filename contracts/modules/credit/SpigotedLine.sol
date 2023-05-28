@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 import {Denominations} from "chainlink/Denominations.sol";
 import {LineOfCredit} from "./LineOfCredit.sol";
 import {LineLib} from "../../utils/LineLib.sol";
-import {CreditLib} from "../../utils/CreditLib.sol";
+import {Credit, CreditLib} from "../../utils/CreditLib.sol";
 import {SpigotedLineLib} from "../../utils/SpigotedLineLib.sol";
 import {MutualConsent} from "../../utils/MutualConsent.sol";
 import {ISpigot} from "../../interfaces/ISpigot.sol";
@@ -43,7 +43,6 @@ contract SpigotedLine is ISpigotedLine, LineOfCredit {
     /**
      * @notice - The SpigotedLine is a LineofCredit contract with additional functionality for integrating with a Spigot.
                - allows Borrower or Lender to repay debt using collateralized revenue streams
-     * @param oracle_ - price oracle to use for getting all token values
      * @param arbiter_ - neutral party with some special priviliges on behalf of borrower and lender
      * @param borrower_ - the debitor for all credit positions in this contract
      * @param spigot_ - Spigot smart contract that is owned by this Line

@@ -1,6 +1,6 @@
 pragma solidity 0.8.16;
 
-interface IInterestRateCredit {
+interface IFixedInterestRateCalculator {
     struct Rate {
         // The interest rate charged to a Borrower on borrowed / drawn down funds
         // in bps, 4 decimals

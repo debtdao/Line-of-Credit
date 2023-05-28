@@ -1,8 +1,8 @@
 pragma solidity 0.8.16;
 
-import {IInterestRateCredit} from "../../interfaces/IInterestRateCredit.sol";
+import {IFixedInterestRateCalculator} from "../../interfaces/IFixedInterestRateCalculator.sol";
 
-contract InterestRateCredit is IInterestRateCredit {
+contract FixedInterestRateCalculator is IFixedInterestRateCalculator {
     // 1 Julian astronomical year in seconds to use in calculations for rates = 31557600 seconds
     uint256 constant ONE_YEAR = 365.25 days;
     // Must divide by 100 too offset bps in numerator and divide by another 100 to offset % and get actual token amount
@@ -28,7 +28,7 @@ contract InterestRateCredit is IInterestRateCredit {
         _;
     }
 
-    /// see IInterestRateCredit.accrueInterest
+    /// see IFixedInterestRateCalculator.accrueInterest
     function accrueInterest(
         bytes32 id,
         uint256 drawnBalance,
@@ -79,7 +79,7 @@ contract InterestRateCredit is IInterestRateCredit {
         return (bpsRate * balance * timespan) / INTEREST_DENOMINATOR;
     }
 
-    /// see IInterestRateCredit.setRate
+    /// see IFixedInterestRateCalculator.setRate
     function setRate(bytes32 id, uint128 dRate, uint128 fRate) external onlyLineContract returns (bool) {
         rates[id] = Rate({dRate: dRate, fRate: fRate, lastAccrued: block.timestamp});
         return true;

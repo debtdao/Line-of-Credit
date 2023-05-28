@@ -2,18 +2,20 @@ pragma solidity 0.8.16;
 
 import {IEscrow} from "../../interfaces/IEscrow.sol";
 import {LineLib} from "../../utils/LineLib.sol";
+import {Credit, CreditLib} from "../../utils/CreditLib.sol";
 import {IEscrowedLine} from "../../interfaces/IEscrowedLine.sol";
 import {ILineOfCredit} from "../../interfaces/ILineOfCredit.sol";
-
-// used for importing NATSPEC docs, not used
-import {LineOfCredit} from "./LineOfCredit.sol";
-
-// import { SecuredLine } from "./SecuredLine.sol";
+import {IOracle} from "../../interfaces/IOracle.sol";
 
 abstract contract EscrowedLine is IEscrowedLine, ILineOfCredit {
     // contract holding all collateral for borrower
     IEscrow public immutable escrow;
 
+
+    /**
+     * @notice            - Token collateral based lending
+     * @param _escrow     - Contract storing tokesn to be used as collateral on this line
+     */
     constructor(address _escrow) {
         escrow = IEscrow(_escrow);
     }

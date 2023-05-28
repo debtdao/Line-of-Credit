@@ -9,7 +9,7 @@ import {LineLib} from "../utils/LineLib.sol";
 import {CreditLib} from "../utils/CreditLib.sol";
 import {CreditListLib} from "../utils/CreditListLib.sol";
 import {MutualConsent} from "../utils/MutualConsent.sol";
-import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
+import {FixedInterestRateCalculator} from "../modules/interest-rate/FixedInterestRateCalculator.sol";
 import {LineOfCredit} from "../modules/credit/LineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
@@ -43,7 +43,7 @@ contract QueueTest is Test, Events {
     uint256 minCollateralRatio = 1 ether; // 100%
     uint128 dRate = 100;
     uint128 fRate = 1;
-    InterestRateCredit i;
+    FixedInterestRateCalculator i;
 
     mapping(bytes32 => string) idLabels;
 
@@ -55,7 +55,7 @@ contract QueueTest is Test, Events {
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
-        i = new InterestRateCredit();
+        i = new FixedInterestRateCalculator();
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();
         unsupportedToken = new RevenueToken();

@@ -1,26 +1,13 @@
 pragma solidity 0.8.16;
 
 import {LineLib} from "../utils/LineLib.sol";
-import {IOracle} from "../interfaces/IOracle.sol";
+import {IOracle} from "./IOracle.sol";
 
 interface ILineOfCredit {
-    // Lender data
-    struct Credit {
-        //  all denominated in token, not USD
-        uint256 deposit; // The total liquidity provided by a Lender in a given token on a Line of Credit
-        uint256 principal; // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (in Tokens)
-        uint256 interestAccrued; // Interest due by a Borrower but not yet repaid to the Line of Credit contract
-        uint256 interestRepaid; // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
-        uint8 decimals; // Decimals of Credit Token for calcs
-        address token; // The token being lent out (Credit Token)
-        address lender; // The person to repay
-        bool isOpen; // Status of position
-    }
-
     // General Events
     event UpdateStatus(uint256 indexed status); // store as normal uint so it can be indexed in subgraph
 
-    event DeployLine(address indexed oracle, address indexed arbiter, address indexed borrower);
+    event DeployLine(address indexed borrower, address indexed arbiter, address indexed oracle, uint256 deadline);
 
     event SortedIntoQ(bytes32 indexed id, uint256 indexed newIdx, uint256 indexed oldIdx, bytes32 oldId);
 
@@ -200,7 +187,7 @@ interface ILineOfCredit {
     /**
      *
      * @notice - Updates accrued interest for the whole Line of Credit facility (i.e. for all credit lines)
-     * @dev    - Loops over all position ids and calls related internal functions during which InterestRateCredit.sol
+     * @dev    - Loops over all position ids and calls related internal functions during which FixedInterestRateCalculator.sol
      *           is called with the id data and then 'interestAccrued' is updated.
      * @dev    - The related internal function _accrue() is called by other functions any time the balance on an individual
      *           credit line changes or if the interest rates of a credit line are changed by mutual consent
@@ -216,14 +203,6 @@ interface ILineOfCredit {
      */
     function stepQ() external;
 
-    /**
-     * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
-     * @dev    - Denominated in USD, 8 decimals.
-     * @dev    - callable by anyone
-     * @return totalPrincipal - total amount of principal, in USD, owed across all positions
-     * @return totalInterest - total amount of interest, in USD,  owed across all positions
-     */
-    function updateOutstandingDebt() external returns (uint256, uint256);
 
     // State getters
 
@@ -248,6 +227,15 @@ interface ILineOfCredit {
 
     function interestAccrued(bytes32 id) external returns (uint256);
 
+    /**
+     * @notice - Returns the total debt of a Borrower across all positions for all Lenders.
+     * @dev    - Denominated in USD, 8 decimals.
+     * @dev    - callable by anyone
+     * @return totalPrincipal - total amount of principal, in USD, owed across all positions
+     * @return totalInterest - total amount of interest, in USD,  owed across all positions
+     */
+    function updateOutstandingDebt() external returns (uint256, uint256);
+    
     /**
      * @notice - info on the next lender position that must be repaid
      * @return - (bytes32, address, address, uint, uint) - id, lender, token, principal, interestAccrued

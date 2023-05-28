@@ -25,7 +25,12 @@ contract SecuredLine is SpigotedLine, EscrowedLine, ISecuredLine {
         address escrow_,
         uint ttl_,
         uint8 defaultSplit_
-    ) SpigotedLine(oracle_, arbiter_, borrower_, spigot_, swapTarget_, ttl_, defaultSplit_) EscrowedLine(escrow_) {}
+    )
+        SpigotedLine(oracle_, arbiter_, borrower_, spigot_, swapTarget_, ttl_, defaultSplit_)
+        EscrowedLine(escrow_)
+    {
+
+    }
 
     /**
      * @dev requires both Spigot and Escrow to pass _init to succeed

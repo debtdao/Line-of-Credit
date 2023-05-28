@@ -2,16 +2,28 @@ pragma solidity 0.8.16;
 import {Denominations} from "chainlink/Denominations.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
-import {IInterestRateCredit} from "../interfaces/IInterestRateCredit.sol";
+import {IFixedInterestRateCalculator} from "../interfaces/IFixedInterestRateCalculator.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {LineLib} from "./LineLib.sol";
+
+// Lender data
+struct Credit {
+    //  all denominated in token, not USD
+    uint256 deposit; // The total liquidity provided by a Lender in a given token on a Line of Credit
+    uint256 principal; // The amount of a Lender's Deposit on a Line of Credit that has actually been drawn down by the Borrower (in Tokens)
+    uint256 interestAccrued; // Interest due by a Borrower but not yet repaid to the Line of Credit contract
+    uint256 interestRepaid; // Interest repaid by a Borrower to the Line of Credit contract but not yet withdrawn by a Lender
+    uint8 decimals; // Decimals of Credit Token for calcs
+    address token; // The token being lent out (Credit Token)
+    address lender; // The person to repay
+    bool isOpen; // Status of position
+}
 
 /**
  * @title Debt DAO Line of Credit Library
  * @author Kiba Gateaux
  * @notice Core logic and variables to be reused across all Debt DAO Marketplace Line of Credit contracts
  */
-
 library CreditLib {
     event AddCredit(address indexed lender, address indexed token, uint256 indexed deposit, bytes32 id);
 
@@ -68,11 +80,11 @@ library CreditLib {
 
     // getOutstandingDebt() is called by updateOutstandingDebt()
     function getOutstandingDebt(
-        ILineOfCredit.Credit memory credit,
+        Credit memory credit,
         bytes32 id,
         address oracle,
         address interestRate
-    ) external returns (ILineOfCredit.Credit memory c, uint256 principal, uint256 interest) {
+    ) external returns (Credit memory c, uint256 principal, uint256 interest) {
         c = accrue(credit, id, interestRate);
 
         int256 price = IOracle(oracle).getLatestAnswer(c.token);
@@ -114,7 +126,7 @@ library CreditLib {
 
         uint8 decimals = abi.decode(result, (uint8));
 
-        credit = ILineOfCredit.Credit({
+        credit = Credit({
             lender: lender,
             token: token,
             decimals: decimals,
@@ -137,11 +149,11 @@ library CreditLib {
      * @param credit - The lender position being repaid
      */
     function repay(
-        ILineOfCredit.Credit memory credit,
+        Credit memory credit,
         bytes32 id,
         uint256 amount,
         address payer
-    ) external returns (ILineOfCredit.Credit memory) {
+    ) external returns (Credit memory) {
         if (!credit.isOpen) {
             revert PositionIsClosed();
         }
@@ -184,11 +196,11 @@ library CreditLib {
      * @param credit - The lender position that is being bwithdrawn from
      */
     function withdraw(
-        ILineOfCredit.Credit memory credit,
+        Credit memory credit,
         bytes32 id,
         address caller,
         uint256 amount
-    ) external returns (ILineOfCredit.Credit memory) {
+    ) external returns (Credit memory) {
         if (caller != credit.lender) {
             revert CallerAccessDenied();
         }
@@ -225,10 +237,10 @@ library CreditLib {
      * @param interest - interset rate contract used by line that will calculate interest owed
      */
     function accrue(
-        ILineOfCredit.Credit memory credit,
+        Credit memory credit,
         bytes32 id,
         address interest
-    ) public returns (ILineOfCredit.Credit memory) {
+    ) public returns (Credit memory) {
         if (!credit.isOpen) {
             return credit;
         }
@@ -237,7 +249,7 @@ library CreditLib {
             // low risk of overflow unless extremely high interest rate
 
             // get token demoninated interest accrued
-            uint256 accruedToken = IInterestRateCredit(interest).accrueInterest(id, credit.principal, credit.deposit);
+            uint256 accruedToken = IFixedInterestRateCalculator(interest).accrueInterest(id, credit.principal, credit.deposit);
 
             // update credit line balance
             credit.interestAccrued += accruedToken;
@@ -248,20 +260,20 @@ library CreditLib {
     }
 
     function interestAccrued(
-        ILineOfCredit.Credit memory credit,
+        Credit memory credit,
         bytes32 id,
         address interest
     ) external view returns (uint256) {
         return
             credit.interestAccrued +
-            IInterestRateCredit(interest).getInterestAccrued(id, credit.principal, credit.deposit);
+            IFixedInterestRateCalculator(interest).getInterestAccrued(id, credit.principal, credit.deposit);
     }
 
     function getNextRateInQ(uint256 principal, bytes32 id, address interest) external view returns (uint128, uint128) {
         if (principal == 0) {
             revert NoQueue();
         } else {
-            return IInterestRateCredit(interest).getRates(id);
+            return IFixedInterestRateCalculator(interest).getRates(id);
         }
     }
 }

@@ -17,11 +17,11 @@ import {IOracle} from "../interfaces/IOracle.sol";
 import {ILineOfCredit} from "../interfaces/ILineOfCredit.sol";
 import {RevenueToken} from "../mock/RevenueToken.sol";
 import {SimpleOracle} from "../mock/SimpleOracle.sol";
-import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
+import {FixedInterestRateCalculator} from "../modules/interest-rate/FixedInterestRateCalculator.sol";
 
 contract LineLendsTest is Test {
     SimpleOracle oracle;
-    InterestRateCredit i;
+    FixedInterestRateCalculator i;
     address borrower;
     address arbiter;
     address lender;
@@ -41,7 +41,7 @@ contract LineLendsTest is Test {
         borrower = address(10);
         arbiter = address(this);
         lender = address(20);
-        i = new InterestRateCredit();
+        i = new FixedInterestRateCalculator();
 
         supportedToken1 = new RevenueToken();
         supportedToken2 = new RevenueToken();

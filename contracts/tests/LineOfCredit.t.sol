@@ -305,7 +305,7 @@ contract LineTest is Test, Events {
         line.close(id);
     }
 
-    function test_can_repay_line() public {
+    function test_can_repay_position() public {
         int256 prc = oracle.getLatestAnswer(address(supportedToken1));
         uint256 tokenPriceOneUnit = prc < 0 ? 0 : uint256(prc);
 
@@ -333,7 +333,7 @@ contract LineTest is Test, Events {
         assertEq(i2, 0, "No interest should have been accrued");
     }
 
-    function test_can_repay_part_of_line() public {
+    function test_can_repay_part_of_position() public {
         int256 prc = oracle.getLatestAnswer(address(supportedToken1));
         uint256 tokenPriceOneUnit = prc < 0 ? 0 : uint256(prc);
         _addCredit(address(supportedToken1), 1 ether);
@@ -520,7 +520,7 @@ contract LineTest is Test, Events {
     }
 
 
-    function test_lender_can_still_withdraw_after_position_is_closed() public {
+    function test_lender_can_withdraw_after_position_is_closed() public {
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
         assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
          
@@ -658,7 +658,7 @@ contract LineTest is Test, Events {
     }
 
 
-    function test_interest_charges_after_lender_readds_deposit_after_full_withdrawal() public {
+    function test_interest_charges_after_lender_reads_deposit_after_full_withdrawal() public {
         assertEq(supportedToken1.balanceOf(address(line)), 0, "Line balance should be 0");
         assertEq(supportedToken1.balanceOf(lender), mintAmount, "Lender should have initial mint balance");
          
@@ -1003,7 +1003,7 @@ contract LineTest is Test, Events {
         line.close(id);
     }
 
-    function test_can_close_as_borrower() public {
+    function test_can_close_position_as_borrower() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         hoax(borrower);
@@ -1013,7 +1013,7 @@ contract LineTest is Test, Events {
         line.close(id);
     }
 
-    function test_cant_close_as_lender() public {
+    function test_cant_close_position_as_lender() public {
         _addCredit(address(supportedToken1), 1 ether);
         bytes32 id = line.ids(0);
         hoax(borrower);

@@ -2,13 +2,13 @@ pragma solidity 0.8.16;
 
 import "forge-std/Test.sol";
 
-import {InterestRateCredit} from "../modules/interest-rate/InterestRateCredit.sol";
+import {FixedInterestRateCalculator} from "../modules/interest-rate/FixedInterestRateCalculator.sol";
 
-contract InterestRateCreditTest is Test {
-    InterestRateCredit i;
+contract FixedInterestRateCalculatorTest is Test {
+    FixedInterestRateCalculator i;
 
     function setUp() public {
-        i = new InterestRateCredit();
+        i = new FixedInterestRateCalculator();
         vm.warp(0);
     }
 
