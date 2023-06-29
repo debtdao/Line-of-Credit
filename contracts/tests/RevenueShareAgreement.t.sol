@@ -33,6 +33,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     // Named vars for common inputs
     uint256 constant MAX_UINT = type(uint256).max;
     uint256 constant MAX_REVENUE = type(uint256).max / 100;
+    uint256 constant MAX_TRADE_DEADLINE = 1 days;
     // function signatures for mock revenue contract to pass as params to spigot
     bytes4 constant transferOwnerFunc =
         SimpleRevenueContract.transferOwnership.selector;
@@ -1294,7 +1295,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
         address sellToken = address(revenueToken);
         address buyToken = address(creditToken);
-        uint32 deadline = uint32(block.timestamp + 100 days);
+        uint32 deadline = uint32(block.timestamp + MAX_TRADE_DEADLINE);
 
          GPv2Order.Data memory expectedOrder = GPv2Order.Data({
             kind: GPv2Order.KIND_SELL,
@@ -1322,7 +1323,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     function test_initiateOrder_returnsOrderHash() public {
         _depositRSA(lender, rsa);
         vm.startPrank(lender);
-        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         assertTrue(orderHash != bytes32(0));
         vm.stopPrank();
     }
@@ -1332,7 +1333,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _depositRSA(lender, rsa);
 
         address sellToken = address(revenueToken);
-        uint32 deadline = uint32(block.timestamp + 100 days);
+        uint32 deadline = uint32(block.timestamp + MAX_TRADE_DEADLINE);
 
         GPv2Order.Data memory expectedOrder = rsa.generateOrder(sellToken, 1, 0, deadline);
         bytes32 expectedHash = expectedOrder.hash(COWSWAP_DOMAIN_SEPARATOR);
@@ -1348,7 +1349,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     function test_initiateOrder_mustOwnSellAmount() public {
         _depositRSA(lender, rsa);
         vm.startPrank(lender);
-        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        bytes32 orderHash = rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         assertTrue(orderHash != bytes32(0));
         vm.stopPrank();
     }
@@ -1358,7 +1359,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _depositRSA(lender, rsa);
         vm.startPrank(lender);
         vm.expectRevert("Invalid trade amount");
-        rsa.initiateOrder(address(revenueToken), 0, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 0, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         vm.stopPrank();
     }
 
@@ -1366,18 +1367,18 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     function invariant_initiateOrder_cantTradeIfNoDebt() public {
         // havent deposited so no debt
         vm.startPrank(borrower);
-        vm.expectRevert("Trade not required");
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        vm.expectRevert("agreement unitinitiated");
+        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         vm.stopPrank();
 
         vm.startPrank(lender);
         vm.expectRevert("Trade not required");
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         vm.stopPrank();
 
         vm.startPrank(rando);
         vm.expectRevert("Trade not required");
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         vm.stopPrank();
     }
 
@@ -1386,33 +1387,35 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         _depositRSA(lender, rsa);
         vm.startPrank(lender);
         vm.expectRevert("Cant sell token being bought");
-        rsa.initiateOrder(address(creditToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(creditToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         vm.stopPrank();
     }
 
     function test_initiateOrder_lenderOrBorrowerCanSubmit() public {
         _depositRSA(lender, rsa);
+        uint32 deadline =  uint32(block.timestamp + MAX_TRADE_DEADLINE);
         vm.startPrank(lender);
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 1, 0, deadline);
         vm.stopPrank();
         vm.startPrank(borrower);
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 1, 0, deadline);
         vm.stopPrank();
         
         vm.startPrank(rando);
         vm.expectRevert("Caller must be stakeholder");
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        rsa.initiateOrder(address(revenueToken), 1, 0, deadline);
         vm.stopPrank();
     }
 
     function test_initiateOrder_storesOrderData() public {
         _depositRSA(lender, rsa);
-        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
+        uint32 deadline =  uint32(block.timestamp + MAX_TRADE_DEADLINE);
+        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, deadline).hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(orderId), 0);
 
         vm.startPrank(lender);
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        assertEq(rsa.orders(orderId), 1);
+        rsa.initiateOrder(address(revenueToken), 1, 0, deadline);
+        assertEq(rsa.orders(orderId), deadline);
         vm.stopPrank();
     }
 
@@ -1425,20 +1428,23 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     /********************* EIP-2981 Order Verification *********************/
 
     function test_verifySignature_mustInitiateOrderFirst() public {
-        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        uint32 deadline = uint32(block.timestamp + MAX_TRADE_DEADLINE);
+        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, deadline);
         bytes32 expectedOrderId = order.hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(expectedOrderId), 0);
 
-        vm.expectRevert(IRevenueShareAgreement.InvalidTradeId.selector);
-        rsa.isValidSignature(expectedOrderId, abi.encode(order)); // orderId is the signed orderdata
+        // vm.expectRevert(IRevenueShareAgreement.InvalidTradeId.selector);
 
-        bytes32 orderId = _initOrder(address(revenueToken), 1, uint32(block.timestamp + 100 days));
+        // orderId is the signed orderdata
+        assertEq(rsa.isValidSignature(expectedOrderId, abi.encode(order)), ERC_1271_NON_MAGIC_VALUE);
+
+        bytes32 orderId = _initOrder(address(revenueToken), 1, deadline);
         // signature should be valid now that we initiated order
         bytes4 value = rsa.isValidSignature(expectedOrderId, abi.encode(order)); // orderId is the signed orderdata
         // assert all state changes since isValidSignature might return NON_MAGIC_VALUE
         assertEq(value, ERC_1271_MAGIC_VALUE);
         assertEq(expectedOrderId, orderId);
-        assertEq(rsa.orders(expectedOrderId), 1);
+        assertEq(rsa.orders(expectedOrderId), deadline);
     }
 
     /// @dev invariant
@@ -1453,7 +1459,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     /// @dev invariant
     function invariant_verifySignature_mustBeSellOrder() public {
-        // GPv2Order memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
+        // GPv2Order memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         // rsa.orders[order.hash(COWSWAP_DOMAIN_SEPARATOR)] = 1;
     }
 
@@ -1463,16 +1469,16 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
     }
 
     function test_verifySignature_returnsMagicValueForValidOrders() public {
-        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        bytes32 orderId = _initOrder(address(revenueToken), 1, uint32(block.timestamp + 100 days));
+        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
+        bytes32 orderId = _initOrder(address(revenueToken), 1, uint32(block.timestamp + MAX_TRADE_DEADLINE));
         // signature should be valid now that we initiated order
         bytes4 value = rsa.isValidSignature(orderId, abi.encode(order)); // orderId is the signed orderdata
         assertEq(value, ERC_1271_MAGIC_VALUE);
     }
 
     function test_verifySignature_returnsNonMagicValueForInvalidOrders() public {
-        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        bytes32 badOrderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
+        GPv2Order.Data memory order = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE));
+        bytes32 badOrderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + MAX_TRADE_DEADLINE)).hash(COWSWAP_DOMAIN_SEPARATOR);
         // signature should be valid now that we initiated order
         bytes4 value = rsa.isValidSignature(badOrderId, abi.encode(order)); // orderId is the signed orderdata
         assertEq(value, ERC_1271_NON_MAGIC_VALUE);
@@ -1531,14 +1537,15 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
 
     function test_initiateOrder_emitsOrderInitiatedEvent() public {
         _depositRSA(lender, rsa);
-        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days)).hash(COWSWAP_DOMAIN_SEPARATOR);
+        uint32 deadline = uint32(block.timestamp + MAX_TRADE_DEADLINE);
+        bytes32 orderId = rsa.generateOrder(address(revenueToken), 1, 0, deadline).hash(COWSWAP_DOMAIN_SEPARATOR);
         assertEq(rsa.orders(orderId), 0);
 
         vm.startPrank(lender);
         vm.expectEmit(true, true, true, true, address(rsa));
-        emit OrderInitiated(address(creditToken), address(revenueToken), orderId, 1, 0, uint32(block.timestamp + 100 days));
-        rsa.initiateOrder(address(revenueToken), 1, 0, uint32(block.timestamp + 100 days));
-        assertEq(rsa.orders(orderId), 1);
+        emit OrderInitiated(address(creditToken), address(revenueToken), orderId, 1, 0, deadline);
+        rsa.initiateOrder(address(revenueToken), 1, 0, deadline);
+        assertEq(rsa.orders(orderId), deadline);
         vm.stopPrank();
     }
 
@@ -1621,7 +1628,7 @@ contract RevenueShareAgreementTest is Test, IRevenueShareAgreement, ISpigot {
         // dont actually need to initiate trade since we can update EVM state manually
         // keep to document flow and hopefully check bugs related to process
         hoax(lender);
-        rsa.initiateOrder(address(_revenueToken), _minRevenueSold, _minCreditsBought, uint32(MAX_UINT));
+        rsa.initiateOrder(address(_revenueToken), _minRevenueSold, _minCreditsBought, uint32(block.timestamp + MAX_TRADE_DEADLINE));
 
         creditToken.mint(address(rsa), _minCreditsBought);
         _revenueToken.burnFrom(address(rsa), _minRevenueSold);

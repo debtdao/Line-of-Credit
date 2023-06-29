@@ -192,7 +192,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // hash order with settlement contract as EIP-712 verifier
         // Then settlement calls back to our isValidSignature to verify trade
 
-        orders[tradeHash] = block.timestamp + MAX_TRADE_DEADLINE;
+        orders[tradeHash] = uint32(block.timestamp + MAX_TRADE_DEADLINE);
         emit OrderInitiated(creditToken, _revenueToken, tradeHash, _sellAmount, _minBuyAmount, _deadline);
     }
 
@@ -365,7 +365,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         uint256 _sellAmount,
         uint256 _minBuyAmount,
         uint32 _deadline
-    ) internal pure {
+    ) internal view {
         // require()s ordered by least gas intensive
         /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
         require(_sellAmount != 0, "Invalid trade amount");
