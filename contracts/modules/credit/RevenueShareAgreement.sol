@@ -278,16 +278,6 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
    
     function isValidSignature(bytes32 _tradeHash, bytes calldata _encodedOrder) external view returns (bytes4) {
         GPv2Order.Data memory _order = abi.decode(_encodedOrder, (GPv2Order.Data));
-        /* 
-        TODO decide if we want dynamic price checker or user puts minOut+deadline in order creation
-        (
-            GPv2Order.Data memory _order,
-            address _orderCreator,
-            address _priceChecker,
-            bytes memory _priceCheckerData
-        ) = _decodeOrder(_encodedOrder);
-        */
-
 
         // if order created by RSA with initiateTrade() then auto-approve.
         if(orders[_tradeHash] != 0) {
@@ -296,57 +286,6 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             }
 
             return ERC_1271_MAGIC_VALUE;
-        } else {
-            /*
-            Dont currently support offchain signing of orders
-            bc if anyone submits vs lender/borrower changes 
-            game theoretic assumpotions about submitting optimal orders
-            
-            We currently dont have to check any of these conditions bc
-            we create our own orders programmatically in generateOrder().
-            If orders[tradeId] passes then trade params are valid.
-            */
-
-            // // Secondary verification option for fully offchain order submissions
-            // // w/o initiateOrder() to allow fully gasless UX for users
-            // // If order not created by RSA then manually check order data and verify signature with EIP712
-            // // Not valid because anyone could submit orders on behalf of RSA not just lender/borrower like in initiateOrder
-            // // Can resolve by passing custom data but would need order signed by either party,
-            // // decode and recover signer address in isValidSignature, then resign with EIP1271 as RSA?
-
-            
-            // // check that order was created for/signed by this RSA
-            // if(_order.hash(DOMAIN_SEPARATOR()) != _tradeHash) {
-            //     // same as `orders[_tradeHash] != 0` if they had used initiateOrder()
-            //     revert InvalidTradeDomain();
-            // }
-
-            // if(_order.kind != GPv2Order.KIND_SELL) {
-            //     revert MustBeSellOrder();
-            // }
-
-            // if(_order.sellAmount == 0) {
-            //     revert MustSellMoreThan0();
-            // }
-
-            // // ensure we are buying the right token. 
-            // // Cant sell creditToken to prevent griefing
-            // if(_order.sellToken == creditToken || _order.buyToken != creditToken) {
-            //     revert InvalidTradeTokens();
-            // }
-
-            // // pretty sure we dont care about fill status
-            // // if(_order.partiallyFillable) { revert MustFillOrder(); }
-
-            // // ensure tokens are sent directly to contracts and not stored in Balancer vault.
-            // if(
-            //     _order.sellTokenBalance == GPv2Order.BALANCE_ERC20 && 
-            //     _order.buyTokenBalance == GPv2Order.BALANCE_ERC20
-            // ) {
-            //     revert InvalidTradeBalanceDestination();
-            // }
-
-            return ERC_1271_NON_MAGIC_VALUE;
         }
 
         // if not manually initiated or invalid order then revert
@@ -463,7 +402,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
             sellTokenBalance: GPv2Order.BALANCE_ERC20,
             buyTokenBalance: GPv2Order.BALANCE_ERC20
         });
-    }
+    }   
 
     /**
     * @notice gets the contract to wrap chains native asset into ERC20 for trading.
@@ -480,20 +419,4 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         WETH = IWETH(weth);
     }
 
-    // decide if we want dynamic price checker or user puts minOut+deadline in order creation
-    // function _decodeOrder(bytes calldata _encodedOrder)
-    //     internal
-    //     pure
-    //     returns (
-    //         GPv2Order.Data memory _order,
-    //         address _orderCreator,
-    //         address _priceChecker,
-    //         bytes memory _priceCheckerData
-    //     )
-    // {
-    //     (_order, _orderCreator, _priceChecker, _priceCheckerData) = abi.decode(
-    //         _encodedOrder,
-    //         (GPv2Order.Data, address, address, bytes)
-    //     );
-    // }
 }
