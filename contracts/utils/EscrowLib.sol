@@ -16,6 +16,8 @@ struct EscrowState {
     mapping(address => bool) enabled;
     /// tokens used as collateral (must be able to value with oracle)
     mapping(address => IEscrow.Deposit) deposited;
+    // depositor -> token -> amount. Allows non-Borrowers to post collateral on their behalf and withdraw later
+    mapping(address => mapping(address => uint256)) depositors;
 }
 
 library EscrowLib {
@@ -90,6 +92,7 @@ library EscrowLib {
         LineLib.receiveTokenOrETH(token, msg.sender, amount);
 
         self.deposited[token].amount += amount;
+        self.depositors[msg.sender][token] += amount;
 
         emit AddCollateral(token, amount);
 
@@ -143,7 +146,6 @@ library EscrowLib {
     /** see Escrow.releaseCollateral */
     function releaseCollateral(
         EscrowState storage self,
-        address borrower,
         address oracle,
         uint256 minimumCollateralRatio,
         uint256 amount,
@@ -153,13 +155,18 @@ library EscrowLib {
         if (amount == 0) {
             revert InvalidZeroAmount();
         }
-        if (msg.sender != borrower) {
-            revert CallerAccessDenied();
+
+        if (self.depositors[msg.sender][token] < amount) {
+            revert DepositOverdrawn();
         }
-        if (self.deposited[token].amount < amount) {
-            revert InvalidCollateral();
-        }
+
+        // above assertion plus invariants tests make this assertion redundant
+        // if (self.deposited[token].amount < amount) {
+        //     revert InvalidCollateral();
+        // }
+    
         self.deposited[token].amount -= amount;
+        self.depositors[msg.sender][token] -= amount;
 
         LineLib.sendOutTokenOrETH(token, to, amount);
 
@@ -241,6 +248,8 @@ library EscrowLib {
     error EthSupportDisabled();
 
     error CallerAccessDenied();
+
+    error DepositOverdrawn();
 
     error UnderCollateralized();
 

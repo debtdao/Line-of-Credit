@@ -2,7 +2,7 @@ pragma solidity 0.8.16;
 
 interface IEscrow {
     struct Deposit {
-        uint amount;
+        uint256 amount; // total amount across all depositors
         bool isERC4626;
         address asset; // eip4626 asset else the erc20 token itself
         uint8 assetDecimals;

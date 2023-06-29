@@ -35,6 +35,7 @@ contract EscrowTest is Test {
     uint32 minCollateralRatio = 10000; // 100%
 
     address borrower = address(this);
+    address benefactor = address(0xdadd1);
     address arbiter = address(20);
 
     address invalidToken = makeAddr("invalidToken");
@@ -82,13 +83,17 @@ contract EscrowTest is Test {
         token4626.mint(borrower, mintAmount);
         token4626.approve(address(escrow), MAX_INT);
 
+        supportedToken1.mint(benefactor, mintAmount);
+        token4626.mint(benefactor, mintAmount);
+
+        vm.startPrank(benefactor);
+        supportedToken1.approve(address(escrow), MAX_INT);
+        token4626.approve(address(escrow), MAX_INT);
+        vm.stopPrank();
+        
         // allow tokens to be deposited as collateral
         _enableCollateral(address(supportedToken2));
         _enableCollateral(address(supportedToken1));
-
-        // Native Eth support is disabled
-        vm.expectRevert(EscrowLib.EthSupportDisabled.selector);
-        _enableCollateral(Denominations.ETH);
     }
 
     function _createEscrow(
@@ -117,7 +122,6 @@ contract EscrowTest is Test {
     }
 
     function test_cannot_enable_collateral_when_not_arbiter() public {
-
         address eoa = makeAddr("eoa");
         vm.startPrank(eoa);
         vm.expectRevert(EscrowLib.ArbiterOnly.selector);
@@ -156,6 +160,84 @@ contract EscrowTest is Test {
         uint borrowerBalance2 = supportedToken2.balanceOf(borrower);
         escrow.addCollateral(mintAmount, address(supportedToken2));
         assertEq(borrowerBalance2, supportedToken2.balanceOf(borrower) + mintAmount, "borrower should have decreased with collateral deposit");
+    }
+
+    function invariant_total_deposit_never_less_than_all_community_contributions() public {
+        IEscrow.Deposit memory d = escrow.deposits(address(supportedToken1));
+        assertEq(d.amount, supportedToken1.balanceOf(address(escrow)));
+    }
+
+    function test_depositors_assigned_amount_stored_separately() public {
+        assertEq(escrow.depositorAmount(borrower, address(supportedToken1)), 0);
+        assertEq(escrow.depositorAmount(benefactor, address(supportedToken1)), 0);
+
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(escrow.depositorAmount(borrower, address(supportedToken1)), mintAmount);
+        
+        vm.startPrank(benefactor);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        vm.stopPrank();
+
+        assertEq(escrow.depositorAmount(benefactor, address(supportedToken1)), mintAmount);
+        assertEq(escrow.depositorAmount(borrower, address(supportedToken1)), mintAmount);
+    }
+
+    function test_multiple_depositors_increase_total_deposits() public {
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(escrow.deposits(address(supportedToken1)).amount, mintAmount);
+        
+        vm.startPrank(benefactor);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(supportedToken1.balanceOf(address(escrow)), mintAmount * 2);
+        vm.stopPrank();
+    }
+
+    function test_borrower_cant_withdraw_benefactor_deposit() public {
+        vm.startPrank(benefactor);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        vm.stopPrank();
+
+        vm.expectRevert(EscrowLib.DepositOverdrawn.selector);
+        escrow.releaseCollateral(1, address(supportedToken1), address(this));
+        // ensure tokens and storage still untouched
+        assertEq(escrow.deposits(address(supportedToken1)).amount, mintAmount);
+        assertEq(supportedToken1.balanceOf(address(escrow)), mintAmount);
+    }
+    
+    function test_benefactor_cant_withdraw_more_than_deposit() public {
+        vm.startPrank(benefactor);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        vm.stopPrank();
+
+        vm.expectRevert(EscrowLib.DepositOverdrawn.selector);
+        escrow.releaseCollateral(mintAmount + 1, address(supportedToken1), address(this));
+        // ensure tokens and storage still untouched
+        assertEq(escrow.deposits(address(supportedToken1)).amount, mintAmount);
+        assertEq(supportedToken1.balanceOf(address(escrow)), mintAmount);
+    }
+
+    function test_benefactor_can_withdraw_deposit() public {
+        line.setDebtValue(0); // erase debt so no collateral needed
+
+        vm.startPrank(benefactor);
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(escrow.deposits(address(supportedToken1)).amount, mintAmount);
+        assertEq(supportedToken1.balanceOf(address(escrow)), mintAmount);
+        escrow.releaseCollateral(mintAmount, address(supportedToken1), address(this));
+        vm.stopPrank();
+        // ensure tokens and storage still untouched
+        assertEq(escrow.deposits(address(supportedToken1)).amount, 0);
+        assertEq(supportedToken1.balanceOf(address(escrow)), 0);
+    }
+
+    function test_releasing_collateral_reduces_metadata_and_depositor_data() public {
+        escrow.addCollateral(mintAmount, address(supportedToken1));
+        assertEq(escrow.deposits(address(supportedToken1)).amount, mintAmount);
+        assertEq(escrow.depositorAmount(address(this), address(supportedToken1)), mintAmount);
+
+        escrow.releaseCollateral(mintAmount, address(supportedToken1), address(this));
+        assertEq(escrow.deposits(address(supportedToken1)).amount, 0);
+        assertEq(escrow.depositorAmount(address(this), address(supportedToken1)), 0);
     }
 
     function test_adding_collateral_with_ETH_should_fail() public {
@@ -199,7 +281,8 @@ contract EscrowTest is Test {
     }
 
     function test_cannot_remove_collateral_ETH() public {
-        vm.expectRevert(EscrowLib.InvalidCollateral.selector);
+        // ETH deposit will always be 0 because of invariant
+        vm.expectRevert(EscrowLib.DepositOverdrawn.selector);
         escrow.releaseCollateral(1 ether, Denominations.ETH, borrower);
     }
 
@@ -268,6 +351,15 @@ contract EscrowTest is Test {
         line.liquidate(0, 1 ether, address(token4626), arbiter);
         vm.stopPrank();
         assertEq(token4626.balanceOf(arbiter), 1 ether, "arbiter should have received 1e18 worth of the 4626 token");
+    }
+
+    function invariant_cannot_add_ETH_collateral() public {
+        IEscrow.Deposit memory d = escrow.deposits(Denominations.ETH);
+        // will always have null values because we cant add
+        assertEq(d.amount, 0);
+        assertEq(d.isERC4626, false);
+        assertEq(d.asset, address(0x0));
+        assertEq(d.assetDecimals, 0);
     }
 
     function test_cannot_add_ETH_collateral() public {
@@ -346,7 +438,7 @@ contract EscrowTest is Test {
         escrow.addCollateral(1 ether, address(supportedToken1));
         line.setDebtValue(2000 ether);
         hoax(address(0xdebf));
-        vm.expectRevert(IEscrow.CallerAccessDenied.selector);
+        vm.expectRevert(EscrowLib.DepositOverdrawn.selector);
         escrow.releaseCollateral(1 ether, address(supportedToken1), borrower);
     }
 

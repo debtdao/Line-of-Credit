@@ -56,6 +56,21 @@ contract Escrow is IEscrow, ReentrancyGuard {
     }
 
     /**
+     * @notice the current controller of the Escrow contract.
+     */
+    function deposits(address _token) external view  returns (IEscrow.Deposit memory) {
+        return state.deposited[_token];
+    }
+
+    /**
+     * @notice the current controller of the Escrow contract.
+     */
+    function depositorAmount(address _benefactor, address _token) external view  returns (uint256) {
+        return state.depositors[_benefactor][_token];
+    }
+
+
+    /**
      * @notice - Checks Line's outstanding debt value and current Escrow collateral value to compute collateral ratio and checks that against minimum.
      * @return isLiquidatable - returns true if Escrow.getCollateralRatio is lower than minimumCollateralRatio else false
      */
@@ -105,7 +120,7 @@ contract Escrow is IEscrow, ReentrancyGuard {
      * @return - the updated cratio
      */
     function releaseCollateral(uint256 amount, address token, address to) external nonReentrant returns (uint256) {
-        return state.releaseCollateral(borrower, oracle, minimumCollateralRatio, amount, token, to);
+        return state.releaseCollateral(oracle, minimumCollateralRatio, amount, token, to);
     }
 
     /**
