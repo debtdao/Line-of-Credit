@@ -10,10 +10,9 @@ import {RevenueShareAgreement} from "../../modules/credit/RevenueShareAgreement.
 import {Spigot} from "../../modules/spigot/Spigot.sol";
 
 /**
- * @title   - Debt DAO Line Factory
- * @author  - Mom
- * @notice  - Facotry contract to deploy SecuredLine, Spigot, and Escrow contracts.
- * @dev     - Have immutable default values for Debt DAO system external dependencies.
+ * @title   - Debt DAO RSAFactory
+ * @notice  - Factory contract to deploy Spigot and Revenue Share Agreements
+ * @dev     - use ERC-1167 immutable proxies
  */
 contract RSAFactory is IRSAFactory {
     address rsaImpl;

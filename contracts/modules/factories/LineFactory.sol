@@ -8,9 +8,9 @@ import {ISecuredLine} from "../../interfaces/ISecuredLine.sol";
 
 /**
  * @title   - Debt DAO Line Factory
- * @author  - Mom
- * @notice  - Facotry contract to deploy SecuredLine, Spigot, and Escrow contracts.
+ * @notice  - Factory contract to deploy SecuredLine, Spigot, and Escrow contracts.
  * @dev     - Have immutable default values for Debt DAO system external dependencies.
+ * @dev     - Separate from ModuleFactory because of SecuredLine contract bytecode size
  */
 contract LineFactory is ILineFactory {
     IModuleFactory immutable factory;

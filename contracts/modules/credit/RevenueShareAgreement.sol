@@ -23,16 +23,18 @@ import { getWrapper, UnsupportedNetwork } from "../../utils/Multichain.sol";
 */
 contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     using GPv2Order for GPv2Order.Data;
+    uint8 internal constant MAX_REVENUE_SPLIT = 100;
+    bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
+    bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
     /// @notice The contract that settles all trades. Must approve sell tokens to this address.
     /// @dev Same address acorss all chains
     address internal constant COWSWAP_SETTLEMENT_ADDRESS = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
+    /* end slot 1 */
+
     /// @notice The settlement contract's EIP-712 domain separator. Milkman uses this to verify that a provided UID matches provided order parameters.
     /// @dev Same acorss all chains because settlement address is the same
     bytes32 internal constant COWSWAP_DOMAIN_SEPARATOR =
         0xc078f884a2676e1345748b1feace7b0abee5d00ecadb6e574dcdd109a63e8943;
-    bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
-    bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
-    uint8 internal constant MAX_REVENUE_SPLIT = 100;
     uint256 internal constant MAX_TRADE_DEADLINE = 1 days;
     IWETH internal WETH;
 
