@@ -33,6 +33,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     bytes4 internal constant ERC_1271_MAGIC_VALUE =  0x1626ba7e;
     bytes4 internal constant ERC_1271_NON_MAGIC_VALUE = 0xffffffff;
     uint8 internal constant MAX_REVENUE_SPLIT = 100;
+    uint256 internal constant MAX_TRADE_DEADLINE = 1 days;
     IWETH internal WETH;
 
     ISpigot public spigot;
@@ -46,8 +47,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     uint256 public totalOwed;
     uint256 public claimableAmount; // total repaid from revenue - total withdrawn by
 
-    // data required to confirm order data from solver/settler
-    mapping(bytes32 => uint256) public orders;
+    mapping(bytes32 => uint32) public orders; // deadline for order`
 
 
     constructor() ERC20("Debt DAO Revenue Share Agreement", "RSA", 18) {}
@@ -153,7 +153,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     function claimRev(address _token) external returns(uint256 claimed) {
         claimed = spigot.claimOwnerTokens(_token);
         if(_token == creditToken) {
-            // if revenue in creditToken, we can immediately paydown debt
+            // immediately paydown debt w/o trading if possible 
             _repay();
         }
     }
@@ -172,15 +172,9 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         uint256 _minBuyAmount,
         uint32 _deadline
     ) external returns(bytes32 tradeHash) {
-        // require()s ordered by least gas intensive
-        /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
-        require(_sellAmount != 0, "Invalid trade amount");
-        require(_deadline >= block.timestamp, "Trade _deadline has passed");
-        require(totalOwed != 0, "No debt to trade for");
         require(lender != address(0), "agreement unitinitiated");
-        require(_revenueToken != creditToken, "Cant sell token being bought");
         require(msg.sender == lender || msg.sender == borrower, "Caller must be stakeholder");
-
+        _assertOrderParams(_revenueToken, _sellAmount, _minBuyAmount, _deadline);
         // not sure if we need to check balance, order would just fail.
         // might be an issue with approving an invalid order that could be exploited later
         // require(_sellAmount >= ERC20(_revenueToken).balanceOf(address(this)), "No tokens to trade");
@@ -198,7 +192,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         // hash order with settlement contract as EIP-712 verifier
         // Then settlement calls back to our isValidSignature to verify trade
 
-        orders[tradeHash] = 1;
+        orders[tradeHash] = block.timestamp + MAX_TRADE_DEADLINE;
         emit OrderInitiated(creditToken, _revenueToken, tradeHash, _sellAmount, _minBuyAmount, _deadline);
     }
 
@@ -297,10 +291,7 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
 
         // if order created by RSA with initiateTrade() then auto-approve.
         if(orders[_tradeHash] != 0) {
-
-            if(_order.validTo < block.timestamp) {
-                // check that trade isnt its their deadline
-                // prevent stale orders + replay attacks
+            if(_order.validTo <= block.timestamp) {
                 revert InvalidTradeDeadline();
             }
 
@@ -357,6 +348,9 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
 
             return ERC_1271_NON_MAGIC_VALUE;
         }
+
+        // if not manually initiated or invalid order then revert
+        return ERC_1271_NON_MAGIC_VALUE;
     }
 
     /**
@@ -427,6 +421,25 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
         }
     }
 
+    function _assertOrderParams(
+        address _revenueToken,
+        uint256 _sellAmount,
+        uint256 _minBuyAmount,
+        uint32 _deadline
+    ) internal pure {
+        // require()s ordered by least gas intensive
+        /// @dev https://docs.cow.fi/tutorials/how-to-submit-orders-via-the-api/4.-signing-the-order#security-notice
+        require(_sellAmount != 0, "Invalid trade amount");
+        require(totalOwed != 0, "No debt to trade for");
+        require(_revenueToken != creditToken, "Cant sell token being bought");
+        if(
+            _deadline < block.timestamp ||
+            _deadline > block.timestamp + MAX_TRADE_DEADLINE
+        ) { 
+            revert InvalidTradeDeadline();
+        }
+    }
+
     function generateOrder(
         address _sellToken, 
         uint256 _sellAmount, 
@@ -459,14 +472,12 @@ contract RevenueShareAgreement is IRevenueShareAgreement, ERC20 {
     * so dont need to update like EIP721 domain separator
     */
     function _setWrapperForNetwork() internal {
-        emit log_named_uint2("chain id", block.chainid);
-        address newWraper = getWrapper();
-
-        if(address(0) == newWraper) {
+        address weth = getWrapper();
+        if(address(0) == weth) {
             revert UnsupportedNetwork();
         }
 
-        WETH = IWETH(newWraper);
+        WETH = IWETH(weth);
     }
 
     // decide if we want dynamic price checker or user puts minOut+deadline in order creation
