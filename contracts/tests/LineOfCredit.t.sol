@@ -436,6 +436,9 @@ contract LineTest is Test, Events {
             lentAmount,
             "Line balance should be 1e18 / 2"
         );
+        uint256 lineBalanceBefore = supportedToken1.balanceOf(address(line));
+        emit log_named_uint("lineBalanceBefore", lineBalanceBefore);
+
         hoax(lender);
         line.withdraw(id, withdrawalAmount);
         assertEq(
@@ -443,6 +446,11 @@ contract LineTest is Test, Events {
             lentAmount - withdrawalAmount,
             "Line balance should be 1e18 + 0.4"
         );
+
+        uint256 lineBalanceAfter = supportedToken1.balanceOf(address(line));
+        emit log_named_uint("lineBalanceAfter", lineBalanceAfter);
+
+        assertEq(lineBalanceBefore, lineBalanceAfter + withdrawalAmount);
 
         emit log_named_uint("lender balance", supportedToken1.balanceOf(lender));
         emit log_named_uint("lent amnt", lentAmount);
@@ -1218,6 +1226,54 @@ contract LineTest is Test, Events {
         hoax(borrower);
         line.close(id);
         assertEq(uint256(line.status()), uint256(LineLib.STATUS.REPAID));
+    }
+
+    function test_balance_is_correct_after_repayment_and_withdrawal(uint256 credit, uint256 ttl) public {
+        credit = bound(credit, 1 ether, mintAmount);
+        ttl = bound(ttl, 1 days, 365 days);
+
+        _addCredit(address(supportedToken1), credit);
+        bytes32 id = line.ids(0);
+        hoax(borrower);
+        line.borrow(id, credit);
+
+        vm.warp(block.timestamp + ttl);
+        (uint256 p, uint256 i) = line.updateOutstandingDebt();
+        emit log_named_uint("principal", p);
+        emit log_named_uint("interest", i);
+
+        
+        uint256 borrowerBalance = supportedToken1.balanceOf(borrower);
+
+        (,uint256 principalRemaining, uint256 interestAccrued,,,,,) = line.credits(id);
+
+        uint256 repayment = borrowerBalance > principalRemaining + interestAccrued ? principalRemaining + interestAccrued : borrowerBalance;
+
+        uint256 lineBalanceBefore = supportedToken1.balanceOf(address(line));
+        emit log_named_uint("line balance before repayment", lineBalanceBefore);
+        vm.startPrank(borrower);
+        line.depositAndRepay(repayment);
+        vm.stopPrank();
+
+        uint256 lineBalanceAfter = supportedToken1.balanceOf(address(line));
+        emit log_named_uint("line balance after repayment", lineBalanceAfter);
+
+        uint256 lenderBalanceBefore = supportedToken1.balanceOf(lender);
+        emit log_named_uint("lenderBalance before withdrawal", lenderBalanceBefore);
+
+        vm.startPrank(lender);
+        line.withdraw(id, repayment);
+        vm.stopPrank();
+
+        uint256 lenderBalanceAfter = supportedToken1.balanceOf(lender);
+        emit log_named_uint("lenderBalance after withdrawal", lenderBalanceAfter);
+
+        assertEq(lenderBalanceAfter, lenderBalanceBefore + repayment);
+
+        uint256 lineBalance = supportedToken1.balanceOf(address(line));
+        emit log_named_uint("line balance after withdrawal", lineBalance);
+
+        assertEq(lineBalance, lineBalanceAfter - repayment);
     }
 
     // Uncomment to check gas limit threshhold for ids
